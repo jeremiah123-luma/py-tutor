@@ -1,0 +1,107 @@
+/* Tokens: see DESIGN.md. Light = paper (default), dark follows system or [data-theme]. */
+:root {
+  --paper: #F7F4EC;
+  --surface: #FFFDF8;
+  --surface-2: #EDE8DC;
+  --seg-on: #FFFDF8;
+  --ink: #1D1B17;
+  --ink-2: #57524A;
+  --ink-3: #736D62;
+  --line: #E2DCCF;
+  --line-strong: #CFC7B6;
+  --accent: #1E6B4F;
+  --accent-hover: #175940;
+  --on-accent: #FFFFFF;
+  --hl: #FFE27A;
+  --nail-bg: #E4F1E8;
+  --fix: #8A5200;
+  --fix-bg: #FBEFD9;
+  --err: #A8361F;
+  --err-bg: #F8E4DE;
+  --code-bg: #FFFDF8;
+  --shadow: 0 1px 2px rgb(40 32 16 / 0.06), 0 8px 24px rgb(40 32 16 / 0.06);
+
+  /* syntax */
+  --syn-keyword: #7A3E9D;
+  --syn-string: #2F6B1F;
+  --syn-number: #9A4A00;
+  --syn-comment: #857F72;
+  --syn-func: #1F5C8A;
+  --syn-name: #1D1B17;
+
+  --talk-bg: #0E0D0B;
+  --talk-ink: #F5F1E6;
+  --talk-sub: #C2BBAB;
+  --talk-listen: #86DBAF;
+  --talk-speak: #FFE27A;
+
+  --font-voice: 'Fraunces Variable', Georgia, serif;
+  --font-ui: 'Instrument Sans Variable', system-ui, sans-serif;
+  --font-code: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-ui: 160ms;
+  --dur-panel: 240ms;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #171612;
+    --surface: #1F1D18;
+    --surface-2: #26241E;
+    --seg-on: #3B3830;
+    --ink: #F2EEE3;
+    --ink-2: #CAC3B3;
+    --ink-3: #A39C8C;
+    --line: #34312A;
+    --line-strong: #48443A;
+    --accent: #86DBAF;
+    --accent-hover: #9FE5C0;
+    --on-accent: #0B1D14;
+    --hl: #4A3D12;
+    --nail-bg: #1C2E24;
+    --fix: #F3BC66;
+    --fix-bg: #2E2414;
+    --err: #F7A189;
+    --err-bg: #33201A;
+    --code-bg: #1B1A15;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.25);
+    --syn-keyword: #DDB6F5;
+    --syn-string: #A8D98A;
+    --syn-number: #F3BC66;
+    --syn-comment: #ADA697;
+    --syn-func: #8EC5F0;
+    --syn-name: #F2EEE3;
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --paper: #171612;
+  --surface: #1F1D18;
+  --surface-2: #26241E;
+  --seg-on: #3B3830;
+  --ink: #F2EEE3;
+  --ink-2: #CAC3B3;
+  --ink-3: #A39C8C;
+  --line: #34312A;
+  --line-strong: #48443A;
+  --accent: #86DBAF;
+  --accent-hover: #9FE5C0;
+  --on-accent: #0B1D14;
+  --hl: #4A3D12;
+  --nail-bg: #1C2E24;
+  --fix: #F3BC66;
+  --fix-bg: #2E2414;
+  --err: #F7A189;
+  --err-bg: #33201A;
+  --code-bg: #1B1A15;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.25);
+  --syn-keyword: #DDB6F5;
+  --syn-string: #A8D98A;
+  --syn-number: #F3BC66;
+  --syn-comment: #ADA697;
+  --syn-func: #8EC5F0;
+  --syn-name: #F2EEE3;
+  color-scheme: dark;
+}

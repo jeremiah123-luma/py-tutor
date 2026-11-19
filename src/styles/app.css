@@ -1,0 +1,83 @@
+@import '@fontsource-variable/instrument-sans';
+@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/jetbrains-mono';
+@import 'tailwindcss';
+@import './tokens.css';
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-seg-on: var(--seg-on);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-hl: var(--hl);
+  --color-nail-bg: var(--nail-bg);
+  --color-fix: var(--fix);
+  --color-fix-bg: var(--fix-bg);
+  --color-err: var(--err);
+  --color-err-bg: var(--err-bg);
+  --color-code-bg: var(--code-bg);
+  --font-voice: var(--font-voice);
+  --font-ui: var(--font-ui);
+  --font-code: var(--font-code);
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.1875rem;
+  --text-lg: 1.4375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.125rem;
+  --text-3xl: 2.5rem;
+  --ease-out: var(--ease-out);
+  --shadow-soft: var(--shadow);
+}
+
+@layer base {
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+::selection { background: var(--hl); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+h1, h2, h3 { text-wrap: balance; letter-spacing: -0.02em; margin: 0; }
+p { text-wrap: pretty; margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+textarea, input { font: inherit; color: inherit; caret-color: var(--accent); }
+.tnum { font-variant-numeric: tabular-nums; }
+.press { transition: transform var(--dur-ui) var(--ease-out), background-color var(--dur-ui) var(--ease-out), color var(--dur-ui) var(--ease-out), border-color var(--dur-ui) var(--ease-out); }
+.press:active:not(:disabled) { transform: scale(0.97); }
+}
+
+/* The one authored moment: the highlighter sweeps onto the active line. */
+.cm-hl-line {
+  background-image: linear-gradient(var(--hl), var(--hl));
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  animation: hl-sweep 420ms var(--ease-out);
+}
+@keyframes hl-sweep { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+.cm-dim-line { opacity: 0.55; transition: opacity var(--dur-panel) var(--ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+@keyframes stage-in { from { opacity: 0.35; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes talk-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.045); } 100% { transform: scale(1); } }
