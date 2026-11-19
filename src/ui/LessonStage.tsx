@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, Lightbulb, MessageCircle } from 'lucide-react';
 import type { Lesson, LoopStep } from '../types';
 import { Button } from './primitives';
+import { FilePreview, sampleFiles } from './FilePreview';
 
 export interface LessonStageProps {
   lesson: Lesson;
@@ -155,6 +156,12 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint }: LessonSt
     <section aria-label="Lesson" className="flex flex-col gap-4 px-5 pt-5 pb-5">
       <div key={`${step}-${walkLine}`} className="flex flex-col gap-3 animate-[stage-in_240ms_var(--ease-out)]">
         {body}
+        {['example', 'walkthrough', 'doit', 'check'].includes(step) && (
+          <FilePreview
+            files={sampleFiles(lesson.doit.tests)}
+            caption={step === 'doit' || step === 'check' ? 'Sample file (the tests use other files like it):' : 'The file this code reads:'}
+          />
+        )}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </section>

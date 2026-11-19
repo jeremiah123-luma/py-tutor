@@ -7,6 +7,7 @@ import { checkShort } from '../loop/drill';
 import { CodeEditor } from '../ui/CodeEditor';
 import { TestResults } from '../ui/Console';
 import { Button } from '../ui/primitives';
+import { FilePreview, sampleFiles } from '../ui/FilePreview';
 
 export interface DrillScreenProps {
   drill: Drill;
@@ -102,6 +103,7 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
             Coding problem {ci + 1} of {drill.coding.length} · {conceptTitle(drill.coding[ci].concept)}
           </p>
           <p className="font-voice text-lg leading-snug">{drill.coding[ci].problem.prompt}</p>
+          <FilePreview files={sampleFiles(drill.coding[ci].problem.tests)} caption="Sample file (the tests use other files like it):" />
           <div className="overflow-hidden rounded-xl border border-line bg-code-bg">
             <CodeEditor
               value={codes[ci]}
@@ -174,6 +176,7 @@ function ShortQuestion({ q, answered, onAnswer }: { q: DrillQuestion; answered?:
     <div className="flex flex-col gap-5">
       <p className="text-sm text-ink-3">{kindLabel}</p>
       <p className="font-voice text-lg leading-snug">{q.prompt}</p>
+      <FilePreview files={q.files} caption="The file it reads:" />
       {q.code && (
         <div className="overflow-hidden rounded-xl border border-line bg-code-bg">
           <CodeEditor value={q.code} readOnly label="Question code" minHeight="0" />

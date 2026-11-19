@@ -113,6 +113,8 @@ test('exam drill: answer, finish, score', async ({ page }) => {
   await unlock(page);
   await page.getByRole('button', { name: /Exam drill/ }).click();
   await expect(page.getByText('1 of 18')).toBeVisible();
+  await expect(page.getByLabel('time left')).toHaveText('90:00');
+  await expect(page.getByLabel('time left')).not.toHaveText('90:00', { timeout: 3000 }); // the clock ticks
   for (let i = 0; i < 17; i++) await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Finish and score' }).click();
   await expect(page.getByRole('heading', { name: /of 18/ })).toBeVisible();

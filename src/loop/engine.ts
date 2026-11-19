@@ -260,7 +260,8 @@ export class Session {
   async run(stdinText: string) {
     this.set({ busy: 'running' });
     const stdin = stdinText === '' ? [] : stdinText.split('\n');
-    const files = this.lesson.doit.tests.find((t) => t.files)?.files;
+    const tests = this.lesson.doit.tests;
+    const files = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
     const lastRun = await this.deps.run(this.state.code, stdin, files);
     this.set({ lastRun, busy: 'idle' });
     return lastRun;
