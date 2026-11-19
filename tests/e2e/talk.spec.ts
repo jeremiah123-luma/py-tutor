@@ -48,7 +48,7 @@ test('talk mode: tutor speaks, hears a spoken question, answers', async ({ page 
   page.on('requestfinished', (r) => r.url().endsWith('/api/tts') && ttsTimes.push(Date.now()));
 
   await page.goto('/');
-  await page.getByLabel('Passcode').fill('dev-pass');
+  await page.getByLabel('Passcode').fill(process.env.E2E_PASS ?? 'dev-pass');
   await page.getByRole('button', { name: 'Open' }).click();
   await page.getByRole('radio', { name: /Talk/ }).first().click();
   await page.getByRole('button', { name: /^(Start|Continue):/ }).click();

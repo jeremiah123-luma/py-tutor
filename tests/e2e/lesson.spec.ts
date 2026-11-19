@@ -33,7 +33,7 @@ async function unlock(page: Page) {
   await page.getByLabel('Passcode').fill('nope');
   await page.getByRole('button', { name: 'Open' }).click();
   await expect(page.getByText('That passcode didn’t work.')).toBeVisible();
-  await page.getByLabel('Passcode').fill('dev-pass');
+  await page.getByLabel('Passcode').fill(process.env.E2E_PASS ?? 'dev-pass');
   await page.getByRole('button', { name: 'Open' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 }
