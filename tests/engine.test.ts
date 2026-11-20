@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { nodeRunner } from './helpers';
 import { concepts } from '../src/curriculum';
-import { Session, type EngineDeps } from '../src/loop/engine';
+import { Session, codeOnScreen, type EngineDeps } from '../src/loop/engine';
 import { emptyProgress, sub } from '../src/loop/progress';
 import type { TutorAsk } from '../src/loop/api';
 import type { Progress } from '../src/types';
@@ -101,5 +101,48 @@ for (const concept of Object.values(concepts)) {
       expect(s.state.step).toBe('check');
       expect(sub(prog.p, concept!.id, lesson.subskill).mastered).toBe(false);
     }, 30_000);
+  });
+}
+
+// Regression: Run must run exactly the code on screen. (Run on an example once ran the hidden do-it starter,
+// which called input() and crashed with EOFError.) Checked for every lesson, on every step, with an empty input box.
+for (const concept of Object.values(concepts)) {
+  describe(`Run runs what is on screen: ${concept!.title}`, () => {
+    concept!.lessons.forEach((lesson, i) => {
+      it(`${lesson.subskill}`, async () => {
+        const prog = { p: emptyProgress() };
+        const ran: string[] = [];
+        const d = deps(prog, []);
+        const realRun = d.run;
+        d.run = (c, s, f) => { ran.push(c); return realRun(c, s, f); };
+        const s = new Session(concept!, i, 'type', d);
+        s.start();
+        await s.run(''); // define: nothing on screen, nothing runs
+        expect(ran).toEqual([]);
+
+        const expectExampleRuns = async (where: string) => {
+          expect(codeOnScreen(lesson, s.state), where).toBe(lesson.example);
+          const r = await s.run('');
+          expect(ran.at(-1), where).toBe(lesson.example);
+          expect(r?.error, `${where}: ${JSON.stringify(r?.error)}`).toBeUndefined();
+        };
+        s.next(); await expectExampleRuns('example');
+        s.next(); await expectExampleRuns('walkthrough line 1');
+        for (let k = 1; k < lesson.walkthrough.length; k++) s.next();
+        await expectExampleRuns('last walkthrough line');
+        s.next(); await expectExampleRuns('talkthrough');
+        await s.say('GOOD answer'); await expectExampleRuns('feedback');
+
+        s.next();
+        expect(s.state.step).toBe('doit');
+        expect(s.state.lastRun, 'output from the example must not carry into Try it').toBeUndefined();
+        expect(codeOnScreen(lesson, s.state)).toBe(lesson.doit.starter);
+        s.setCode(lesson.doit.reference);
+        const t = lesson.doit.tests.find((x) => !x.hidden) ?? lesson.doit.tests[0];
+        const r = await s.run((t.stdin ?? []).join('\n'));
+        expect(ran.at(-1)).toBe(lesson.doit.reference);
+        expect(r?.error, JSON.stringify(r?.error)).toBeUndefined();
+      }, 30_000);
+    });
   });
 }

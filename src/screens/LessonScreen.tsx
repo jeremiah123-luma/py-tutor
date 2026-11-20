@@ -7,6 +7,7 @@ import { LessonStage } from '../ui/LessonStage';
 import { StepTrack } from '../ui/StepTrack';
 import { Button, ModeToggle } from '../ui/primitives';
 import { TopBar } from '../ui/TopBar';
+import { codeOnScreen, isWriting } from '../loop/engine';
 
 export interface LessonScreenProps {
   session: SessionState;
@@ -27,11 +28,11 @@ export interface LessonScreenProps {
 export function LessonScreen(p: LessonScreenProps) {
   const { session, concept } = p;
   const lesson = concept.lessons[session.lessonIndex];
-  const writing = session.step === 'doit' || session.step === 'check';
+  const writing = isWriting(session.step);
   const walking = session.step === 'walkthrough';
   const lastTutor = [...session.turns].reverse().find((t) => t.role === 'tutor');
   const highlight = walking ? [session.walkLine] : writing ? (lastTutor?.highlightLines ?? []) : [];
-  const code = writing ? session.code : lesson.example;
+  const code = codeOnScreen(lesson, session);
   const defining = session.step === 'define';
 
   return (

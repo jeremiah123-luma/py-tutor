@@ -5,6 +5,19 @@ import type { Concept, GradeResult, Lesson, Mode, Progress, RunResult, SessionSt
 import type { TutorAsk, TutorMeta } from './api';
 import { record, sub, withLast } from './progress';
 
+/** True on the steps where the editor holds his own code (everything else shows the lesson example). */
+export function isWriting(step: SessionState['step']) {
+  return step === 'doit' || step === 'check';
+}
+
+/**
+ * The one source of truth for which code is on screen. The editor shows it and Run runs it,
+ * so what he sees is always exactly what runs.
+ */
+export function codeOnScreen(lesson: Lesson, state: Pick<SessionState, 'step' | 'code'>) {
+  return isWriting(state.step) ? state.code : lesson.example;
+}
+
 export interface EngineDeps {
   tutor: (req: TutorAsk, onText: (d: string) => void, signal?: AbortSignal) => Promise<{ text: string; meta: TutorMeta }>;
   run: (code: string, stdin?: string[], files?: Record<string, string>) => Promise<RunResult>;
@@ -113,7 +126,7 @@ export class Session {
         break;
       }
       case 'feedback':
-        this.set({ step: 'doit', code: this.lesson.doit.starter });
+        this.set({ step: 'doit', code: this.lesson.doit.starter, lastRun: undefined, lastGrade: undefined });
         this.checks = 0;
         this.doHints = 0;
         this.scripted(
@@ -241,7 +254,7 @@ export class Session {
       this.finishDoit(res.meta.verdict === 'pass', false);
       return;
     }
-    await this.callTutor({ kind: 'ask', learnerText: t, code: step === 'doit' ? this.state.code : undefined });
+    await this.callTutor({ kind: 'ask', learnerText: t, code: isWriting(step) ? this.state.code : undefined });
   }
 
   async hint() {
@@ -251,19 +264,20 @@ export class Session {
     this.push({ role: 'learner', text: 'Can I get a hint?' });
     await this.callTutor({
       kind: 'hint',
-      code: step === 'doit' ? this.state.code : undefined,
+      code: isWriting(step) ? this.state.code : undefined,
       hintsUsed: step === 'doit' ? this.doHints - 1 : this.talkHints - 1,
     });
   }
 
-  /** Run his code with the program-input box contents (one input() per line). */
+  /** Run whatever code is on screen (the example, or his code) with the program-input box contents. */
   async run(stdinText: string) {
+    if (this.state.step === 'define') return this.state.lastRun;
     this.set({ busy: 'running' });
     const stdin = stdinText === '' ? [] : stdinText.split('\n');
     const tests = this.lesson.doit.tests;
     const sample = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
     const files = this.lesson.exampleFiles ? { ...sample, ...this.lesson.exampleFiles } : sample;
-    const lastRun = await this.deps.run(this.state.code, stdin, files);
+    const lastRun = await this.deps.run(codeOnScreen(this.lesson, this.state), stdin, files);
     this.set({ lastRun, busy: 'idle' });
     return lastRun;
   }
