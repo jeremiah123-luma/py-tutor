@@ -16,7 +16,10 @@ export function phaseIndex(step: LoopStep): number {
   return PHASES.findIndex((p) => (p.steps as readonly string[]).includes(step));
 }
 
-export function StepTrack({ step, compact }: { step: LoopStep; compact?: boolean }) {
+export type JumpTarget = 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit';
+const TARGET: Record<string, JumpTarget> = { learn: 'define', example: 'example', walk: 'walkthrough', talk: 'talkthrough', try: 'doit' };
+
+export function StepTrack({ step, compact, onJump }: { step: LoopStep; compact?: boolean; onJump?: (t: JumpTarget) => void }) {
   const current = phaseIndex(step);
   const pct = Math.min(100, ((current + (step === 'mastered' ? 0 : 0.5)) / PHASES.length) * 100);
   return (
@@ -30,16 +33,20 @@ export function StepTrack({ step, compact }: { step: LoopStep; compact?: boolean
           </span>
         </p>
       ) : (
-        <ol className="flex items-center gap-1">
+        <ol className="flex items-center gap-1 overflow-x-auto">
           {PHASES.map((p, i) => {
             const done = i < current;
             const now = i === current;
             return (
-              <li
-                key={p.id}
-                aria-current={now ? 'step' : undefined}
-                className={`relative flex h-11 items-center gap-1.5 px-2.5 text-[0.9375rem] whitespace-nowrap ${now ? 'font-medium text-ink' : done ? 'text-ink-2' : 'text-ink-3'}`}
-              >
+              <li key={p.id} className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => onJump?.(TARGET[p.id])}
+                  disabled={!onJump}
+                  aria-current={now ? 'step' : undefined}
+                  title={now ? undefined : `Go to ${p.label}`}
+                  className={`press flex h-11 items-center gap-1.5 rounded-md px-2.5 text-[0.9375rem] whitespace-nowrap hover:text-ink disabled:cursor-default ${now ? 'font-medium text-ink' : done ? 'text-ink-2' : 'text-ink-3'}`}
+                >
                 {done ? (
                   <Check className="size-4 text-ok" strokeWidth={2.25} aria-label="done" />
                 ) : (
@@ -48,10 +55,11 @@ export function StepTrack({ step, compact }: { step: LoopStep; compact?: boolean
                   </span>
                 )}
                 {p.label}
+                </button>
                 {now && (
                   <motion.span
                     layoutId="step-underline"
-                    className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-ink"
+                    className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-ink"
                     transition={{ type: 'spring', stiffness: 420, damping: 36 }}
                   />
                 )}

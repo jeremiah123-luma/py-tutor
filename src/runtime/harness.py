@@ -95,7 +95,31 @@ def _error_info(exc, code_name):
         msg = exc.msg
     return {"type": etype, "message": msg, "line": line, "friendly": FRIENDLY.get(etype)}
 
-def run(code, stdin=None, files=None, check=None):
+def _show(v):
+    """How a value looks in the step-through variables panel."""
+    try:
+        if isinstance(v, io.IOBase):
+            return "file object (" + str(getattr(v, "name", "")) + ("" if not v.closed else ", closed") + ")"
+        t = type(v)
+        if t.__module__ == "__main__" and not isinstance(v, type):
+            attrs = ", ".join(k + "=" + repr(x) for k, x in vars(v).items())
+            return t.__name__ + " object: " + attrs if attrs else t.__name__ + " object"
+        if isinstance(v, type):
+            return "class " + v.__name__
+        r = repr(v)
+        return r if len(r) <= 80 else r[:77] + "..."
+    except Exception:  # noqa
+        return "?"
+
+def _snapshot(g):
+    out = []
+    for k, v in g.items():
+        if k.startswith("__") or callable(v) and not isinstance(v, type) or type(v).__name__ == "module":
+            continue
+        out.append([k, _show(v)])
+    return out
+
+def run(code, stdin=None, files=None, check=None, trace=False):
     """Run learner code once. Returns dict matching RunResult (minus ms/timedOut)."""
     _reset_dir(files)
     lines = list(stdin or [])
@@ -113,9 +137,30 @@ def run(code, stdin=None, files=None, check=None):
     builtins.input = fake_input
     error = None
     check_error = None
+    steps = []
+    pending = [None]
+
+    def local(frame, event, arg):
+        if event == "line" and len(steps) < 300:
+            if pending[0] is not None:
+                steps.append({"line": pending[0], "vars": _snapshot(g), "out": out.getvalue()})
+            pending[0] = frame.f_lineno
+        return local
+
+    def tracer(frame, event, arg):
+        return local if frame.f_code.co_filename == "<student>" else None
+
     try:
         try:
-            exec(compile(code, "<student>", "exec"), g)
+            if trace:
+                sys.settrace(tracer)
+            try:
+                exec(compile(code, "<student>", "exec"), g)
+            finally:
+                if trace:
+                    sys.settrace(None)
+                    if pending[0] is not None:
+                        steps.append({"line": pending[0], "vars": _snapshot(g), "out": out.getvalue()})
         except SystemExit:
             pass
         except BaseException as e:  # noqa
@@ -133,6 +178,8 @@ def run(code, stdin=None, files=None, check=None):
     res = {"stdout": out.getvalue(), "stderr": err.getvalue(), "files": _read_dir()}
     if error:
         res["error"] = error
+    if trace:
+        res["steps"] = steps
     if check is not None:
         res["checkError"] = check_error
     return res
@@ -173,7 +220,7 @@ def grade(code, tests, extra_allowed=()):
 def handle(req_json):
     req = json.loads(req_json)
     if req["kind"] == "run":
-        return json.dumps(run(req["code"], req.get("stdin"), req.get("files")))
+        return json.dumps(run(req["code"], req.get("stdin"), req.get("files"), trace=bool(req.get("trace"))))
     if req["kind"] == "grade":
         return json.dumps(grade(req["code"], req["tests"], tuple(req.get("extraAllowed") or ())))
     raise ValueError("unknown request kind")

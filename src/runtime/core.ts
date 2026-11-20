@@ -3,7 +3,7 @@ import type { PyodideInterface } from 'pyodide';
 import type { GradeResult, RunResult, TestCase } from '../types';
 
 export type PyRequest =
-  | { kind: 'run'; code: string; stdin?: string[]; files?: Record<string, string> }
+  | { kind: 'run'; code: string; stdin?: string[]; files?: Record<string, string>; trace?: boolean }
   | { kind: 'grade'; code: string; tests: TestCase[]; extraAllowed?: string[] };
 
 export type PyResponse = RunResult | GradeResult;

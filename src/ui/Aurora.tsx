@@ -36,7 +36,8 @@ export function Aurora({ children, className = '' }: { children?: ReactNode; cla
         ))}
       </div>
       {/* halftone ramp: printed-dot fade from the gradient into the dark page */}
-      <div className="halftone-ramp pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-2/3" aria-hidden="true" />
+      <div className="halftone halftone-ramp -z-10" aria-hidden="true" />
+      <div className="halftone halftone-ramp-coarse -z-10" aria-hidden="true" />
       {/* fine grain so the gradient doesn't band */}
       <div className="aurora-grain pointer-events-none absolute inset-0 -z-10" aria-hidden="true" />
       {/* fade into the page at the bottom */}

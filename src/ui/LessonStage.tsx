@@ -47,7 +47,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint }: LessonSt
       body = (
         <>
           <Voice>Here’s a short example. Read it once top to bottom, then we’ll go through it line by line.</Voice>
-          <Meta>It’s on the right. Press Run to see what it prints.</Meta>
+          <Meta>It’s on the right. Press Play step by step to watch it run one line at a time, or Run to see what it prints.</Meta>
         </>
       );
       actions = (

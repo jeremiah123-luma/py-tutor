@@ -5,7 +5,9 @@ import type { Concept, ConceptId, Mode, Progress } from './types';
 import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
-import { askTutor, checkPass, getPass, setPass } from './loop/api';
+import { askTutor, checkPass, clearPass, getPass, setPass } from './loop/api';
+import { ProfileContext } from './ui/Profile';
+import { usePointerParallax } from './ui/usePointerParallax';
 import { emptyProgress, loadProgress, reviewQueue, saveProgress, sub } from './loop/progress';
 import { buildDrill, type Drill } from './loop/drill';
 import { browserRunner, type PyRunner } from './runtime/runner';
@@ -90,6 +92,7 @@ export default function App() {
   const [drill, setDrill] = useState<Drill | null>(null);
   const talkReady = useRef<Promise<TalkController> | null>(null);
   const state = useSession(session);
+  usePointerParallax();
   useTalk(talk);
 
   const setProgress = useCallback((p: Progress) => {
@@ -127,7 +130,7 @@ export default function App() {
       const concept = conceptMap[conceptId]!;
       const s = new Session(concept, index, m, {
         tutor: askTutor,
-        run: (code, stdin, files) => runner().run(code, stdin, files),
+        run: (code, stdin, files, trace) => runner().run(code, stdin, files, trace),
         grade: (code, tests) => runner().grade(code, tests, []),
         getProgress: () => progressRef.current,
         setProgress,
@@ -206,8 +209,25 @@ export default function App() {
       />
     );
 
+  const masteredCount = CONCEPTS.reduce((n, c) => n + Object.values(progress.concepts[c.id] ?? {}).filter((x) => x.mastered).length, 0);
+  const lessonCount = CONCEPTS.reduce((n, c) => n + c.lessons.length, 0);
+  const profile = {
+    name: 'Jeremy',
+    mastered: masteredCount,
+    total: lessonCount,
+    mode,
+    onSignOut: () => {
+      void talk?.end();
+      setTalk(null);
+      session?.interrupt();
+      clearPass();
+      setScreen('home');
+      setUnlocked(false);
+    },
+  };
+
   return (
-    <>
+    <ProfileContext.Provider value={profile}>
       {screen === 'home' && (
         <div key="home" className="animate-[screen-in_450ms_var(--ease-out)]">
         <HomeScreen
@@ -266,6 +286,8 @@ export default function App() {
           onHint={() => void session.hint()}
           onModeChange={switchMode}
           onBack={goHome}
+          onJump={(t) => session.goTo(t)}
+          onTrace={() => session.traceExample()}
         />
         </div>
       )}
@@ -299,6 +321,6 @@ export default function App() {
         position="bottom-center"
         toastOptions={{ style: { fontFamily: 'var(--font-ui)', background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)' } }}
       />
-    </>
+    </ProfileContext.Provider>
   );
 }

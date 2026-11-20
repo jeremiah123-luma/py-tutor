@@ -82,8 +82,8 @@ export class PyRunner {
     });
   }
 
-  async run(code: string, stdin?: string[], files?: Record<string, string>): Promise<RunResult> {
-    const r = await this.send({ kind: 'run', code, stdin, files }, this.limitMs);
+  async run(code: string, stdin?: string[], files?: Record<string, string>, trace = false): Promise<RunResult> {
+    const r = await this.send({ kind: 'run', code, stdin, files, trace }, this.limitMs);
     if (r === 'timeout') {
       return {
         stdout: '',

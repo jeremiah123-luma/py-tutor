@@ -71,7 +71,16 @@ export interface Concept {
   lessons: Lesson[];
 }
 
+/** One executed line, for the step-through player: the state AFTER that line ran. */
+export interface TraceStep {
+  line: number;
+  vars: [string, string][];
+  out: string;
+}
+
 export interface RunResult {
+  /** Present when the run was traced (step-through player). */
+  steps?: TraceStep[];
   stdout: string;
   stderr: string;
   error?: { type: string; message: string; line?: number; friendly?: string };

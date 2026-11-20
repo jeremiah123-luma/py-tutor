@@ -20,7 +20,7 @@ export function codeOnScreen(lesson: Lesson, state: Pick<SessionState, 'step' | 
 
 export interface EngineDeps {
   tutor: (req: TutorAsk, onText: (d: string) => void, signal?: AbortSignal) => Promise<{ text: string; meta: TutorMeta }>;
-  run: (code: string, stdin?: string[], files?: Record<string, string>) => Promise<RunResult>;
+  run: (code: string, stdin?: string[], files?: Record<string, string>, trace?: boolean) => Promise<RunResult>;
   grade: (code: string, tests: TestCase[]) => Promise<GradeResult>;
   getProgress: () => Progress;
   setProgress: (p: Progress) => void;
@@ -142,6 +142,42 @@ export class Session {
         break;
       default:
         return;
+    }
+    this.saveLast();
+  }
+
+  /** Jump straight to any step (the step tabs). Nothing is graded or recorded by jumping. */
+  goTo(step: 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit') {
+    if (this.state.step === step && step !== 'walkthrough') return;
+    this.interrupt();
+    switch (step) {
+      case 'define':
+        this.set({ step, walkLine: 0 });
+        this.scripted(this.lesson.define);
+        break;
+      case 'example':
+        this.set({ step, walkLine: 0 });
+        break;
+      case 'walkthrough':
+        this.set({ step, walkLine: 1 });
+        this.speakWalkLine(1);
+        break;
+      case 'talkthrough':
+        this.set({ step, walkLine: 0 });
+        this.scripted(`Your turn, no typing yet. ${this.lesson.talkthrough.prompt} Just tell me how you'd do it.`);
+        break;
+      case 'doit':
+        if (!isWriting(this.state.step)) {
+          this.checks = 0;
+          this.doHints = 0;
+        }
+        this.set({ step, walkLine: 0, lastRun: undefined, lastGrade: undefined });
+        this.scripted(
+          this.mode === 'talk'
+            ? `Now let's build it. ${this.lesson.doit.prompt} Say the code you'd write, line by line.`
+            : `Now you write it. ${this.lesson.doit.prompt} Press Check when you're ready.`,
+        );
+        break;
     }
     this.saveLast();
   }
@@ -274,14 +310,26 @@ export class Session {
     });
   }
 
+  /** Files a run starts with: the example's own files over the do-it sample files. */
+  private runFiles() {
+    const tests = this.lesson.doit.tests;
+    const sample = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
+    return this.lesson.exampleFiles ? { ...sample, ...this.lesson.exampleFiles } : sample;
+  }
+
+  /** Run the example with a line-by-line trace, for the step-through player. Null if it can't be played. */
+  async traceExample() {
+    const r = await this.deps.run(this.lesson.example, [], this.runFiles(), true);
+    if (r.error || r.timedOut || !r.steps || r.steps.length < 2) return null;
+    return r.steps;
+  }
+
   /** Run whatever code is on screen (the example, or his code) with the program-input box contents. */
   async run(stdinText: string) {
     if (this.state.step === 'define') return this.state.lastRun;
     this.set({ busy: 'running' });
     const stdin = stdinText === '' ? [] : stdinText.split('\n');
-    const tests = this.lesson.doit.tests;
-    const sample = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
-    const files = this.lesson.exampleFiles ? { ...sample, ...this.lesson.exampleFiles } : sample;
+    const files = this.runFiles();
     const lastRun = await this.deps.run(codeOnScreen(this.lesson, this.state), stdin, files);
     this.set({ lastRun, busy: 'idle' });
     return lastRun;

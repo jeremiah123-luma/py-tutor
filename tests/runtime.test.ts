@@ -102,3 +102,23 @@ describe('grader', () => {
     expect(g.passed).toBe(true);
   });
 });
+
+describe('step-through trace', () => {
+  it('records each executed line with the variables and output after it', async () => {
+    const r = await py.run('x = 1\ny = x + 1\nprint(y)\n', [], undefined, true);
+    expect(r.steps?.map((s) => s.line)).toEqual([1, 2, 3]);
+    expect(r.steps?.[1].vars).toEqual([['x', '1'], ['y', '2']]);
+    expect(r.steps?.[2].out).toBe('2\n');
+  });
+  it('follows into methods and shows objects by their attributes', async () => {
+    const code = 'class Time:\n    def __init__(self):\n        self.hours = 0\n\nt = Time()\nt.hours = 7\n';
+    const r = await py.run(code, [], undefined, true);
+    const lines = r.steps!.map((s) => s.line);
+    expect(lines).toContain(3); // inside __init__
+    expect(r.steps!.at(-1)!.vars).toContainEqual(['t', 'Time object: hours=7']);
+  });
+  it('is off unless asked for', async () => {
+    const r = await py.run('x = 1\n');
+    expect(r.steps).toBeUndefined();
+  });
+});

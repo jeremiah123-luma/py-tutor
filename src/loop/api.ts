@@ -41,6 +41,15 @@ export function setPass(p: string) {
   memPass = p;
 }
 let memPass = '';
+/** Sign out on this device: forget the passcode. Progress stays saved. */
+export function clearPass() {
+  try {
+    localStorage.removeItem(PASS_KEY);
+  } catch {
+    /* ignore */
+  }
+  memPass = '';
+}
 const pass = () => getPass() || memPass;
 
 export async function checkPass(p: string): Promise<boolean> {

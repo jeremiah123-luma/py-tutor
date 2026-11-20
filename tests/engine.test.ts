@@ -26,7 +26,7 @@ function deps(progress: { p: Progress }, calls: TutorAsk[]): EngineDeps {
       onText(text);
       return { text, meta: { verdict, nailed: ['something right'], fix: verdict === 'fail' ? ['the fix'] : [], highlightLines: [], next: 'stay' } };
     },
-    run: (c, s, f) => py.run(c, s, f),
+    run: (c, s, f, t) => py.run(c, s, f, t),
     grade: (c, t) => py.grade(c, t),
     getProgress: () => progress.p,
     setProgress: (p) => { progress.p = p; },
@@ -114,7 +114,7 @@ for (const concept of Object.values(concepts)) {
         const ran: string[] = [];
         const d = deps(prog, []);
         const realRun = d.run;
-        d.run = (c, s, f) => { ran.push(c); return realRun(c, s, f); };
+        d.run = (c, s, f, t) => { ran.push(c); return realRun(c, s, f, t); };
         const s = new Session(concept!, i, 'type', d);
         s.start();
         await s.run(''); // define: nothing on screen, nothing runs
@@ -146,3 +146,47 @@ for (const concept of Object.values(concepts)) {
     });
   });
 }
+
+describe('jumping between steps', () => {
+  it('can skip straight to Try it, pass, then jump back to the example and Run it', async () => {
+    const concept = Object.values(concepts)[0]!;
+    const lesson = concept.lessons[0];
+    const prog = { p: emptyProgress() };
+    const s = new Session(concept, 0, 'type', deps(prog, []));
+    s.start();
+    s.goTo('doit');
+    expect(s.state.step).toBe('doit');
+    expect(codeOnScreen(lesson, s.state)).toBe(lesson.doit.starter);
+    s.setCode(lesson.doit.reference);
+    await s.check();
+    expect(['check', 'mastered']).toContain(s.state.step);
+    s.goTo('example');
+    expect(s.state.step).toBe('example');
+    const r = await s.run('');
+    expect(r?.error).toBeUndefined();
+    s.goTo('walkthrough');
+    expect(s.state.walkLine).toBe(1);
+    s.goTo('define');
+    expect(s.state.step).toBe('define');
+    s.goTo('talkthrough');
+    expect(s.state.step).toBe('talkthrough');
+  }, 30_000);
+});
+
+describe('every example can be played step by step', () => {
+  for (const concept of Object.values(concepts)) {
+    concept!.lessons.forEach((lesson, i) => {
+      it(`${concept!.id}: ${lesson.subskill}`, async () => {
+        const s = new Session(concept!, i, 'type', deps({ p: emptyProgress() }, []));
+        const steps = await s.traceExample();
+        expect(steps, 'trace failed').not.toBeNull();
+        const n = lesson.example.split('\n').length;
+        for (const st of steps!) {
+          expect(st.line).toBeGreaterThanOrEqual(1);
+          expect(st.line).toBeLessThanOrEqual(n);
+          expect(lesson.walkthrough.find((w) => w.line === st.line), `no note for line ${st.line}`).toBeTruthy();
+        }
+      }, 30_000);
+    });
+  }
+});

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ProfileMenu } from './Profile';
 
 export const FINAL_DATE = new Date('2026-12-19T09:00:00-05:00');
 
@@ -41,7 +42,10 @@ export function TopBar({ crumbs = [], right, onHome }: { crumbs?: string[]; righ
           <span className="truncate">{c}</span>
         </span>
       ))}
-      <div className="ml-auto flex items-center gap-2">{right}</div>
+      <div className="ml-auto flex items-center gap-2">
+        {right}
+        <ProfileMenu />
+      </div>
     </div>
   );
 }
