@@ -288,6 +288,7 @@ export default function App() {
           onCodeChange={(c) => session.setCode(c)}
           onRun={() => void session.run(programInput)}
           onCheck={() => void session.check()}
+          onExplainCheck={() => void session.explainCheck()}
           onSend={(t) => void session.say(t)}
           onStep={(dir) => {
             if (dir === 'back') session.back();

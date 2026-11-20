@@ -219,8 +219,8 @@ describe('hints are free until the written ones run out', () => {
   });
 });
 
-describe('Check my code is free until he is still stuck', () => {
-  it('a pass and the first failed check use no AI; the second failed check asks the tutor', async () => {
+describe('Check my code is always free; the tutor explains only when he asks', () => {
+  it('no check calls the AI; Ask the tutor about this calls it once per failed check', async () => {
     const concept = Object.values(concepts)[0]!;
     const lesson = concept.lessons[0];
     const calls: TutorAsk[] = [];
@@ -229,14 +229,20 @@ describe('Check my code is free until he is still stuck', () => {
     s.goTo('doit');
     s.setCode(lesson.doit.wrong[0]);
     await s.check();
+    await s.check();
+    await s.check();
     expect(s.state.lastGrade!.passed).toBe(false);
     expect(s.state.turns.at(-1)!.fix!.length).toBeGreaterThan(0);
     expect(calls.filter((c) => c.kind === 'explain-grade')).toHaveLength(0);
-    await s.check();
+    await s.explainCheck();
+    expect(calls.filter((c) => c.kind === 'explain-grade')).toHaveLength(1);
+    expect(s.state.gradeExplained).toBe(true);
+    await s.explainCheck(); // already explained: no second call
     expect(calls.filter((c) => c.kind === 'explain-grade')).toHaveLength(1);
     s.setCode(lesson.doit.reference);
     await s.check();
     expect(s.state.lastGrade!.passed).toBe(true);
+    await s.explainCheck(); // nothing to explain on a pass
     expect(calls.filter((c) => c.kind === 'explain-grade')).toHaveLength(1);
   });
 });

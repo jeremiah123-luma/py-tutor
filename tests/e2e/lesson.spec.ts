@@ -122,7 +122,15 @@ test('full loop for one dictionaries lesson, type mode', async ({ page }) => {
   // The first failed check is explained for free from the test results (no AI call).
   await expect(page.getByText(/expected .* but your code printed|stopped with an error|hidden test/).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Check my code' })).toBeVisible();
+  // Checking again is still free; the tutor only explains when asked.
+  await page.getByRole('button', { name: 'Check my code' }).click();
+  await page.waitForTimeout(500);
   expect(gradeCalls).toBe(0);
+  await page.getByRole('button', { name: 'Ask the tutor about this' }).click();
+  await expect(page.getByText('Line 3 prints the wrong thing.')).toBeVisible();
+  expect(gradeCalls).toBe(1);
+  await expect(page.getByRole('button', { name: 'Ask the tutor about this' })).toHaveCount(0);
+  gradeCalls = 0;
 
   // Fix it: real Pyodide grading passes.
   await setCode(page, lesson.doit.reference);

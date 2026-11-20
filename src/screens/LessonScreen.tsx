@@ -1,4 +1,4 @@
-import { ArrowLeft, Play, ListChecks, Footprints, X, Eye } from 'lucide-react';
+import { ArrowLeft, Play, ListChecks, Footprints, X, Eye, MessageCircleQuestion } from 'lucide-react';
 import { SlideDeck } from '../ui/SlideDeck';
 import { useCallback, useEffect, useState } from 'react';
 import type { TraceStep } from '../types';
@@ -22,6 +22,8 @@ export interface LessonScreenProps {
   onCodeChange: (code: string) => void;
   onRun: () => void;
   onCheck: () => void;
+  /** Ask the tutor (AI, uses credits) to explain the last failed check. */
+  onExplainCheck?: () => void;
   onSend: (text: string) => void;
   onStep: (dir: 'next' | 'back') => void;
   onHint?: () => void;
@@ -152,6 +154,19 @@ export function LessonScreen(p: LessonScreenProps) {
               >
                 Run
               </Button>
+              {writing && p.onExplainCheck && session.lastGrade && !session.lastGrade.passed && !session.gradeExplained && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={p.onExplainCheck}
+                  disabled={session.busy !== 'idle'}
+                  icon={<MessageCircleQuestion className="size-4" strokeWidth={1.75} />}
+                  aria-label="Ask the tutor about this"
+                  title="Ask the tutor about this (uses AI credits)"
+                >
+                  <span className="hidden sm:inline">Ask the tutor about this</span>
+                </Button>
+              )}
               {writing && (
                 <Button size="sm" variant="primary" onClick={p.onCheck} icon={<ListChecks className="size-4" strokeWidth={2} />}>
                   Check my code

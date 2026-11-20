@@ -139,6 +139,8 @@ export interface SessionState {
   code: string;
   lastRun?: RunResult;
   lastGrade?: GradeResult;
+  /** The tutor already explained lastGrade (he tapped "Ask the tutor about this"). */
+  gradeExplained?: boolean;
   busy: 'idle' | 'thinking' | 'running' | 'speaking' | 'listening';
   /** Written hints already shown (free, no AI call), per question. After these run out, Hint asks the tutor. */
   freeHints?: { talk: number; doit: number };
