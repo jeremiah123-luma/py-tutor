@@ -36,7 +36,10 @@ export function buildDrill(bank: DrillQuestion[], concepts: Concept[], rand: () 
 
 export function checkShort(q: DrillQuestion, answer: string | number): boolean {
   if (q.kind === 'predict') {
-    const norm = (s: string) => s.replace(/\r/g, '').replace(/[ \t]+$/gm, '').replace(/\n+$/, '');
+    // Forgiving about typing, strict about Python: ignore trailing spaces, blank lines at the ends,
+    // and ' vs " (Python prints dicts with ', people often type ").
+    const norm = (s: string) =>
+      s.replace(/\r/g, '').replace(/[ \t]+$/gm, '').replace(/^\n+|\n+$/g, '').replace(/"/g, "'");
     return norm(String(answer)) === norm(String(q.answer));
   }
   return Number(answer) === Number(q.answer);

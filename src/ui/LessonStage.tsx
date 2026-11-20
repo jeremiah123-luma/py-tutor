@@ -108,6 +108,9 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint }: LessonSt
           <p className="flex items-center gap-1.5 text-sm text-ink-3">
             <MessageCircle className="size-4" strokeWidth={1.75} aria-hidden="true" /> Answer below
           </p>
+          <Button variant="ghost" size="sm" className="ml-auto" onClick={() => onStep('next')}>
+            Skip to writing code
+          </Button>
         </>
       );
       break;

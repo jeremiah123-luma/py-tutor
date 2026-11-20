@@ -22,8 +22,8 @@ export const dictionaries: Concept = {
       example: 'prices = {"apples": 1.99, "oranges": 1.49}\nprint(prices["apples"])\nprint(f"The price of oranges is {prices[\'oranges\']}")\nprint(len(prices))',
       walkthrough: [
         { line: 1, text: 'Curly braces make a dictionary. "apples" is a key and 1.99 is its value. A colon joins each key to its value, and commas separate the pairs.', spoken: 'prices equals, curly brace, apples colon 1 point 9 9, comma, oranges colon 1 point 4 9, close curly brace' },
-        { line: 2, text: 'Square brackets with a key look up its value. This prints 1.99. You can\'t use a position like prices[0]; dictionaries are looked up by key, not by index.', spoken: 'print prices, square bracket, apples' },
-        { line: 3, text: 'Same lookup inside an f-string. The key uses single quotes because the f-string already uses double quotes. If you asked for a key that isn\'t there, like lemons, you\'d get a KeyError.' },
+        { line: 2, text: 'Square brackets with a key look up its value. This prints 1.99. You can\'t use a position like prices[0]. Dictionaries are looked up by key, not by position.', spoken: 'print prices, square bracket, apples' },
+        { line: 3, text: 'Same lookup, inside an f-string. This prints The price of oranges is 1.49. The key uses single quotes because the f-string already uses double quotes. If you ask for a key that isn\'t there, like lemons, you get a KeyError and the program stops.' },
         { line: 4, text: 'len counts the pairs, not the characters. Two pairs, so it prints 2.' },
       ],
       talkthrough: {
@@ -40,7 +40,7 @@ export const dictionaries: Concept = {
       doit: {
         id: 'dict-cr-do',
         subskill: 'create-read',
-        prompt: 'Make a dictionary called capitals with "France" mapped to "Paris" and "Japan" mapped to "Tokyo". Read a country name with input(), then print that country\'s capital.',
+        prompt: 'Make a dictionary called capitals with "France" mapped to "Paris" and "Japan" mapped to "Tokyo". Read a country name with input(), then print that country\'s capital. The user will always type France or Japan.',
         starter: '# make capitals here\n\ncountry = input()\n# print the capital\n',
         tests: [
           { name: 'France', stdin: ['France'], expectStdout: 'Paris' },
@@ -82,7 +82,7 @@ export const dictionaries: Concept = {
       doit: {
         id: 'dict-aud-do',
         subskill: 'add-update-delete',
-        prompt: 'inventory starts as {"apples": 3, "pears": 5}. Read a fruit name and a number (two input() lines). Add that number to the fruit\'s count, adding the fruit if it is new. Then remove "pears" and print inventory.',
+        prompt: 'inventory starts as {"apples": 3, "pears": 5}. The starter code already reads a fruit name and a number. If the fruit is already a key in inventory, add the number to its count. If not, add the fruit with that number as its count. Then remove "pears" with del and print the dictionary with print(inventory).',
         starter: 'inventory = {"apples": 3, "pears": 5}\nfruit = input()\namount = int(input())\n',
         tests: [
           { name: 'existing fruit', stdin: ['apples', '2'], expectStdout: "{'apples': 5}" },
@@ -125,7 +125,7 @@ export const dictionaries: Concept = {
       doit: {
         id: 'dict-ig-do',
         subskill: 'in-get',
-        prompt: 'menu = {"taco": 3, "burrito": 8}. Read an item name. If it is on the menu print its price, otherwise print "Sorry, we don\'t have that".',
+        prompt: 'menu = {"taco": 3, "burrito": 8}. Read an item name. If it is on the menu, print just its price (for taco, print 3). Otherwise print "Sorry, we don\'t have that".',
         starter: 'menu = {"taco": 3, "burrito": 8}\nitem = input()\n',
         tests: [
           { name: 'on the menu', stdin: ['taco'], expectStdout: '3' },
@@ -149,7 +149,7 @@ export const dictionaries: Concept = {
       example: 'my_dict = {"Ahmad": 1, "Jane": 42}\nmy_dict.update({"John": 50})\nval = my_dict.pop("Ahmad")\nprint(val)\nprint(my_dict)\nmy_dict.clear()\nprint(my_dict)',
       walkthrough: [
         { line: 1, text: 'Two pairs to start: Ahmad maps to 1, Jane maps to 42.' },
-        { line: 2, text: 'update merges the other dictionary in. John is new, so he gets added. If John were already a key, his value would be overwritten.', spoken: 'my dict dot update, curly brace John colon 50' },
+        { line: 2, text: 'update merges the other dictionary in. John is new, so he gets added. If John were already a key, his value would be overwritten.', spoken: 'my dict dot update, curly brace, John colon 50, close curly brace' },
         { line: 3, text: 'pop removes the Ahmad pair and gives you back its value, so val is 1.', spoken: 'val equals my dict dot pop, Ahmad' },
         { line: 4, text: 'Prints 1, the value pop handed back.' },
         { line: 5, text: 'Prints {\'Jane\': 42, \'John\': 50}. Ahmad is gone. The methods changed my_dict itself; they didn\'t make a copy.' },
@@ -170,7 +170,7 @@ export const dictionaries: Concept = {
       doit: {
         id: 'dict-me-do',
         subskill: 'methods',
-        prompt: 'stock = {"pens": 4, "paper": 10, "ink": 2}. Read an item name. If it is in stock, remove it with pop and print "Removed pens (4)" using the value pop gave you. Otherwise print "Not in stock". Then merge {"tape": 5} into stock with update and print stock.',
+        prompt: 'stock = {"pens": 4, "paper": 10, "ink": 2}. Read an item name. If it is a key in stock, remove it with pop. Then print the word Removed, the item, and the number pop gave back in parentheses. For pens that is "Removed pens (4)". For ink it is "Removed ink (2)". If it is not in stock, print "Not in stock". After that, either way, merge {"tape": 5} into stock with update and print the dictionary with print(stock).',
         starter: 'stock = {"pens": 4, "paper": 10, "ink": 2}\nitem = input()\n',
         tests: [
           { name: 'remove pens', stdin: ['pens'], expectStdout: "Removed pens (4)\n{'paper': 10, 'ink': 2, 'tape': 5}" },
@@ -196,7 +196,7 @@ export const dictionaries: Concept = {
       subskill: 'loop-items',
       title: 'Looping through a dictionary',
       define:
-        'A for loop over a dictionary visits each key. .items() gives you the key and the value together, .keys() just the keys, and .values() just the values. Those are views: you can loop over them, but to index or sort one, turn it into a list with list().',
+        'A for loop over a dictionary gives you each key, one at a time. .items() gives you each key and its value together. .keys() gives just the keys, and .values() just the values. These are called views. You can loop over a view, but you can\'t use [0] on it. To get a real list, use list().',
       example: 'hours = {"Mon": 2, "Tue": 3}\nfor day in hours:\n    print(day)\nfor day, h in hours.items():\n    print(day, h)\nprint(list(hours.values()))',
       walkthrough: [
         { line: 1, text: 'Two pairs: Monday 2 hours, Tuesday 3.' },
@@ -220,7 +220,7 @@ export const dictionaries: Concept = {
       doit: {
         id: 'dict-li-do',
         subskill: 'loop-items',
-        prompt: 'prices = {"pen": 2, "book": 12, "bag": 30}. Read a budget number. Print the name of every item that costs at most the budget, one per line, in the dictionary\'s order.',
+        prompt: 'prices = {"pen": 2, "book": 12, "bag": 30}. Read a budget number. Print the name of every item that costs the budget or less, one name per line, in the dictionary\'s order. If nothing fits, print nothing.',
         starter: 'prices = {"pen": 2, "book": 12, "bag": 30}\nbudget = int(input())\n',
         tests: [
           { name: 'budget 12', stdin: ['12'], expectStdout: 'pen\nbook' },
@@ -266,7 +266,7 @@ export const dictionaries: Concept = {
       doit: {
         id: 'dict-co-do',
         subskill: 'counting',
-        prompt: 'Read one line of words separated by spaces. Count how many times each word appears and print the dictionary.',
+        prompt: 'Read one line of words separated by spaces. The starter code already splits it into a list called words. Make a dictionary that counts how many times each word appears, then print it with print(). For "the cat the hat" it prints {\'the\': 2, \'cat\': 1, \'hat\': 1}.',
         starter: 'words = input().split()\n',
         tests: [
           { name: 'repeats', stdin: ['the cat the hat'], expectStdout: "{'the': 2, 'cat': 1, 'hat': 1}" },
@@ -292,7 +292,7 @@ export const dictionaries: Concept = {
         { line: 1, text: 'The key Ana maps to a list with two scores.' },
         { line: 2, text: 'scores["Ana"] is the list itself, so .append adds 100 to the end of Ana\'s list.', spoken: 'scores, square bracket Ana, dot append 100' },
         { line: 3, text: 'Two lookups in a row. First the key gets the list, then [0] gets the first score: 90.' },
-        { line: 4, text: 'Ana now has 3 scores.' },
+        { line: 4, text: 'len counts the items in Ana\'s list. She has 3 scores now, so this prints 3.' },
       ],
       talkthrough: {
         id: 'dict-ne-talk',
@@ -308,7 +308,7 @@ export const dictionaries: Concept = {
       doit: {
         id: 'dict-ne-do',
         subskill: 'nested',
-        prompt: 'Read lines of "name score" until the line "done". Store every score in a list under that name. Then print each name followed by its highest score, like "Ana 95", in the order names first appeared.',
+        prompt: 'Read lines like "Ana 90" (a name, a space, then a score) until the line "done". Keep a list of scores for each name in the scores dictionary. Then, for each name, print the name, a space, and that name\'s highest score, like "Ana 95". Print the names in the order they first appeared. If the first line is "done", print nothing.',
         starter: 'scores = {}\nline = input()\nwhile line != "done":\n    # your code\n    line = input()\n',
         tests: [
           { name: 'two students', stdin: ['Ana 90', 'Ben 70', 'Ana 95', 'done'], expectStdout: 'Ana 95\nBen 70' },

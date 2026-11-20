@@ -47,7 +47,7 @@ export const classes: Concept = {
       doit: {
         id: 'cls-ci-do',
         subskill: 'class-init',
-        prompt: 'Write a class Book whose __init__ starts title at "" and pages at 0. Make a Book called my_book, set its title and pages from two input() lines (pages is a whole number), and print "<title> has <pages> pages".',
+        prompt: 'Write a class Book whose __init__ starts title at "" and pages at 0. Make a Book called my_book, then set its title and pages from two input() lines: first the title, then the pages (a whole number). Print it like "Dune has 412 pages".',
         starter: '# write the Book class here\n\n',
         tests: [
           { name: 'Dune', stdin: ['Dune', '412'], expectStdout: 'Dune has 412 pages' },
@@ -186,7 +186,7 @@ export const classes: Concept = {
       doit: {
         id: 'cls-ca-do',
         subskill: 'class-attrs',
-        prompt: 'Write a class Ticket with a class attribute price set to 12, and an __init__ that starts the instance attribute seat at "". Add a method total(self, count) that returns count times the price. Then read a seat and a count from input, make a Ticket, set its seat, and print it like "Seat A4: $36".',
+        prompt: 'Write a class Ticket with a class attribute price set to 12, and an __init__ that starts the instance attribute seat at "". Add a method total(self, count) that returns count times the price. Then read two input() lines: first the seat (like A4), then how many tickets (a whole number). Make a Ticket, set its seat, and print the seat and the total cost like this: "Seat A4: $36" (3 tickets times $12).',
         starter: '# write the Ticket class here\n\n',
         tests: [
           { name: 'three tickets', stdin: ['A4', '3'], expectStdout: 'Seat A4: $36' },
@@ -241,18 +241,18 @@ export const classes: Concept = {
       talkthrough: {
         id: 'cls-cp-talk',
         subskill: 'constructor-params',
-        prompt: 'class Car has def __init__(self, make="Ford", year=2020). What do Car() and Car("Honda") each end up with, and why?',
+        prompt: 'class Lamp has def __init__(self, color="white", watts=60). What color and watts do Lamp() and Lamp("blue") each end up with, and why?',
         starter: '',
         tests: [],
-        rubric: ['Car() gets make "Ford" and year 2020 from the defaults', 'Car("Honda") gets make "Honda" and year 2020', 'arguments fill the parameters in order after self, and any left out use their defaults'],
+        rubric: ['Lamp() gets color "white" and watts 60 from the defaults', 'Lamp("blue") gets color "blue" and watts 60', 'arguments fill the parameters in order after self, and any left out use their defaults'],
         hints: ['Arguments line up with the parameters in order, skipping self.', 'What happens to a parameter nobody passes a value for?'],
-        reference: 'Car() -> Ford, 2020\nCar("Honda") -> Honda, 2020',
+        reference: 'Lamp() -> white, 60\nLamp("blue") -> blue, 60',
         wrong: [],
       },
       doit: {
         id: 'cls-cp-do',
         subskill: 'constructor-params',
-        prompt: 'Write a class Order whose constructor takes customer (default "Guest") and tip (default 0.0), and also starts an empty list called items. add(price) puts a price into items. total() returns the sum of the items plus the tip.',
+        prompt: 'Write a class Order. Its constructor takes customer (default "Guest") and tip (default 0.0) and saves them as self.customer and self.tip. It also starts self.items as an empty list. Add two methods: add(price) appends a price to items, and total() returns all the item prices added up, plus the tip. So Order("Ana", 2.0) works, and so does Order().',
         starter: 'class Order:\n    pass\n',
         tests: [
           {
@@ -294,18 +294,19 @@ export const classes: Concept = {
       title: 'Many objects from one class',
       define:
         'Every object you make gets its own set of attributes, so changing one doesn\'t touch the others. But if two names point at the same object, a change through either one shows up in both.',
-      example: 'class Cup:\n    def __init__(self, ml):\n        self.ml = ml\na = Cup(100)\nb = Cup(250)\na.ml = 0\nprint(a.ml, b.ml)\nc = b\nc.ml = 5\nprint(b.ml)',
+      example: 'class Cup:\n    def __init__(self, ml):\n        self.ml = ml\n\na = Cup(100)\nb = Cup(250)\na.ml = 0\nprint(a.ml, b.ml)\nc = b\nc.ml = 5\nprint(b.ml)',
       walkthrough: [
-        { line: 1, text: 'A Cup blueprint.' },
-        { line: 2, text: 'Each cup is set up with how many milliliters it holds.' },
-        { line: 3, text: 'Store it on the cup itself.' },
-        { line: 4, text: 'One cup with 100.' },
-        { line: 5, text: 'A second, separate cup with 250.' },
-        { line: 6, text: 'Empty cup a. Only a changes.', spoken: 'a dot m l equals 0' },
-        { line: 7, text: 'Prints 0 250. Cup b kept its own value.' },
-        { line: 8, text: 'Careful here. This doesn\'t make a new cup. c is just a second name for the same cup b.', spoken: 'c equals b' },
-        { line: 9, text: 'Change it through c...' },
-        { line: 10, text: '...and b changes too, because they are one cup. Prints 5.' },
+        { line: 1, text: 'A Cup class.' },
+        { line: 2, text: 'The constructor takes one value: how many milliliters the cup holds.', spoken: 'def init, open paren, self comma m l, colon' },
+        { line: 3, text: 'Store it on the cup itself.', spoken: 'self dot m l equals m l' },
+        { line: 4, text: 'Blank line. The class is done.' },
+        { line: 5, text: 'One cup with 100.', spoken: 'a equals Cup, 100' },
+        { line: 6, text: 'A second, separate cup with 250.', spoken: 'b equals Cup, 250' },
+        { line: 7, text: 'Empty cup a. Only a changes.', spoken: 'a dot m l equals 0' },
+        { line: 8, text: 'Prints 0 250. Cup b kept its own value.' },
+        { line: 9, text: 'Careful here. This doesn\'t make a new cup. c is just a second name for the same cup b.', spoken: 'c equals b' },
+        { line: 10, text: 'Change it through c...', spoken: 'c dot m l equals 5' },
+        { line: 11, text: '...and b changes too, because they are one cup. Prints 5.' },
       ],
       talkthrough: {
         id: 'cls-mo-talk',
@@ -321,7 +322,7 @@ export const classes: Concept = {
       doit: {
         id: 'cls-mo-do',
         subskill: 'many-objects',
-        prompt: 'Write a class Player. Player(name) starts with a score of 0, and win(points) adds points to the score. Read two player names. Then read lines of "name points" until "done", giving the points to that player. Print each player as "Ana: 12", then "Leader: Ana", or "Leader: tie" if the scores are equal.',
+        prompt: 'Write a class Player. Player(name) saves self.name and starts self.score at 0. The method win(points) adds points to self.score. Read two player names (one per line). Then read lines like "Ana 5" (a name, a space, a whole number) until the line "done", and give those points to that player. Then print the first player, then the second, like "Ana: 12". Last, print "Leader: " and the name of the player with more points, like "Leader: Ana", or "Leader: tie" if the scores are equal.',
         starter: 'class Player:\n    def __init__(self, name):\n        pass\n\n    def win(self, points):\n        pass\n\np1 = Player(input())\np2 = Player(input())\n',
         tests: [
           { name: 'Ana leads', stdin: ['Ana', 'Ben', 'Ana 5', 'Ben 3', 'Ana 7', 'done'], expectStdout: 'Ana: 12\nBen: 3\nLeader: Ana' },
@@ -354,17 +355,18 @@ export const classes: Concept = {
       title: 'A list full of objects',
       define:
         'Objects can go in a list just like numbers can. Loop through the list and each pass hands you one whole object, so you can read its attributes or call its methods.',
-      example: 'class Item:\n    def __init__(self, name, price):\n        self.name = name\n        self.price = price\ncart = [Item("pen", 2), Item("book", 12)]\ntotal = 0\nfor it in cart:\n    total += it.price\nprint(total)',
+      example: 'class Item:\n    def __init__(self, name, price):\n        self.name = name\n        self.price = price\n\ncart = [Item("pen", 2), Item("book", 12)]\ntotal = 0\nfor it in cart:\n    total += it.price\nprint(total)',
       walkthrough: [
-        { line: 1, text: 'An Item blueprint.' },
-        { line: 2, text: 'Each item has a name and a price.' },
+        { line: 1, text: 'An Item class.' },
+        { line: 2, text: 'The constructor takes a name and a price.', spoken: 'def init, open paren, self, name, price, colon' },
         { line: 3, text: 'Store the name.' },
         { line: 4, text: 'Store the price.' },
-        { line: 5, text: 'A list holding two new Item objects. Each Item(...) call makes one.', spoken: 'cart equals, square bracket, Item pen 2, comma, Item book 12' },
-        { line: 6, text: 'A running total.' },
-        { line: 7, text: 'Each pass, it is one whole Item object, not just a name or a number.', spoken: 'for it in cart, colon' },
-        { line: 8, text: 'Reach inside with a dot to get that item\'s price.', spoken: 'total plus equals it dot price' },
-        { line: 9, text: 'Prints 14.' },
+        { line: 5, text: 'Blank line. The class is done.' },
+        { line: 6, text: 'A list holding two new Item objects. Each Item(...) call makes one.', spoken: 'cart equals, square bracket, Item pen 2, comma, Item book 12' },
+        { line: 7, text: 'A running total, starting at 0.' },
+        { line: 8, text: 'Each pass, it is one whole Item object, not just a name or a number.', spoken: 'for it in cart, colon' },
+        { line: 9, text: 'Reach inside with a dot to get that item\'s price.', spoken: 'total plus equals it dot price' },
+        { line: 10, text: 'Prints 14, because 2 plus 12 is 14.' },
       ],
       talkthrough: {
         id: 'cls-ol-talk',
@@ -380,7 +382,7 @@ export const classes: Concept = {
       doit: {
         id: 'cls-ol-do',
         subskill: 'objects-in-lists',
-        prompt: 'Write a class Student with name and grade, and a method passed() that returns True if the grade is 60 or more. Read lines of "name grade" until "done" and keep a Student for each in a list. Print the name of everyone who passed, one per line, then "Passed: X of Y".',
+        prompt: 'Write a class Student with name and grade, and a method passed() that returns True if the grade is 60 or more. Read lines like "Ana 91" (a name, a space, a whole-number grade) until the line "done", and put a Student for each one into the list students. Then print the name of everyone who passed, one per line, in the order they were typed. Last, print "Passed: X of Y", where X is how many passed and Y is how many students there are, like "Passed: 2 of 3".',
         starter: 'class Student:\n    def __init__(self, name, grade):\n        self.name = name\n        self.grade = grade\n\n    def passed(self):\n        pass\n\nstudents = []\n',
         tests: [
           { name: 'mixed class', stdin: ['Ana 91', 'Ben 45', 'Cy 78', 'done'], expectStdout: 'Ana\nCy\nPassed: 2 of 3' },
@@ -414,19 +416,21 @@ export const classes: Concept = {
       title: 'Building objects from a file',
       define:
         'A file where each line describes one thing turns into a list of objects: read a line, split it into pieces, and pass the pieces to the class to make one object.',
-      example: 'class Pet:\n    def __init__(self, name, kind):\n        self.name = name\n        self.kind = kind\npets = []\nf = open("pets.txt")\nfor line in f:\n    parts = line.strip().split(",")\n    pets.append(Pet(parts[0], parts[1]))\nf.close()\nprint(len(pets), pets[0].name)',
+      example: 'class Pet:\n    def __init__(self, name, kind):\n        self.name = name\n        self.kind = kind\n\npets = []\nf = open("pets.txt")\nfor line in f:\n    parts = line.strip().split(",")\n    pets.append(Pet(parts[0], parts[1]))\nf.close()\nprint(len(pets), pets[0].name)',
+      exampleFiles: { 'pets.txt': 'Rex,dog\nTom,cat\n' },
       walkthrough: [
-        { line: 1, text: 'A Pet blueprint.' },
-        { line: 2, text: 'Each pet has a name and a kind.' },
+        { line: 1, text: 'A Pet class.' },
+        { line: 2, text: 'The constructor takes a name and a kind.', spoken: 'def init, open paren, self, name, kind, colon' },
         { line: 3, text: 'Store the name.' },
         { line: 4, text: 'Store the kind.' },
-        { line: 5, text: 'An empty list for the pets we\'re about to build.' },
-        { line: 6, text: 'Open pets.txt. Each line looks like Rex,dog.' },
-        { line: 7, text: 'One line per pass.' },
-        { line: 8, text: 'Strip the newline and split at the comma: ["Rex", "dog"].', spoken: 'parts equals line dot strip, dot split, comma in quotes' },
-        { line: 9, text: 'Make a Pet from the two pieces and add it to the list, all in one line.', spoken: 'pets dot append, Pet of parts 0 comma parts 1' },
-        { line: 10, text: 'Done reading, so close the file.' },
-        { line: 11, text: 'Prints how many pets there are, then the first one\'s name: 2 Rex.' },
+        { line: 5, text: 'Blank line. The class is done.' },
+        { line: 6, text: 'An empty list for the pets we\'re about to build.' },
+        { line: 7, text: 'Open pets.txt. It has two lines: Rex,dog and Tom,cat.', spoken: 'f equals open, pets dot t x t' },
+        { line: 8, text: 'One line of the file per pass.' },
+        { line: 9, text: 'Strip off the newline at the end, then split at the comma. The first line becomes ["Rex", "dog"].', spoken: 'parts equals line dot strip, dot split, comma in quotes' },
+        { line: 10, text: 'Make a Pet from the two pieces and add it to the list, all in one line.', spoken: 'pets dot append, Pet of parts 0 comma parts 1' },
+        { line: 11, text: 'Done reading, so close the file.' },
+        { line: 12, text: 'Prints how many pets there are, then the first one\'s name: 2 Rex.' },
       ],
       talkthrough: {
         id: 'cls-cf-talk',
@@ -442,12 +446,12 @@ export const classes: Concept = {
       doit: {
         id: 'cls-cf-do',
         subskill: 'class-with-file',
-        prompt: 'products.txt has lines of "name,price,quantity". Write a class Product with name, price, and qty, and a method value() that returns price times qty. Build a Product for each line, print each one as "pen: 20" (its value), then print "Top: " and the name of the product with the highest value.',
+        prompt: 'products.txt has lines like "pen,2,10": a name, a price, and a quantity, split by commas. Price and quantity are whole numbers. Finish the class Product: its method value() returns price times qty. Make a Product for each line and put it in the list products. Then, in file order, print each product\'s name and value, like "pen: 20". Last, print "Top: " and the name of the product with the highest value, like "Top: book".',
         starter: 'class Product:\n    def __init__(self, name, price, qty):\n        self.name = name\n        self.price = price\n        self.qty = qty\n\n    def value(self):\n        pass\n\nproducts = []\n',
         tests: [
           {
             name: 'three products',
-            files: { 'products.txt': 'pen,2,10\nbag,30,1\nbook,12,4\n', 'pets.txt': 'Rex,dog\nTom,cat\n' },
+            files: { 'products.txt': 'pen,2,10\nbag,30,1\nbook,12,4\n' },
             expectStdout: 'pen: 20\nbag: 30\nbook: 48\nTop: book',
           },
           {
@@ -457,7 +461,7 @@ export const classes: Concept = {
             hidden: true,
           },
           {
-            name: 'first one wins',
+            name: 'top is the first line',
             files: { 'products.txt': 'cap,9,9\nsock,1,2\n' },
             expectStdout: 'cap: 81\nsock: 2\nTop: cap',
             hidden: true,

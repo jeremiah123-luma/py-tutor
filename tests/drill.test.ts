@@ -60,3 +60,13 @@ describe('drill builder', () => {
     expect(checkShort(q, 'nope')).toBe(false);
   });
 });
+
+describe('checkShort is forgiving about typing', () => {
+  it('accepts double quotes for a printed dict, trailing spaces, and blank edge lines', async () => {
+    const { checkShort } = await import('../src/loop/drill');
+    const q = { id: 'x', concept: 'dictionaries', kind: 'predict', prompt: '', answer: "{'a': 1}\n2", explain: '' } as const;
+    expect(checkShort(q as never, '{"a": 1}\n2')).toBe(true);
+    expect(checkShort(q as never, "\n{'a': 1}  \n2\n\n")).toBe(true);
+    expect(checkShort(q as never, "{'a': 2}\n2")).toBe(false);
+  });
+});

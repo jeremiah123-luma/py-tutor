@@ -125,6 +125,11 @@ export class Session {
         }
         break;
       }
+      case 'talkthrough':
+        // Skip ahead (for example when the tutor can't be reached). Not a clean round.
+        this.talkHints++;
+        this.set({ step: 'feedback' });
+        break;
       case 'feedback':
         this.set({ step: 'doit', code: this.lesson.doit.starter, lastRun: undefined, lastGrade: undefined });
         this.checks = 0;
