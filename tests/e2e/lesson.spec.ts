@@ -38,6 +38,30 @@ async function unlock(page: Page) {
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 }
 
+
+/** Nothing on screen may stick out past the right edge (ignores things inside horizontal scrollers and decorative layers). */
+async function expectFitsScreen(page: Page, where: string) {
+  const offenders = await page.evaluate(() => {
+    // A phone browser zooms out to fit a too-wide page, which would hide the problem; measure against the real screen.
+    const W = Math.min(document.documentElement.clientWidth, window.screen.width);
+    const bad: string[] = [];
+    if (document.documentElement.scrollWidth > W + 1) bad.push(`page scrolls sideways: ${document.documentElement.scrollWidth} > ${W}`);
+    for (const el of document.querySelectorAll<HTMLElement>('body *')) {
+      if (el.closest('[aria-hidden="true"]')) continue;
+      let scroller = false;
+      for (let a = el.parentElement; a; a = a.parentElement) {
+        const ox = getComputedStyle(a).overflowX;
+        if (ox === 'auto' || ox === 'scroll' || ox === 'hidden') { scroller = true; break; }
+      }
+      if (scroller) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.right > W + 1) bad.push(`${el.tagName.toLowerCase()} "${(el.textContent ?? '').trim().slice(0, 40)}" right=${Math.round(r.right)} > ${W}`);
+    }
+    return bad.slice(0, 5);
+  });
+  expect(offenders, `${where}: elements wider than the screen`).toEqual([]);
+}
+
 async function setCode(page: Page, code: string) {
   const ed = page.getByLabel('Your code');
   await ed.click();
@@ -49,9 +73,13 @@ async function setCode(page: Page, code: string) {
 test('full loop for one dictionaries lesson, type mode', async ({ page }) => {
   await mockTutor(page);
   await unlock(page);
+  await page.getByRole('button', { name: /^(Start|Continue):/ }).waitFor();
+  await page.waitForTimeout(1200); // let the entrance animations settle
+  await expectFitsScreen(page, 'home');
   await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
 
   await expect(page.getByText(lesson.define)).toBeVisible();
+  await expectFitsScreen(page, 'lesson');
   await page.getByRole('button', { name: 'Show me an example' }).click();
   // Run on the example runs the example itself, with nothing in the input box (regression: it once ran the hidden starter).
   await page.getByRole('button', { name: 'Run', exact: true }).click();
@@ -117,6 +145,7 @@ test('exam drill: answer, finish, score', async ({ page }) => {
   await unlock(page);
   await page.getByRole('button', { name: /Exam drill/ }).click();
   await expect(page.getByText('1 of 18')).toBeVisible();
+  await expectFitsScreen(page, 'drill');
   await expect(page.getByLabel('time left')).toHaveText('90:00');
   await expect(page.getByLabel('time left')).not.toHaveText('90:00', { timeout: 3000 }); // the clock ticks
   for (let i = 0; i < 17; i++) await page.getByRole('button', { name: 'Next' }).click();

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '../ui/primitives';
 import { Logo } from '../ui/TopBar';
+import { Aurora } from '../ui/Aurora';
 
 export function PassScreen({ onSubmit }: { onSubmit: (p: string) => Promise<boolean> }) {
   const [value, setValue] = useState('');
@@ -11,12 +12,12 @@ export function PassScreen({ onSubmit }: { onSubmit: (p: string) => Promise<bool
       <div className="flex h-14 items-center border-b border-line px-4 md:px-5">
         <Logo />
       </div>
-      <section className="aurora px-5 pt-16 pb-28 text-center md:pt-24">
-        <h1 className="font-voice text-[2.5rem] leading-[1.02] md:text-[3.75rem]">Ace the final.</h1>
+      <Aurora className="px-5 pt-20 pb-32 text-center md:pt-28">
+        <h1 className="font-voice text-[2.5rem] leading-[1.02] md:text-[4rem]">Ace the final.</h1>
         <p className="mx-auto mt-3 max-w-[40ch] text-base text-[#3a3340]">Your Python tutor for dictionaries, files, and classes.</p>
-      </section>
+      </Aurora>
       <form
-        className="relative z-10 mx-auto -mt-16 flex w-[calc(100%-2rem)] max-w-md flex-col gap-3 rounded-xl border border-line-strong bg-surface p-5 shadow-soft"
+        className="glow-ring relative z-10 mx-auto -mt-20 flex w-[calc(100%-2rem)] max-w-md flex-col gap-3 rounded-2xl bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.6)] animate-[rise-in_700ms_var(--ease-out)_both]"
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);

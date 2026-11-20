@@ -45,6 +45,7 @@
 
 @layer base {
 html, body, #root { height: 100%; }
+html, body { overflow-x: clip; }
 body {
   margin: 0;
   background: var(--paper);
@@ -83,7 +84,7 @@ textarea, input { font: inherit; color: inherit; caret-color: var(--accent); }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
-@keyframes stage-in { from { opacity: 0.35; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@keyframes stage-in { from { opacity: 0; transform: translateY(8px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
 @keyframes talk-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.045); } 100% { transform: scale(1); } }
 
 /* Headline weight for the display face (unlayered, so it wins over font-medium on headings). */
@@ -120,3 +121,49 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
 .tab[aria-current='page']::after, .tab[aria-current='step']::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink); border-radius: 2px;
 }
+
+/* ---------- Living aurora ---------- */
+.aurora-live { background: linear-gradient(180deg, #F4E8F7 0%, #F7DCEE 100%); }
+.aurora-field { animation: aurora-hue 40s linear infinite alternate; will-change: filter; }
+.aurora-field > span { will-change: transform; mix-blend-mode: multiply; opacity: 0.9; }
+.aurora-grain {
+  opacity: 0.16; mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.aurora-live :focus-visible { outline-color: #111111; }
+@keyframes aurora-a { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(12vw, 6vh) scale(1.15); } 100% { transform: translate(-6vw, 10vh) scale(0.9); } }
+@keyframes aurora-b { 0% { transform: translate(0, 0) scale(1.1); } 50% { transform: translate(-14vw, 8vh) scale(0.9); } 100% { transform: translate(8vw, -6vh) scale(1.2); } }
+@keyframes aurora-c { 0% { transform: translate(0, 0) scale(0.95); } 50% { transform: translate(8vw, -10vh) scale(1.2); } 100% { transform: translate(-10vw, 4vh) scale(1); } }
+@keyframes aurora-hue { from { filter: hue-rotate(0deg) saturate(1); } to { filter: hue-rotate(-35deg) saturate(1.15); } }
+
+/* ---------- Glow ring (prompt box, primary surfaces) ---------- */
+@property --ring-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+.glow-ring { position: relative; isolation: isolate; }
+.glow-ring::before {
+  content: ''; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; padding: 1px;
+  background: conic-gradient(from var(--ring-angle), #A78BFA, #F9A8D4, #93C5FD, #A78BFA);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0.45; transition: opacity 300ms var(--ease-out);
+  animation: ring-spin 6s linear infinite;
+}
+.glow-ring:focus-within::before, .glow-ring:hover::before { opacity: 1; }
+.glow-ring::after {
+  content: ''; position: absolute; inset: 0; z-index: -2; border-radius: inherit;
+  background: conic-gradient(from var(--ring-angle), #A78BFA55, #F9A8D455, #93C5FD55, #A78BFA55);
+  filter: blur(18px); opacity: 0; transition: opacity 400ms var(--ease-out); animation: ring-spin 6s linear infinite;
+}
+.glow-ring:focus-within::after { opacity: 0.8; }
+@keyframes ring-spin { to { --ring-angle: 360deg; } }
+
+/* ---------- Small motion helpers ---------- */
+.lift { transition: transform 220ms var(--ease-out), border-color 220ms var(--ease-out), background-color 220ms var(--ease-out), box-shadow 220ms var(--ease-out); }
+.lift:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgb(0 0 0 / 0.35); }
+.shimmer-text {
+  background: linear-gradient(90deg, #111 0%, #111 40%, #5b21b6 50%, #111 60%, #111 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shimmer 7s ease-in-out infinite;
+}
+@keyframes shimmer { 0%, 30% { background-position: 100% 0; } 70%, 100% { background-position: 0% 0; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(18px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes pop-in { 0% { opacity: 0; transform: translateY(6px) scale(0.97); } 100% { opacity: 1; transform: none; } }
+@keyframes screen-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

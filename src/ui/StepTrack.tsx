@@ -1,4 +1,5 @@
 import { Check } from 'lucide-react';
+import { motion } from 'motion/react';
 import type { LoopStep } from '../types';
 
 /** The learner-facing phases of the loop. Engine steps fold into these. */
@@ -37,7 +38,7 @@ export function StepTrack({ step, compact }: { step: LoopStep; compact?: boolean
               <li
                 key={p.id}
                 aria-current={now ? 'step' : undefined}
-                className={`tab flex h-11 items-center gap-1.5 px-2.5 text-[0.9375rem] whitespace-nowrap ${now ? 'font-medium text-ink' : done ? 'text-ink-2' : 'text-ink-3'}`}
+                className={`relative flex h-11 items-center gap-1.5 px-2.5 text-[0.9375rem] whitespace-nowrap ${now ? 'font-medium text-ink' : done ? 'text-ink-2' : 'text-ink-3'}`}
               >
                 {done ? (
                   <Check className="size-4 text-ok" strokeWidth={2.25} aria-label="done" />
@@ -47,6 +48,13 @@ export function StepTrack({ step, compact }: { step: LoopStep; compact?: boolean
                   </span>
                 )}
                 {p.label}
+                {now && (
+                  <motion.span
+                    layoutId="step-underline"
+                    className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-ink"
+                    transition={{ type: 'spring', stiffness: 420, damping: 36 }}
+                  />
+                )}
               </li>
             );
           })}

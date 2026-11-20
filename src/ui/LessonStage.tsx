@@ -157,7 +157,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint }: LessonSt
 
   return (
     <section aria-label="Lesson" className="flex flex-col gap-4 px-5 pt-5 pb-5">
-      <div key={`${step}-${walkLine}`} className="flex flex-col gap-3 animate-[stage-in_240ms_var(--ease-out)]">
+      <div key={`${step}-${walkLine}`} className="flex flex-col gap-3 animate-[stage-in_420ms_var(--ease-out)]">
         {body}
         {['example', 'walkthrough', 'doit', 'check'].includes(step) && (
           <FilePreview

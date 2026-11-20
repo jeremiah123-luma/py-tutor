@@ -8,7 +8,7 @@ export function FeedbackBlock({ nailed = [], fix = [] }: { nailed?: string[]; fi
   return (
     <div className="mt-3 flex flex-col gap-2">
       {nailed.length > 0 && (
-        <div className="rounded-xl bg-nail-bg px-3.5 py-3">
+        <div className="rounded-xl bg-nail-bg px-3.5 py-3 animate-[pop-in_420ms_var(--ease-out)_both]">
           <p className="mb-1.5 text-sm font-medium text-ok">What you nailed</p>
           <ul className="flex flex-col gap-1">
             {nailed.map((n) => (
@@ -21,7 +21,7 @@ export function FeedbackBlock({ nailed = [], fix = [] }: { nailed?: string[]; fi
         </div>
       )}
       {fix.length > 0 && (
-        <div className="rounded-xl bg-fix-bg px-3.5 py-3">
+        <div className="rounded-xl bg-fix-bg animate-[pop-in_420ms_var(--ease-out)_120ms_both] px-3.5 py-3">
           <p className="mb-1.5 text-sm font-medium text-fix">What to fix</p>
           <ul className="flex flex-col gap-1">
             {fix.map((f) => (

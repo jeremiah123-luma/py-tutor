@@ -209,6 +209,7 @@ export default function App() {
   return (
     <>
       {screen === 'home' && (
+        <div key="home" className="animate-[screen-in_450ms_var(--ease-out)]">
         <HomeScreen
           concepts={CONCEPTS}
           progress={progress}
@@ -242,9 +243,11 @@ export default function App() {
           }}
           continueLabel={`${progress.updatedAt ? 'Continue' : 'Start'}: ${contLesson.title.charAt(0).toLowerCase()}${contLesson.title.slice(1)}`}
         />
+        </div>
       )}
 
       {screen === 'lesson' && session && state && (
+        <div key="lesson" className="animate-[screen-in_450ms_var(--ease-out)]">
         <LessonScreen
           session={state}
           concept={session.concept}
@@ -264,6 +267,7 @@ export default function App() {
           onModeChange={switchMode}
           onBack={goHome}
         />
+        </div>
       )}
 
       {screen === 'talk' && session && state && (
@@ -281,12 +285,14 @@ export default function App() {
       )}
 
       {screen === 'drill' && drill && (
+        <div key="drill" className="animate-[screen-in_450ms_var(--ease-out)]">
         <DrillScreen
           drill={drill}
           grade={(code, problem) => runner().grade(code, problem.tests, [])}
           onExit={goHome}
           conceptTitle={(id) => conceptMap[id]?.title ?? id}
         />
+        </div>
       )}
 
       <Toaster
