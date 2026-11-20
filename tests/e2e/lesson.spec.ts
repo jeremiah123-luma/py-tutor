@@ -83,7 +83,7 @@ test('full loop for one dictionaries lesson, type mode', async ({ page }) => {
   await page.getByRole('button', { name: 'Show me an example' }).click();
   // Run on the example runs the example itself, with nothing in the input box (regression: it once ran the hidden starter).
   await page.getByRole('button', { name: 'Run', exact: true }).click();
-  await expect(page.getByRole('tabpanel').getByText('1.99')).toBeVisible();
+  await expect(page.getByRole('tabpanel').getByText('1.99')).toBeVisible({ timeout: 30_000 }); // first run downloads Python
   await expect(page.getByRole('tabpanel').getByText(/Error/)).toHaveCount(0);
   await page.getByRole('button', { name: 'Go line by line' }).click();
   for (let i = 1; i < lesson.walkthrough.length; i++) {
