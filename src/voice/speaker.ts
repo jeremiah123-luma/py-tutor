@@ -72,11 +72,18 @@ export class Speaker {
       const audio = await this.queue.shift()!;
       if (gen !== this.gen) break;
       if (!audio || !this.ctx) continue;
+      // iOS can suspend or "interrupt" the audio (a call, Siri, the mic starting): wake it before playing.
+      if (this.ctx.state !== 'running') await Promise.race([this.ctx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 800))]);
       await new Promise<void>((resolve) => {
         const src = this.ctx!.createBufferSource();
         src.buffer = audio;
         src.connect(this.ctx!.destination);
-        src.onended = () => resolve();
+        // If iOS never reports the end (audio stalled), don't hang on "Speaking" forever.
+        const safety = setTimeout(resolve, audio.duration * 1000 + 2500);
+        src.onended = () => {
+          clearTimeout(safety);
+          resolve();
+        };
         this.current = src;
         src.start();
       });

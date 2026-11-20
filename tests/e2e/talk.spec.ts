@@ -30,6 +30,9 @@ async function fakeMic(page: import('@playwright/test').Page) {
 
 test('talk mode: tutor speaks, hears a spoken question, answers', async ({ page }, info) => {
   test.skip(info.project.name !== 'laptop', 'one run is enough');
+  // After each explanation the tutor waits ~2.6 s for a question before moving on, and the recorded question
+  // loops with silence around it, so it may land on a later listening window: allow for that.
+  test.setTimeout(180_000);
   const tutorCalls: any[] = [];
   const stt: string[] = [];
   await fakeMic(page);
@@ -57,7 +60,7 @@ test('talk mode: tutor speaks, hears a spoken question, answers', async ({ page 
   await page.mouse.click(400, 400);
   await expect(page.getByText(/Speaking/)).toBeVisible({ timeout: 20_000 });
   // The definition is spoken with real TTS, then the mic opens and VAD hears the recorded question.
-  await expect.poll(() => stt.length, { timeout: 45_000 }).toBeGreaterThan(0);
+  await expect.poll(() => stt.length, { timeout: 120_000 }).toBeGreaterThan(0);
   console.log('heard:', stt[0], '| tts requests:', ttsTimes.length);
   expect(stt[0].toLowerCase()).toContain('dictionary');
   await expect.poll(() => tutorCalls.length, { timeout: 15_000 }).toBeGreaterThan(0);

@@ -80,10 +80,7 @@ export class TalkController {
     await this.speaker.unlock();
     this.update({ ring: 'thinking' });
     void this.keepAwake();
-    this.micReady = this.listener.init(this.speaker.audioContext).then(
-      () => true,
-      () => false,
-    );
+    this.micReady = this.initMic();
     if (this.session.state.turns.length === 0) this.session.start();
     else this.speaker.say(this.session.state.turns.at(-1)!.text);
   }
@@ -98,6 +95,9 @@ export class TalkController {
     }
     if (this.ring === 'idle') {
       if (!this.speaker.audioContext) return this.begin();
+      await this.speaker.unlock();
+      // The mic failed earlier (or iOS dropped it): build a fresh listener from this tap.
+      if (!this.listener.ready) this.micReady = this.initMic();
       await this.openMic();
     }
   }
@@ -115,14 +115,27 @@ export class TalkController {
 
   private advanceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private initMic() {
+    return this.listener.init(this.speaker.audioContext).then(
+      () => true,
+      () => false,
+    );
+  }
+
   private async openMic(autoAdvanceMs?: number) {
     if (this.stopped) return;
     if (!(await this.micReady)) {
       this.update({ ring: 'idle' });
       return;
     }
+    try {
+      await this.listener.start();
+    } catch {
+      // The listener already said what went wrong; a tap tries again.
+      this.update({ ring: 'idle' });
+      return;
+    }
     this.update({ ring: 'listening', error: '' });
-    await this.listener.start();
     if (this.advanceTimer) clearTimeout(this.advanceTimer);
     if (autoAdvanceMs) {
       this.advanceTimer = setTimeout(() => {

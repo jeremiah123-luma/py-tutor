@@ -97,7 +97,7 @@ export function LessonScreen(p: LessonScreenProps) {
               aria-label="Ask the tutor"
               className="fixed inset-y-0 right-0 z-30 flex w-full max-w-md flex-col border-l border-line bg-paper/95 shadow-[0_0_60px_rgb(0_0_0/0.6)] backdrop-blur-xl animate-[drawer-in_320ms_var(--ease-out)]"
             >
-              <div className="flex items-center justify-between border-b border-line px-4 py-3">
+              <div className="flex items-center justify-between border-b border-line px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
                 <p className="font-medium">Ask the tutor</p>
                 <Button variant="ghost" size="sm" onClick={() => setAskOpen(false)} icon={<X className="size-4" strokeWidth={2} />} aria-label="Close" />
               </div>

@@ -9,7 +9,7 @@ export function PassScreen({ onSubmit }: { onSubmit: (p: string) => Promise<bool
   const [wrong, setWrong] = useState(false);
   return (
     <main className="flex min-h-dvh flex-col">
-      <div className="flex h-14 items-center border-b border-line px-4 md:px-5">
+      <div className="flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center border-b border-line px-4 pt-[env(safe-area-inset-top)] md:px-5">
         <Logo />
       </div>
       <Aurora className="px-5 pt-20 pb-32 text-center md:pt-28">

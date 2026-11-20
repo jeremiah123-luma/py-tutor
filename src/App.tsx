@@ -15,7 +15,7 @@ import type { TalkController } from './voice/talk';
 
 // Voice (VAD model runtime) only loads when talk mode is used.
 const loadTalk = () => import('./voice/talk').then((m) => m.TalkController);
-import { unlockAudio } from './voice/audio';
+import { primeMic, releaseMic, unlockAudio } from './voice/audio';
 import { HomeScreen } from './screens/HomeScreen';
 import { LessonScreen } from './screens/LessonScreen';
 import { TalkScreen } from './screens/TalkScreen';
@@ -160,6 +160,7 @@ export default function App() {
 
   const goHome = () => {
     void talk?.end();
+    releaseMic();
     setTalk(null);
     session?.interrupt();
     setScreen('home');
@@ -188,6 +189,7 @@ export default function App() {
       void talkReady.current.then(setTalk);
     } else {
       void talk?.end();
+      releaseMic();
       setTalk(null);
       session.events = {};
       runner();
@@ -255,6 +257,7 @@ export default function App() {
           onTalkNow={() => {
             setMode('talk');
             unlockAudio();
+            void primeMic().catch(() => {});
             void loadTalk();
             startLesson(cont.concept, cont.index, 'talk');
           }}
@@ -309,6 +312,7 @@ export default function App() {
           onTap={() => {
             if (state.step === 'check' || state.step === 'mastered') return nextSkill();
             unlockAudio(); // synchronously, inside the gesture
+            void primeMic().catch(() => {}); // iPhone: the mic must be asked for inside the tap
             void talkReady.current?.then((t) => t.tap());
           }}
           onExit={goHome}

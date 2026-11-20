@@ -3,6 +3,7 @@
 // car speakers can't make the tutor interrupt itself.
 import { MicVAD } from '@ricky0123/vad-web';
 import { transcribe } from '../loop/api';
+import { micStream, primeMic, releaseMic } from './audio';
 
 export interface ListenerEvents {
   onSpeechStart?: () => void;
@@ -29,10 +30,10 @@ export class Listener {
         onnxWASMBasePath: '/vad/',
         startOnLoad: false,
         audioContext: audioContext ?? undefined,
-        getStream: () =>
-          navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
-          }),
+        // One mic stream for the whole session (opened in the tap); never stopped between turns.
+        getStream: () => micStream(),
+        resumeStream: () => micStream(),
+        pauseStream: async () => {},
         // Road noise: demand clearer speech and a real pause before ending.
         positiveSpeechThreshold: 0.6,
         negativeSpeechThreshold: 0.4,
@@ -66,9 +67,28 @@ export class Listener {
     }
   }
 
+  /** Open the mic. Throws (after telling him why) if the phone refused it. */
   async start() {
-    this.active = true;
-    await this.vad?.start();
+    if (!this.vad) throw new Error('mic not ready');
+    try {
+      await this.vad.start();
+      if ((this.vad as unknown as { errored?: string | null }).errored) throw new Error((this.vad as unknown as { errored: string }).errored);
+      this.active = true;
+    } catch (e) {
+      this.active = false;
+      const msg = String((e as Error)?.message ?? e);
+      console.warn('[talk] mic start failed:', (e as Error)?.name, msg);
+      // The VAD can't recover from a failed start: drop it so the next tap builds a fresh one.
+      const dead = this.vad;
+      this.vad = null;
+      void dead.destroy().catch(() => {});
+      this.ev.onError?.(
+        /denied|NotAllowed|permission/i.test(msg)
+          ? 'The microphone is blocked. Tap to try again. If it keeps failing, allow the mic for this app in Settings.'
+          : 'The microphone stopped. Tap to turn it back on.',
+      );
+      throw e;
+    }
   }
 
   async pause() {
@@ -82,8 +102,18 @@ export class Listener {
 
   async destroy() {
     this.active = false;
-    await this.vad?.destroy();
+    await this.vad?.destroy().catch(() => {});
     this.vad = null;
+    releaseMic();
+  }
+
+  /** Re-open the mic from a tap (after a failure or after iOS closed it). */
+  reprime() {
+    void primeMic().catch(() => {});
+  }
+
+  get ready() {
+    return !!this.vad;
   }
 }
 

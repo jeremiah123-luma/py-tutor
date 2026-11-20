@@ -32,7 +32,8 @@ export function Logo({ onClick }: { onClick?: () => void }) {
 /** Logo, breadcrumbs, and actions on the right. */
 export function TopBar({ crumbs = [], right, onHome }: { crumbs?: string[]; right?: ReactNode; onHome?: () => void }) {
   return (
-    <div className="flex h-14 items-center gap-3 border-b border-line px-4 md:px-5">
+    // On iPhone (home-screen app) the page draws under the status bar, so leave room for it.
+    <div className="flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b border-line pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] md:pr-[max(1.25rem,env(safe-area-inset-right))] md:pl-[max(1.25rem,env(safe-area-inset-left))]">
       <Logo onClick={onHome} />
       {crumbs.map((c, i) => (
         <span key={i} className={`flex min-w-0 items-center gap-3 text-sm ${i === crumbs.length - 1 ? 'text-ink' : 'text-ink-2'} ${i < crumbs.length - 1 ? 'max-sm:hidden' : ''}`}>
