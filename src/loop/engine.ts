@@ -1,6 +1,7 @@
 // The learning loop. One Session per lesson; the only code that calls the tutor.
 //   define -> example -> walkthrough(1..n) -> talkthrough -> feedback -> doit -> check -> mastered|next
 // Scripted steps (define/example/walkthrough) come straight from the curriculum: no AI call, no latency.
+import { gradeFeedback } from './feedback';
 import type { Concept, GradeResult, Lesson, Mode, Progress, RunResult, SessionState, TestCase, TutorTurn } from '../types';
 import type { TutorAsk, TutorMeta } from './api';
 import { record, sub, withLast } from './progress';
@@ -40,6 +41,8 @@ export class Session {
   private talkHints = 0;
   private doHints = 0;
   private checks = 0;
+  /** Failed checks on this problem. The first one gets free written feedback; after that the tutor explains. */
+  private failedChecks = 0;
   readonly lesson: Lesson;
 
   readonly concept: Concept;
@@ -134,6 +137,7 @@ export class Session {
       case 'feedback':
         this.set({ step: 'doit', code: this.lesson.doit.starter, lastRun: undefined, lastGrade: undefined, freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
         this.checks = 0;
+        this.failedChecks = 0;
         this.doHints = 0;
         this.scripted(
           this.mode === 'talk'
@@ -170,6 +174,7 @@ export class Session {
       case 'doit':
         if (!isWriting(this.state.step)) {
           this.checks = 0;
+          this.failedChecks = 0;
           this.doHints = 0;
           this.set({ freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
         }
@@ -367,6 +372,16 @@ export class Session {
     this.checks++;
     this.set({ lastGrade, busy: 'idle' });
     this.push({ role: 'learner', text: 'Check my code.' });
+    // Free first: a pass, or the first failed check, is explained from the test results with no AI call.
+    // Only if he is still stuck (a second failed check or more) does the tutor explain, which uses credits.
+    if (!lastGrade.passed) this.failedChecks++;
+    if (lastGrade.passed || this.failedChecks === 1) {
+      const fb = gradeFeedback(lastGrade);
+      this.push({ role: 'tutor', text: fb.text, nailed: fb.nailed, fix: fb.fix });
+      this.events.onTutorLine?.(fb.text, true);
+      this.finishDoit(lastGrade.passed, true, true);
+      return;
+    }
     const res = await this.callTutor({ kind: 'explain-grade', code: this.state.code, grade: lastGrade, hintsUsed: this.doHints });
     // The tests decide pass/fail, not the model.
     this.finishDoit(lastGrade.passed, true, res !== null);

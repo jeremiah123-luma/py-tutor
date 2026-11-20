@@ -218,3 +218,25 @@ describe('hints are free until the written ones run out', () => {
     expect(s.state.freeHints?.talk).toBe(1);
   });
 });
+
+describe('Check my code is free until he is still stuck', () => {
+  it('a pass and the first failed check use no AI; the second failed check asks the tutor', async () => {
+    const concept = Object.values(concepts)[0]!;
+    const lesson = concept.lessons[0];
+    const calls: TutorAsk[] = [];
+    const s = new Session(concept, 0, 'type', deps({ p: emptyProgress() }, calls));
+    s.start();
+    s.goTo('doit');
+    s.setCode(lesson.doit.wrong[0]);
+    await s.check();
+    expect(s.state.lastGrade!.passed).toBe(false);
+    expect(s.state.turns.at(-1)!.fix!.length).toBeGreaterThan(0);
+    expect(calls.filter((c) => c.kind === 'explain-grade')).toHaveLength(0);
+    await s.check();
+    expect(calls.filter((c) => c.kind === 'explain-grade')).toHaveLength(1);
+    s.setCode(lesson.doit.reference);
+    await s.check();
+    expect(s.state.lastGrade!.passed).toBe(true);
+    expect(calls.filter((c) => c.kind === 'explain-grade')).toHaveLength(1);
+  });
+});

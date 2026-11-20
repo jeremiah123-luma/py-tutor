@@ -6,6 +6,7 @@ import { toSlides } from '../../src/ui/SlideDeck';
 
 const SEP = '␞';
 const lesson = dictionaries.lessons[0];
+let gradeCalls = 0; // AI explain-grade calls seen by the mock
 
 async function mockTutor(page: Page) {
   await page.route('**/api/tutor', async (route) => {
@@ -18,6 +19,7 @@ async function mockTutor(page: Page) {
       meta = { verdict: ok ? 'pass' : 'fail', nailed: ['curly braces with pairs'], fix: ok ? [] : ['read with prices["bread"]'], highlightLines: [], next: ok ? 'advance' : 'retry' };
     }
     if (req.kind === 'explain-grade') {
+      gradeCalls++;
       text = req.grade.passed ? 'Every test passes. Nice.' : 'You made the dictionary right. Line 3 prints the wrong thing.';
       meta = { verdict: req.grade.passed ? 'pass' : 'fail', nailed: ['made capitals correctly'], fix: req.grade.passed ? [] : ['use capitals[country]'], highlightLines: [3], next: 'stay' };
     }
@@ -117,13 +119,16 @@ test('full loop for one dictionaries lesson, type mode', async ({ page }) => {
   // Wrong first: loops back with nailed/fix feedback.
   await setCode(page, lesson.doit.wrong[0]);
   await page.getByRole('button', { name: 'Check my code' }).click();
-  await expect(page.getByText('Line 3 prints the wrong thing.')).toBeVisible();
+  // The first failed check is explained for free from the test results (no AI call).
+  await expect(page.getByText(/expected .* but your code printed|stopped with an error|hidden test/).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Check my code' })).toBeVisible();
+  expect(gradeCalls).toBe(0);
 
   // Fix it: real Pyodide grading passes.
   await setCode(page, lesson.doit.reference);
   await page.getByRole('button', { name: 'Check my code' }).click();
-  await expect(page.getByText('Every test passes. Nice.')).toBeVisible();
+  await expect(page.getByText(/All \d+ tests pass\. Nice work\./).first()).toBeVisible();
+  expect(gradeCalls).toBe(0);
   await expect(page.getByRole('button', { name: 'Next skill' })).toBeVisible();
   await page.screenshot({ path: `test-results/loop-done-${test.info().project.name}.png`, fullPage: false });
 });
