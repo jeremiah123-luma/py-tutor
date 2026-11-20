@@ -43,7 +43,7 @@ export function TopBar({ crumbs = [], right, onHome }: { crumbs?: string[]; righ
           <span className="truncate">{c}</span>
         </span>
       ))}
-      <div className="ml-auto flex items-center gap-2">
+      <div data-tour="profile" className="ml-auto flex items-center gap-2">
         {right}
         <ProfileMenu />
       </div>

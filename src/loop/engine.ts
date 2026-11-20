@@ -256,10 +256,13 @@ export class Session {
       return res;
     } catch (e) {
       if ((e as Error).name === 'AbortError') return null;
+      const m = (e as Error).message;
       const msg =
-        (e as Error).message === 'locked'
-          ? 'The passcode was rejected. Enter it again from the home screen.'
-          : "I couldn't reach the tutor just now. Check your connection and try again.";
+        m === 'locked'
+          ? 'You were signed out. Sign in again from the home screen.'
+          : m === 'cap'
+            ? "You've used today's AI help. Checks and written hints still work, and it resets tomorrow."
+            : "I couldn't reach the tutor just now. Check your connection and try again.";
       this.replaceLast({ role: 'tutor', text: msg, at });
       return null;
     } finally {

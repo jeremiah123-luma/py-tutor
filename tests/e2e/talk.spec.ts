@@ -1,6 +1,7 @@
 // Hands-free talk mode in Chromium with a fake microphone playing a recorded question.
 // Real: VAD (Silero in the browser), OpenAI transcription, OpenAI speech. Mocked: Claude.
 import { expect, test } from '@playwright/test';
+import { signInApi, skipTour } from './account';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 
@@ -50,9 +51,9 @@ test('talk mode: tutor speaks, hears a spoken question, answers', async ({ page 
   const ttsTimes: number[] = [];
   page.on('requestfinished', (r) => r.url().endsWith('/api/tts') && ttsTimes.push(Date.now()));
 
+  await skipTour(page);
+  await signInApi(page);
   await page.goto('/');
-  await page.getByLabel('Passcode').fill(process.env.E2E_PASS ?? 'dev-pass');
-  await page.getByRole('button', { name: 'Open' }).click();
   await page.getByRole('radio', { name: /Talk/ }).first().click();
   await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
 

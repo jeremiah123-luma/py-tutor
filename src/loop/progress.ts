@@ -4,6 +4,12 @@ import type { ConceptId, LoopStep, Progress, SubskillProgress } from '../types';
 import { pullProgress, pushProgress } from './api';
 
 const KEY = 'progress-v1';
+let who = '';
+/** Progress on this device is kept per account, so two people sharing a laptop don't mix. */
+export function setProgressUser(id: string) {
+  who = id;
+}
+const localKey = () => (who ? `${KEY}:${who}` : KEY);
 
 export function emptyProgress(): Progress {
   return { concepts: { dictionaries: {}, files: {}, classes: {} }, updatedAt: 0 };
@@ -43,7 +49,7 @@ export function withLast(p: Progress, concept: ConceptId, subskill: string, step
 export async function loadProgress(): Promise<Progress> {
   let local: Progress | undefined;
   try {
-    local = await get<Progress>(KEY);
+    local = await get<Progress>(localKey());
   } catch {
     /* IndexedDB blocked */
   }
@@ -54,7 +60,7 @@ export async function loadProgress(): Promise<Progress> {
 
 export async function saveProgress(p: Progress) {
   try {
-    await set(KEY, p);
+    await set(localKey(), p);
   } catch {
     /* ignore */
   }

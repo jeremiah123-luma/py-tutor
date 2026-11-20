@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import * as Menu from '@radix-ui/react-dropdown-menu';
-import { LogOut, Keyboard, Mic, Trophy, CalendarClock } from 'lucide-react';
+import { LogOut, Keyboard, Mic, Trophy, CalendarClock, Fingerprint, Gauge, Users, Compass } from 'lucide-react';
+import type { Usage } from '../loop/api';
 import { daysToFinal } from './TopBar';
 
 export interface ProfileInfo {
@@ -8,8 +9,18 @@ export interface ProfileInfo {
   mastered: number;
   total: number;
   mode: 'type' | 'talk';
+  username: string;
+  admin: boolean;
+  passkeys: number;
+  usage?: Usage | null;
+  onAddPasskey?: () => void;
+  onAdmin?: () => void;
+  onReplayTour?: () => void;
   onSignOut: () => void;
 }
+
+const item =
+  'flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-2 outline-none data-[highlighted]:bg-surface-2 data-[highlighted]:text-ink';
 
 export const ProfileContext = createContext<ProfileInfo | null>(null);
 
@@ -43,7 +54,7 @@ export function ProfileMenu() {
             </span>
             <div className="min-w-0">
               <p className="truncate font-semibold">{p.name}</p>
-              <p className="truncate text-sm text-ink-2">Signed in with passcode · CS 100</p>
+              <p className="truncate text-sm text-ink-2">@{p.username} · CS 100</p>
             </div>
           </div>
           <div className="mx-1 mb-2 rounded-xl bg-surface-2 p-3">
@@ -60,15 +71,35 @@ export function ProfileMenu() {
               <CalendarClock className="size-4" strokeWidth={1.75} aria-hidden="true" />
               <span className="tnum">Final in {daysToFinal()} days · Sat, Dec 19, 9:00 AM</span>
             </div>
+            {p.usage && !p.admin && (
+              <div className="mt-1.5 flex items-center gap-2 text-sm text-ink-2">
+                <Gauge className="size-4" strokeWidth={1.75} aria-hidden="true" />
+                <span className="tnum">
+                  AI today: ${p.usage.spentToday.toFixed(2)} of ${(p.usage.allowance + p.usage.bonus).toFixed(2)}
+                </span>
+              </div>
+            )}
             <div className="mt-1.5 flex items-center gap-2 text-sm text-ink-2">
               {p.mode === 'talk' ? <Mic className="size-4" strokeWidth={1.75} aria-hidden="true" /> : <Keyboard className="size-4" strokeWidth={1.75} aria-hidden="true" />}
               <span>{p.mode === 'talk' ? 'Talk mode' : 'Type mode'}</span>
             </div>
           </div>
-          <Menu.Item
-            onSelect={p.onSignOut}
-            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-2 outline-none data-[highlighted]:bg-surface-2 data-[highlighted]:text-ink"
-          >
+          {p.admin && p.onAdmin && (
+            <Menu.Item onSelect={p.onAdmin} className={item}>
+              <Users className="size-4" strokeWidth={1.75} aria-hidden="true" /> Class usage
+            </Menu.Item>
+          )}
+          {p.passkeys === 0 && p.onAddPasskey && (
+            <Menu.Item onSelect={p.onAddPasskey} className={item}>
+              <Fingerprint className="size-4" strokeWidth={1.75} aria-hidden="true" /> Add a passkey (Face ID)
+            </Menu.Item>
+          )}
+          {p.onReplayTour && (
+            <Menu.Item onSelect={p.onReplayTour} className={item}>
+              <Compass className="size-4" strokeWidth={1.75} aria-hidden="true" /> Show the tutorial again
+            </Menu.Item>
+          )}
+          <Menu.Item onSelect={p.onSignOut} className={item}>
             <LogOut className="size-4" strokeWidth={1.75} aria-hidden="true" /> Sign out on this device
           </Menu.Item>
         </Menu.Content>

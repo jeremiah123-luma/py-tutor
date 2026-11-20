@@ -105,7 +105,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
       actions = (
         <>
           {onHint && (
-            <Button variant="ghost" onClick={onHint} icon={<Lightbulb className="size-4" strokeWidth={1.75} />}>
+            <Button data-tour="lesson-hint" variant="ghost" onClick={onHint} icon={<Lightbulb className="size-4" strokeWidth={1.75} />}>
               {hintLabel}
             </Button>
           )}
@@ -139,7 +139,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
         </>
       );
       actions = onHint ? (
-        <Button variant="ghost" onClick={onHint} icon={<Lightbulb className="size-4" strokeWidth={1.75} />}>
+        <Button data-tour="lesson-hint" variant="ghost" onClick={onHint} icon={<Lightbulb className="size-4" strokeWidth={1.75} />}>
           {hintLabel}
         </Button>
       ) : null;
@@ -160,7 +160,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
   }
 
   return (
-    <section aria-label="Lesson" className="flex flex-col gap-4 px-5 pt-5 pb-5">
+    <section data-tour="lesson-stage" aria-label="Lesson" className="flex flex-col gap-4 px-5 pt-5 pb-5">
       <div key={`${step}-${walkLine}`} className="flex flex-col gap-3 animate-[stage-in_420ms_var(--ease-out)]">
         {body}
         {['example', 'walkthrough', 'doit', 'check'].includes(step) && (

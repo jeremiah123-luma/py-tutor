@@ -24,38 +24,99 @@ export interface TutorAsk {
   history?: { role: 'tutor' | 'learner'; text: string }[];
 }
 
-const PASS_KEY = 'py-tutor-pass';
-export function getPass(): string {
-  try {
-    return localStorage.getItem(PASS_KEY) ?? '';
-  } catch {
-    return '';
-  }
+export interface Account {
+  id: string;
+  name: string;
+  username: string;
+  admin: boolean;
+  passkeys: number;
 }
-export function setPass(p: string) {
-  try {
-    localStorage.setItem(PASS_KEY, p);
-  } catch {
-    /* private mode: kept in memory only */
-  }
-  memPass = p;
-}
-let memPass = '';
-/** Sign out on this device: forget the passcode. Progress stays saved. */
-export function clearPass() {
-  try {
-    localStorage.removeItem(PASS_KEY);
-  } catch {
-    /* ignore */
-  }
-  memPass = '';
-}
-const pass = () => getPass() || memPass;
 
-export async function checkPass(p: string): Promise<boolean> {
-  const r = await fetch('/api/ping', { headers: { 'x-pass': p } });
-  return r.ok;
+export interface Usage {
+  date: string;
+  spentToday: number;
+  allowance: number;
+  bonus: number;
+  capped: boolean;
+  active: number;
+  monthSpent: number;
+  budget: number;
+  admin: boolean;
 }
+
+/** Thrown when today's AI allowance is used up. The app shows the "You hit your cap" pop-up. */
+export class CapError extends Error {
+  usage?: Usage;
+  constructor(usage?: Usage) {
+    super('cap');
+    this.usage = usage;
+  }
+}
+const capListeners = new Set<(u?: Usage) => void>();
+export function onCap(fn: (u?: Usage) => void) {
+  capListeners.add(fn);
+  return () => void capListeners.delete(fn);
+}
+async function failed(r: Response, what: string): Promise<never> {
+  if (r.status === 402) {
+    const j = (await r.json().catch(() => ({}))) as { usage?: Usage };
+    capListeners.forEach((f) => f(j.usage));
+    throw new CapError(j.usage);
+  }
+  throw new Error(r.status === 401 ? 'locked' : `${what} ${r.status}`);
+}
+
+async function postJSON<T>(url: string, body?: unknown): Promise<T> {
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+  const j = (await r.json().catch(() => ({}))) as T & { error?: string; field?: string };
+  if (!r.ok) throw Object.assign(new Error(j.error ?? `Something went wrong (${r.status}). Try again.`), { field: j.field, status: r.status });
+  return j;
+}
+
+export async function me(): Promise<{ user: Account; usage: Usage } | null> {
+  try {
+    const r = await fetch('/api/me');
+    return r.ok ? await r.json() : null;
+  } catch {
+    return null;
+  }
+}
+export const signUp = (b: { name: string; username: string; password: string; code: string }) => postJSON<{ user: Account }>('/api/auth/signup', b);
+export const signIn = (b: { username: string; password: string }) => postJSON<{ user: Account }>('/api/auth/login', b);
+export const signOut = () => postJSON('/api/auth/logout').catch(() => undefined);
+
+export function passkeysSupported() {
+  return typeof window !== 'undefined' && !!window.PublicKeyCredential;
+}
+export async function addPasskey(): Promise<Account> {
+  const { startRegistration } = await import('@simplewebauthn/browser');
+  const options = await postJSON<any>('/api/passkey/register/options');
+  const response = await startRegistration({ optionsJSON: options });
+  return (await postJSON<{ user: Account }>('/api/passkey/register/verify', response)).user;
+}
+export async function signInWithPasskey(): Promise<Account> {
+  const { startAuthentication } = await import('@simplewebauthn/browser');
+  const { id, options } = await postJSON<{ id: string; options: any }>('/api/passkey/login/options');
+  const response = await startAuthentication({ optionsJSON: options });
+  return (await postJSON<{ user: Account }>('/api/passkey/login/verify', { id, response })).user;
+}
+
+export const askForMore = () => postJSON<{ mailto: string; to: string; subject: string; body: string }>('/api/credits/request');
+
+export interface AdminOverview {
+  date: string;
+  budget: number;
+  monthSpent: number;
+  allowance: { perPerson: number; active: number };
+  users: (Account & { bonus: number; spentToday: number; lastSeen: string | null; createdAt: number })[];
+  requests: { id: string; name: string; username: string; at: number; spentToday: number; allowance: number; status: 'pending' | 'approved' | 'declined'; granted?: number }[];
+}
+export async function adminOverview(): Promise<AdminOverview> {
+  const r = await fetch('/api/admin/overview');
+  if (!r.ok) throw new Error(`admin ${r.status}`);
+  return r.json();
+}
+export const reviewRequest = (id: string, action: 'approve' | 'decline', amount?: number) => postJSON(`/api/admin/requests/${id}`, { action, amount });
 
 const EMPTY_META: TutorMeta = { verdict: 'none', nailed: [], fix: [], highlightLines: [], next: 'stay' };
 
@@ -82,11 +143,11 @@ export async function askTutor(
 ): Promise<{ text: string; meta: TutorMeta }> {
   const r = await fetch('/api/tutor', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-pass': pass() },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(req),
     signal,
   });
-  if (!r.ok || !r.body) throw new Error(r.status === 401 ? 'locked' : `tutor ${r.status}`);
+  if (!r.ok || !r.body) return failed(r, 'tutor');
   const reader = r.body.getReader();
   const dec = new TextDecoder();
   let all = '';
@@ -111,25 +172,25 @@ export async function transcribe(audio: Blob, signal?: AbortSignal): Promise<str
   const fd = new FormData();
   const ext = audio.type.includes('mp4') ? 'mp4' : audio.type.includes('wav') ? 'wav' : 'webm';
   fd.append('audio', audio, `speech.${ext}`);
-  const r = await fetch('/api/stt', { method: 'POST', headers: { 'x-pass': pass() }, body: fd, signal });
-  if (!r.ok) throw new Error(`stt ${r.status}`);
+  const r = await fetch('/api/stt', { method: 'POST', body: fd, signal });
+  if (!r.ok) return failed(r, 'stt');
   return ((await r.json()) as { text: string }).text;
 }
 
 export async function speechAudio(text: string, signal?: AbortSignal): Promise<ArrayBuffer> {
   const r = await fetch('/api/tts', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-pass': pass() },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ text }),
     signal,
   });
-  if (!r.ok) throw new Error(`tts ${r.status}`);
+  if (!r.ok) return failed(r, 'tts');
   return r.arrayBuffer();
 }
 
 export async function pullProgress(): Promise<Progress | null> {
   try {
-    const r = await fetch('/api/progress', { headers: { 'x-pass': pass() } });
+    const r = await fetch('/api/progress');
     return r.ok ? ((await r.json()) as Progress | null) : null;
   } catch {
     return null;
@@ -140,7 +201,7 @@ export async function pushProgress(p: Progress) {
   try {
     await fetch('/api/progress', {
       method: 'PUT',
-      headers: { 'content-type': 'application/json', 'x-pass': pass() },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify(p),
     });
   } catch {

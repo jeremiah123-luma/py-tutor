@@ -80,7 +80,7 @@ export function LessonScreen(p: LessonScreenProps) {
             </>
           }
         />
-        <div className="border-b border-line px-2 md:px-3">
+        <div data-tour="lesson-steps" className="border-b border-line px-2 md:px-3">
           <StepTrack step={session.step} onJump={p.onJump} />
         </div>
       </header>
@@ -146,6 +146,7 @@ export function LessonScreen(p: LessonScreenProps) {
                 </Button>
               )}
               <Button
+                data-tour="lesson-run"
                 size="sm"
                 variant={writing ? 'secondary' : 'primary'}
                 onClick={p.onRun}
@@ -168,13 +169,13 @@ export function LessonScreen(p: LessonScreenProps) {
                 </Button>
               )}
               {writing && (
-                <Button size="sm" variant="primary" onClick={p.onCheck} icon={<ListChecks className="size-4" strokeWidth={2} />}>
+                <Button data-tour="lesson-check" size="sm" variant="primary" onClick={p.onCheck} icon={<ListChecks className="size-4" strokeWidth={2} />}>
                   Check my code
                 </Button>
               )}
             </div>
           </div>
-          <div className="min-h-[13rem] flex-1 overflow-auto md:min-h-0">
+          <div data-tour="lesson-editor" className="min-h-[13rem] flex-1 overflow-auto md:min-h-0">
             <CodeEditor
               value={code}
               onChange={writing ? p.onCodeChange : undefined}
@@ -203,7 +204,7 @@ export function LessonScreen(p: LessonScreenProps) {
           )}
         </div>
 
-        <div className="flex min-h-[24rem] flex-col [grid-area:convo] md:min-h-0 md:border-r md:border-line">
+        <div data-tour="lesson-convo" className="flex min-h-[24rem] flex-col [grid-area:convo] md:min-h-0 md:border-r md:border-line">
           <Conversation turns={session.turns.filter((t) => !t.scripted)} thinking={session.busy === 'thinking'} onSend={p.onSend} />
         </div>
       </main>

@@ -1,14 +1,14 @@
-// App shell: passcode gate -> home -> lesson (type) | talk | drill. Wires the UI to the loop engine.
+// App shell: sign in -> home -> lesson (type) | talk | drill. Wires the UI to the loop engine.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Toaster, toast } from 'sonner';
 import type { Concept, ConceptId, Mode, Progress } from './types';
 import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
-import { askTutor, checkPass, clearPass, getPass, setPass } from './loop/api';
+import { addPasskey, askTutor, me, onCap, signOut, type Account, type Usage } from './loop/api';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
-import { emptyProgress, loadProgress, reviewQueue, saveProgress, sub } from './loop/progress';
+import { emptyProgress, loadProgress, reviewQueue, saveProgress, setProgressUser, sub } from './loop/progress';
 import { buildDrill, type Drill } from './loop/drill';
 import { browserRunner, type PyRunner } from './runtime/runner';
 import type { TalkController } from './voice/talk';
@@ -20,11 +20,26 @@ import { HomeScreen } from './screens/HomeScreen';
 import { LessonScreen } from './screens/LessonScreen';
 import { TalkScreen } from './screens/TalkScreen';
 import { DrillScreen } from './screens/DrillScreen';
-import { PassScreen } from './screens/PassScreen';
+import { AuthScreen } from './screens/AuthScreen';
+import { AdminScreen } from './screens/AdminScreen';
+import { CapDialog } from './ui/CapDialog';
+import { Tour } from './ui/Tour';
+import { TOUR_STEPS } from './tour/steps';
+import { markTourSeen, resetTour, tourSeen } from './tour/state';
+import type { TourScreen } from './tour/types';
+
+/** Tests set this to keep the first-run tour out of the way. */
+const tourOff = () => {
+  try {
+    return localStorage.getItem('py-tutor.tour.skip-all') === '1';
+  } catch {
+    return false;
+  }
+};
 import { VisualizeScreen, type VizInit } from './screens/VisualizeScreen';
 import { PHASES, phaseIndex } from './ui/StepTrack';
 
-type Screen = 'home' | 'lesson' | 'talk' | 'drill' | 'viz';
+type Screen = 'home' | 'lesson' | 'talk' | 'drill' | 'viz' | 'admin';
 
 const CONCEPTS = conceptOrder.map((id) => conceptMap[id]).filter(Boolean) as Concept[];
 const SUBSKILLS = Object.fromEntries(CONCEPTS.map((c) => [c.id, c.lessons.map((l) => l.subskill)]));
@@ -83,6 +98,10 @@ function useTalk(t: TalkController | null) {
 
 export default function App() {
   const [unlocked, setUnlocked] = useState<boolean | null>(null);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [cap, setCap] = useState<{ open: boolean; usage?: Usage }>({ open: false });
+  const [tourTick, setTourTick] = useState(0);
   const [progress, setProgressState] = useState<Progress>(emptyProgress);
   const progressRef = useRef(progress);
   const [screen, setScreen] = useState<Screen>('home');
@@ -117,18 +136,34 @@ export default function App() {
     }
   };
 
-  // Boot: passcode, then progress.
-  useEffect(() => {
-    const p = getPass();
-    (p ? checkPass(p).catch(() => false) : Promise.resolve(false)).then(async (ok) => {
-      setUnlocked(ok);
-      if (ok) {
-        const loaded = await loadProgress();
-        progressRef.current = loaded;
-        setProgressState(loaded);
-      }
-    });
+  const enter = useCallback(async (u: Account) => {
+    setAccount(u);
+    setProgressUser(u.id);
+    const loaded = await loadProgress();
+    progressRef.current = loaded;
+    setProgressState(loaded);
+    setUnlocked(true);
+    void me().then((m) => m && setUsage(m.usage));
   }, []);
+
+  // Boot: signed in already (cookie)? then progress.
+  useEffect(() => {
+    me().then((m) => {
+      if (!m) return setUnlocked(false);
+      setUsage(m.usage);
+      void enter(m.user);
+    });
+  }, [enter]);
+
+  // Any AI call that hits the daily cap opens the pop-up.
+  useEffect(
+    () =>
+      onCap((u) => {
+        if (u) setUsage(u);
+        setCap({ open: true, usage: u });
+      }),
+    [],
+  );
 
   const startLesson = useCallback(
     (conceptId: ConceptId, index: number, m: Mode) => {
@@ -201,35 +236,51 @@ export default function App() {
   const contLesson = conceptMap[cont.concept]!.lessons[cont.index];
 
   if (unlocked === null) return <div className="min-h-dvh bg-paper" />;
-  if (!unlocked)
-    return (
-      <PassScreen
-        onSubmit={async (p) => {
-          const ok = await checkPass(p).catch(() => false);
-          if (ok) {
-            setPass(p);
-            const loaded = await loadProgress();
-            progressRef.current = loaded;
-            setProgressState(loaded);
-            setUnlocked(true);
-          }
-          return ok;
-        }}
-      />
-    );
+  if (!unlocked) return <AuthScreen onSignedIn={(u) => void enter(u)} />;
+
+  // First-run tour: home right after signing in; the lesson tour the first time they reach "Try it",
+  // when every part it points at is on screen.
+  const tourScreen: TourScreen | null = (() => {
+    if (!account || tourOff() || cap.open) return null;
+    void tourTick;
+    if (screen === 'home' && !tourSeen(account.id, 'home')) return 'home';
+    if (screen === 'lesson' && state?.step === 'doit' && !tourSeen(account.id, 'lesson')) return 'lesson';
+    return null;
+  })();
 
   const masteredCount = CONCEPTS.reduce((n, c) => n + Object.values(progress.concepts[c.id] ?? {}).filter((x) => x.mastered).length, 0);
   const lessonCount = CONCEPTS.reduce((n, c) => n + c.lessons.length, 0);
   const profile = {
-    name: 'Jeremy',
+    name: account?.name ?? '',
+    username: account?.username ?? '',
+    admin: !!account?.admin,
+    passkeys: account?.passkeys ?? 0,
+    usage,
     mastered: masteredCount,
     total: lessonCount,
     mode,
+    onAddPasskey: async () => {
+      try {
+        setAccount(await addPasskey());
+        toast.success('Passkey added. Next time, sign in with Face ID or Touch ID.');
+      } catch (e) {
+        if (!['NotAllowedError', 'AbortError'].includes((e as Error).name)) toast.error('The passkey couldn’t be added. Try again.');
+      }
+    },
+    onAdmin: () => setScreen('admin'),
+    onReplayTour: () => {
+      if (!account) return;
+      resetTour(account.id);
+      setScreen('home');
+      setTourTick((n) => n + 1);
+    },
     onSignOut: () => {
       void talk?.end();
       setTalk(null);
       session?.interrupt();
-      clearPass();
+      void signOut();
+      setAccount(null);
+      setProgressUser('');
       setScreen('home');
       setUnlocked(false);
     },
@@ -342,6 +393,26 @@ export default function App() {
           />
         </div>
       )}
+
+      {screen === 'admin' && account?.admin && (
+        <div key="admin" className="animate-[screen-in_450ms_var(--ease-out)]">
+          <AdminScreen onBack={() => setScreen('home')} />
+        </div>
+      )}
+
+      {tourScreen && account && (
+        <Tour
+          key={`${tourScreen}-${tourTick}`}
+          steps={TOUR_STEPS}
+          screen={tourScreen}
+          onDone={() => {
+            markTourSeen(account.id, tourScreen);
+            setTourTick((n) => n + 1);
+          }}
+        />
+      )}
+
+      <CapDialog open={cap.open} usage={cap.usage} onClose={() => setCap({ open: false })} />
 
       <Toaster
         position="bottom-center"

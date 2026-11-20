@@ -2,6 +2,7 @@
 // requested long after the tap (outside the gesture), got refused, and the screen still said "Listening".
 // Taps are sent as key presses: Playwright's WebKit on macOS mis-targets raw mouse clicks, and keys still count as a gesture.
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { signInApi, skipTour } from './account';
 import path from 'node:path';
 import { readFileSync } from 'node:fs';
 
@@ -46,9 +47,9 @@ test('iPhone (WebKit): mic opens inside the tap, once, and survives several turn
   page.on('response', async (r) => {
     if (r.url().endsWith('/api/stt')) stt.push((await r.json()).text);
   });
+  await skipTour(page);
+  await signInApi(page);
   await page.goto('/');
-  await page.getByLabel('Passcode').fill(process.env.E2E_PASS ?? 'dev-pass');
-  await page.getByLabel('Passcode').press('Enter');
   await tap(page, page.getByRole('radio', { name: /Talk/ }).first());
   await tap(page, page.getByRole('button', { name: /^(Start|Continue):/ }));
   await tap(page, page.getByRole('button', { name: 'Tap anywhere to start' }));

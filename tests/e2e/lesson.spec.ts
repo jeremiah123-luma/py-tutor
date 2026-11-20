@@ -3,6 +3,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { dictionaries } from '../../src/curriculum/dictionaries';
 import { toSlides } from '../../src/ui/SlideDeck';
+import { E2E, signInApi, skipTour } from './account';
 
 const SEP = '␞';
 const lesson = dictionaries.lessons[0];
@@ -31,13 +32,18 @@ async function unlock(page: Page) {
   // Each test starts from empty progress (no server state carried between runs).
   await page.route('**/api/progress', (r) => (r.request().method() === 'GET' ? r.fulfill({ json: null }) : r.fulfill({ json: { ok: true } })));
   page.on('pageerror', (e) => console.log('PAGEERROR', e.message, e.stack?.split('\n').slice(0,4).join(' | ')));
-  page.on('console', (m) => m.type() === 'error' && console.log('CONSOLE', m.text()));
+  page.on('console', (m) => m.type() === 'error' && !/401|402/.test(m.text()) && console.log('CONSOLE', m.text()));
+  await skipTour(page);
+  await signInApi(page); // make sure the test account exists
+  await page.request.post('/api/auth/logout');
   await page.goto('/');
-  await page.getByLabel('Passcode').fill('nope');
-  await page.getByRole('button', { name: 'Open' }).click();
-  await expect(page.getByText('That passcode didn’t work.')).toBeVisible();
-  await page.getByLabel('Passcode').fill(process.env.E2E_PASS ?? 'dev-pass');
-  await page.getByRole('button', { name: 'Open' }).click();
+  // Sign in through the real form: a wrong password is refused, the right one gets in.
+  await page.getByLabel('Username').fill(E2E.username);
+  await page.getByLabel('Password').fill('wrong-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByText('That username and password don’t match.')).toBeVisible();
+  await page.getByLabel('Password').fill(E2E.password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 }
 

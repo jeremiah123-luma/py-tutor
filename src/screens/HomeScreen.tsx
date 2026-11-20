@@ -199,15 +199,16 @@ export function HomeScreen(p: HomeScreenProps) {
               <ArrowUp className="size-5" strokeWidth={2} />
             </motion.button>
           </div>
-          <div className="flex items-center gap-3 border-t border-line/70 px-3 py-2">
+          <div data-tour="home-mode" className="flex items-center gap-3 border-t border-line/70 px-3 py-2">
             <ModeToggle mode={p.mode} onChange={p.onModeChange} />
             <p className="text-sm text-ink-3 max-sm:hidden">{p.mode === 'talk' ? 'Hands-free, phone in a mount.' : 'You write every line yourself.'}</p>
           </div>
         </motion.form>
 
-        <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="Pick up a lesson">
+        <ul data-tour="home-lessons" className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="Pick up a lesson">
           <motion.li {...rise(0)} className="sm:col-span-2">
             <button
+              data-tour="home-continue"
               onClick={p.onContinue}
               className="lift press ht-host group flex w-full items-center gap-4 rounded-2xl bg-ink p-4 pr-5 text-left text-paper [--ht:rgb(167_139_250/0.55)] hover:shadow-[0_12px_40px_-8px_rgb(167_139_250/0.45)]"
             >
@@ -272,6 +273,7 @@ export function HomeScreen(p: HomeScreenProps) {
           </motion.li>
           <motion.li {...rise(p.concepts.length + 2)}>
             <button
+              data-tour="home-visualize"
               onClick={p.onVisualize}
               disabled={!p.onVisualize}
               className="lift press ht-host group flex h-full w-full flex-col justify-between gap-4 rounded-2xl border border-line bg-surface p-5 text-left hover:border-line-strong"
