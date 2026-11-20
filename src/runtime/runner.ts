@@ -1,6 +1,6 @@
 // Main-thread runner: owns a live worker plus a pre-warmed spare.
 // A run that exceeds the time limit kills its worker; the spare takes over instantly.
-import type { GradeResult, RunResult, TestCase } from '../types';
+import type { GradeResult, RunResult, TestCase, VizResult } from '../types';
 import type { PyRequest, PyResponse } from './core';
 
 export interface WorkerLike {
@@ -18,6 +18,8 @@ interface Slot {
 }
 
 export const RUN_LIMIT_MS = 3000;
+/** Tracing every step is slower than a plain run, so the visualizer gets more time. */
+export const VIZ_LIMIT_MS = 8000;
 
 export class PyRunner {
   private live: Slot;
@@ -100,6 +102,18 @@ export class PyRunner {
       };
     }
     return r as RunResult;
+  }
+
+  /** Trace a whole program for the visualizer: every frame, variable, and object at every step. */
+  async visualize(code: string, stdin?: string[], files?: Record<string, string>): Promise<VizResult> {
+    const r = await this.send({ kind: 'visualize', code, stdin, files }, Math.max(this.limitMs, VIZ_LIMIT_MS));
+    if (r === 'timeout') {
+      return {
+        steps: [], stdout: '', stopped: true, maxSteps: 0, timedOut: true,
+        error: { type: 'Timeout', message: 'Stopped: the program ran too long to show step by step.', friendly: 'Usually that means a loop never ends. Check that its condition can become False.' },
+      };
+    }
+    return r as VizResult;
   }
 
   /** One request per test, so one runaway loop fails only its own test. */

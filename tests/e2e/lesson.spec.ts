@@ -171,3 +171,20 @@ test('exam drill: answer, finish, score', async ({ page }) => {
   await page.getByRole('button', { name: 'Finish and score' }).click();
   await expect(page.getByRole('heading', { name: /of 18/ })).toBeVisible();
 });
+
+test('visualize: step through code with frames, objects, and arrows', async ({ page }) => {
+  await unlock(page);
+  await page.getByRole('button', { name: 'Visualize' }).first().click();
+  await page.getByLabel('Load an example').selectOption({ index: 1 });
+  await page.getByRole('button', { name: 'Visualize', exact: true }).click();
+  await expect(page.getByText('Ready to run line 1.')).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Forward one step' }).click();
+  await expect(page.getByText('Line 1 just ran.')).toBeVisible();
+  await expect(page.getByText('Global frame')).toBeVisible();
+  await page.getByRole('button', { name: 'Last step' }).click();
+  await expect(page.getByText('The program finished.')).toBeVisible();
+  await expect(page.locator('svg path[marker-end]').first()).toBeAttached(); // at least one arrow drawn
+  await expectFitsScreen(page, 'visualize');
+  await page.getByRole('button', { name: /Back to home/ }).click();
+  await expect(page.getByRole('button', { name: /^(Start|Continue):/ })).toBeVisible();
+});

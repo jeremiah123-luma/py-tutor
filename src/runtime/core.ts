@@ -1,12 +1,13 @@
 // Environment-neutral Pyodide wrapper: used by the browser worker and by Node tests.
 import type { PyodideInterface } from 'pyodide';
-import type { GradeResult, RunResult, TestCase } from '../types';
+import type { GradeResult, RunResult, TestCase, VizResult } from '../types';
 
 export type PyRequest =
   | { kind: 'run'; code: string; stdin?: string[]; files?: Record<string, string>; trace?: boolean }
-  | { kind: 'grade'; code: string; tests: TestCase[]; extraAllowed?: string[] };
+  | { kind: 'grade'; code: string; tests: TestCase[]; extraAllowed?: string[] }
+  | { kind: 'visualize'; code: string; stdin?: string[]; files?: Record<string, string> };
 
-export type PyResponse = RunResult | GradeResult;
+export type PyResponse = RunResult | GradeResult | VizResult;
 
 export async function setupHarness(py: PyodideInterface, source: string) {
   await py.runPythonAsync(source);

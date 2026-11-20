@@ -15,6 +15,13 @@ export function isWriting(step: SessionState['step']) {
  * The one source of truth for which code is on screen. The editor shows it and Run runs it,
  * so what he sees is always exactly what runs.
  */
+/** Files a run starts with: the example's own files over the do-it sample files. */
+export function runFilesFor(lesson: Lesson) {
+  const tests = lesson.doit.tests;
+  const sample = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
+  return lesson.exampleFiles ? { ...sample, ...lesson.exampleFiles } : sample;
+}
+
 export function codeOnScreen(lesson: Lesson, state: Pick<SessionState, 'step' | 'code'>) {
   return isWriting(state.step) ? state.code : lesson.example;
 }
@@ -341,9 +348,7 @@ export class Session {
 
   /** Files a run starts with: the example's own files over the do-it sample files. */
   private runFiles() {
-    const tests = this.lesson.doit.tests;
-    const sample = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
-    return this.lesson.exampleFiles ? { ...sample, ...this.lesson.exampleFiles } : sample;
+    return runFilesFor(this.lesson);
   }
 
   /** Run the example with a line-by-line trace, for the step-through player. Null if it can't be played. */

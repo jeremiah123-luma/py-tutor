@@ -21,9 +21,10 @@ import { LessonScreen } from './screens/LessonScreen';
 import { TalkScreen } from './screens/TalkScreen';
 import { DrillScreen } from './screens/DrillScreen';
 import { PassScreen } from './screens/PassScreen';
+import { VisualizeScreen, type VizInit } from './screens/VisualizeScreen';
 import { PHASES, phaseIndex } from './ui/StepTrack';
 
-type Screen = 'home' | 'lesson' | 'talk' | 'drill';
+type Screen = 'home' | 'lesson' | 'talk' | 'drill' | 'viz';
 
 const CONCEPTS = conceptOrder.map((id) => conceptMap[id]).filter(Boolean) as Concept[];
 const SUBSKILLS = Object.fromEntries(CONCEPTS.map((c) => [c.id, c.lessons.map((l) => l.subskill)]));
@@ -90,6 +91,12 @@ export default function App() {
   const [talk, setTalk] = useState<TalkController | null>(null);
   const [programInput, setProgramInput] = useState('');
   const [drill, setDrill] = useState<Drill | null>(null);
+  const [viz, setViz] = useState<{ init?: VizInit; from: 'home' | 'lesson' } | null>(null);
+  const openViz = (from: 'home' | 'lesson', init?: VizInit) => {
+    runner(); // warm Python
+    setViz({ init, from });
+    setScreen('viz');
+  };
   const talkReady = useRef<Promise<TalkController> | null>(null);
   const state = useSession(session);
   usePointerParallax();
@@ -261,6 +268,7 @@ export default function App() {
             setDrill(buildDrill(drillBank, CONCEPTS));
             setScreen('drill');
           }}
+          onVisualize={() => openViz('home')}
           continueLabel={`${progress.updatedAt ? 'Continue' : 'Start'}: ${contLesson.title.charAt(0).toLowerCase()}${contLesson.title.slice(1)}`}
         />
         </div>
@@ -288,6 +296,7 @@ export default function App() {
           onBack={goHome}
           onJump={(t) => session.goTo(t)}
           onTrace={() => session.traceExample()}
+          onVisualize={(code, files) => openViz('lesson', { code, files, from: session.lesson.title })}
         />
         </div>
       )}
@@ -314,6 +323,18 @@ export default function App() {
           onExit={goHome}
           conceptTitle={(id) => conceptMap[id]?.title ?? id}
         />
+        </div>
+      )}
+
+      {screen === 'viz' && viz && (
+        <div key="viz" className="animate-[screen-in_450ms_var(--ease-out)]">
+          <VisualizeScreen
+            init={viz.init}
+            concepts={CONCEPTS}
+            visualize={(code, stdin, files) => runner().visualize(code, stdin, files)}
+            backLabel={viz.from === 'lesson' ? 'Lesson' : 'Home'}
+            onBack={() => setScreen(viz.from === 'lesson' && session ? 'lesson' : 'home')}
+          />
         </div>
       )}
 

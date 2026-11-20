@@ -1,4 +1,4 @@
-import { ArrowLeft, Play, ListChecks, Footprints, X } from 'lucide-react';
+import { ArrowLeft, Play, ListChecks, Footprints, X, Eye } from 'lucide-react';
 import { SlideDeck } from '../ui/SlideDeck';
 import { useCallback, useEffect, useState } from 'react';
 import type { TraceStep } from '../types';
@@ -11,7 +11,7 @@ import { LessonStage } from '../ui/LessonStage';
 import { StepTrack, type JumpTarget } from '../ui/StepTrack';
 import { Button, ModeToggle } from '../ui/primitives';
 import { TopBar } from '../ui/TopBar';
-import { codeOnScreen, isWriting } from '../loop/engine';
+import { codeOnScreen, isWriting, runFilesFor } from '../loop/engine';
 
 export interface LessonScreenProps {
   session: SessionState;
@@ -30,6 +30,8 @@ export interface LessonScreenProps {
   onJump?: (t: JumpTarget) => void;
   /** Trace the example for the step-through player (null if it can't be played). */
   onTrace?: () => Promise<TraceStep[] | null>;
+  /** Open the code on screen in the visualizer (frames and objects). */
+  onVisualize?: (code: string, files?: Record<string, string>) => void;
 }
 
 export function LessonScreen(p: LessonScreenProps) {
@@ -128,6 +130,17 @@ export function LessonScreen(p: LessonScreenProps) {
               {canPlay && (
                 <Button size="sm" variant="secondary" onClick={() => void startPlayer()} loading={tracing} icon={<Footprints className="size-4" strokeWidth={1.75} />}>
                   Play step by step
+                </Button>
+              )}
+              {p.onVisualize && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => p.onVisualize!(code, runFilesFor(lesson))}
+                  icon={<Eye className="size-4" strokeWidth={1.75} />}
+                  aria-label="Visualize this code"
+                >
+                  <span className="hidden lg:inline">Visualize</span>
                 </Button>
               )}
               <Button

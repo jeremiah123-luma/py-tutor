@@ -1,6 +1,6 @@
 # Runs inside Pyodide. Executes learner code with fresh globals, scripted input(),
 # a clean working directory seeded with lesson files, and captured output.
-import ast, builtins, io, json, os, shutil, sys, traceback
+import ast, builtins, inspect, io, json, os, shutil, sys, traceback
 
 WORK = "/home/pyodide/work"
 
@@ -217,10 +217,199 @@ def grade(code, tests, extra_allowed=()):
     bu = banned_used(code, extra_allowed)
     return {"passed": all(x["passed"] for x in results) and not bu, "results": results, "bannedUsed": bu}
 
+
+# ---------- Visualizer: a frames-and-objects trace of any program, one step per executed line ----------
+VIZ_MAX_STEPS = 1000
+_PRIMS = (int, float, bool, complex, str, type(None))
+
+class _TooManySteps(Exception):
+    pass
+
+def visualize(code, stdin=None, files=None):
+    _reset_dir(files)
+    lines = list(stdin or [])
+    out = io.StringIO()
+
+    def fake_input(prompt=""):
+        out.write(str(prompt))
+        if not lines:
+            raise EOFError("EOF when reading a line")
+        val = lines.pop(0)
+        out.write(val + "\n")  # show what was typed, like a real terminal
+        return val
+
+    g = {"__name__": "__main__", "__builtins__": builtins}
+    keep = []      # holds every object we've numbered so ids are never reused
+    ids = {}       # id(obj) -> small stable number
+    frame_ids = {}
+    steps = []
+    last_line = [None]
+
+    def ref_of(o):
+        k = id(o)
+        if k not in ids:
+            ids[k] = len(ids) + 1
+            keep.append(o)
+        return ids[k]
+
+    def enc(v, heap):
+        if isinstance(v, _PRIMS):
+            if isinstance(v, str):
+                return ["str", repr(v) if len(v) <= 60 else repr(v[:57]) + "..."]
+            return [type(v).__name__ if v is not None else "none", repr(v)]
+        n = ref_of(v)
+        if n not in heap:
+            heap[n] = None  # placeholder breaks cycles
+            heap[n] = enc_obj(v, heap)
+        return ["ref", n]
+
+    def enc_obj(v, heap):
+        try:
+            if isinstance(v, io.IOBase):
+                return {"kind": "file", "label": "file", "name": str(getattr(v, "name", "")),
+                        "mode": str(getattr(v, "mode", "")), "closed": bool(v.closed)}
+            if isinstance(v, list):
+                return {"kind": "list", "label": "list", "items": [enc(x, heap) for x in v[:60]], "more": max(0, len(v) - 60)}
+            if isinstance(v, tuple):
+                return {"kind": "tuple", "label": "tuple", "items": [enc(x, heap) for x in v[:60]], "more": max(0, len(v) - 60)}
+            if isinstance(v, (set, frozenset)):
+                items = list(v)
+                try:
+                    items.sort()
+                except Exception:  # noqa
+                    pass
+                return {"kind": "set", "label": type(v).__name__, "items": [enc(x, heap) for x in items[:60]], "more": max(0, len(v) - 60)}
+            if isinstance(v, dict):
+                pairs = list(v.items())[:60]
+                return {"kind": "dict", "label": "dict", "pairs": [[enc(k, heap), enc(x, heap)] for k, x in pairs], "more": max(0, len(v) - 60)}
+            if type(v).__name__ in ("dict_keys", "dict_values", "dict_items"):
+                return {"kind": "list", "label": type(v).__name__, "items": [enc(x, heap) for x in list(v)[:60]], "more": 0}
+            if isinstance(v, type):
+                attrs = [[k, enc(x, heap)] for k, x in vars(v).items() if not k.startswith("__") or inspect.isfunction(x)]
+                return {"kind": "class", "label": v.__name__ + " class", "attrs": attrs}
+            if inspect.isfunction(v) or inspect.ismethod(v):
+                f = v.__func__ if inspect.ismethod(v) else v
+                try:
+                    sig = str(inspect.signature(f))
+                except Exception:  # noqa
+                    sig = "(...)"
+                return {"kind": "function", "label": "function", "name": f.__name__ + sig}
+            if callable(v) and type(v).__name__ == "builtin_function_or_method":
+                return {"kind": "function", "label": "built-in function", "name": getattr(v, "__name__", "?")}
+            if hasattr(v, "__dict__") and type(v).__module__ == "__main__":
+                attrs = [[k, enc(x, heap)] for k, x in vars(v).items()]
+                return {"kind": "instance", "label": type(v).__name__ + " instance", "attrs": attrs}
+            r = repr(v)
+            return {"kind": "other", "label": type(v).__name__, "repr": r if len(r) <= 80 else r[:77] + "..."}
+        except Exception:  # noqa
+            return {"kind": "other", "label": type(v).__name__, "repr": "?"}
+
+    def visible(k, v):
+        if k.startswith("__") or k == "__builtins__":
+            return False
+        return type(v).__name__ != "module"
+
+    def snapshot(frame, event, arg):
+        heap = {}
+        stack = []
+        f = frame
+        while f is not None:
+            if f.f_code.co_filename == "<student>":
+                stack.append(f)
+            f = f.f_back
+        stack.reverse()
+        frames = []
+        for f in stack:
+            is_global = f.f_code.co_name == "<module>"
+            src = g if is_global else f.f_locals
+            fid = frame_ids.setdefault(id(f), len(frame_ids) + 1)
+            if not is_global:
+                keep.append(f)
+            vars_ = [[k, enc(v, heap)] for k, v in list(src.items()) if visible(k, v)]
+            fr = {"id": fid, "name": "Global frame" if is_global else f.f_code.co_name, "vars": vars_}
+            if f is frame and event == "return" and not is_global:
+                fr["returnValue"] = enc(arg, heap)
+            frames.append(fr)
+        return frames, heap
+
+    def record(frame, event, arg):
+        if len(steps) >= VIZ_MAX_STEPS:
+            raise _TooManySteps()
+        frames, heap = snapshot(frame, event, arg)
+        step = {"line": frame.f_lineno, "prevLine": last_line[0], "event": event,
+                "frames": frames, "heap": [[k, heap[k]] for k in sorted(heap)], "out": out.getvalue()}
+        if event == "exception":
+            et, ev, _ = arg
+            step["exception"] = et.__name__ + ": " + str(ev)
+        steps.append(step)
+
+    def local(frame, event, arg):
+        if event in ("line", "return", "exception"):
+            if event == "return" and frame.f_code.co_name == "<module>":
+                return local  # the "done" step shows the end
+            record(frame, event, arg)
+            if event == "line":
+                last_line[0] = frame.f_lineno
+        return local
+
+    def tracer(frame, event, arg):
+        if frame.f_code.co_filename != "<student>":
+            return None
+        if event == "call" and frame.f_code.co_name != "<module>":
+            record(frame, "call", arg)
+        return local
+
+    old_out, old_input = sys.stdout, builtins.input
+    sys.stdout = out
+    builtins.input = fake_input
+    error = None
+    stopped = False
+    try:
+        try:
+            compiled = compile(code, "<student>", "exec")
+        except SyntaxError as e:
+            error = _error_info(e, "<student>")
+            compiled = None
+        if compiled is not None:
+            sys.settrace(tracer)
+            try:
+                exec(compiled, g)
+            except _TooManySteps:
+                stopped = True
+            except SystemExit:
+                pass
+            except BaseException as e:  # noqa
+                error = _error_info(e, "<student>")
+            finally:
+                sys.settrace(None)
+    finally:
+        sys.stdout, builtins.input = old_out, old_input
+    # one last step showing how things ended: the program's final state, or where the error happened
+    if steps and not stopped:
+        last = dict(steps[-1])
+        last["prevLine"] = last_line[0]
+        last["line"] = None
+        last["out"] = out.getvalue()
+        if error is None:
+            heap = {}
+            last["event"] = "done"
+            last["frames"] = [{"id": 1, "name": "Global frame", "vars": [[k, enc(v, heap)] for k, v in list(g.items()) if visible(k, v)]}]
+            last["heap"] = [[k, heap[k]] for k in sorted(heap)]
+        else:
+            last["event"] = "error"
+            last["exception"] = error["type"] + ": " + error["message"]
+        steps.append(last)
+    res = {"steps": steps, "stdout": out.getvalue(), "stopped": stopped, "maxSteps": VIZ_MAX_STEPS}
+    if error:
+        res["error"] = error
+    return res
+
 def handle(req_json):
     req = json.loads(req_json)
     if req["kind"] == "run":
         return json.dumps(run(req["code"], req.get("stdin"), req.get("files"), trace=bool(req.get("trace"))))
+    if req["kind"] == "visualize":
+        return json.dumps(visualize(req["code"], req.get("stdin"), req.get("files")))
     if req["kind"] == "grade":
         return json.dumps(grade(req["code"], req["tests"], tuple(req.get("extraAllowed") or ())))
     raise ValueError("unknown request kind")

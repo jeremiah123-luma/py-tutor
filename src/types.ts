@@ -157,3 +157,38 @@ export interface DrillQuestion {
   explain: string; // why, in plain English, 1–2 lines
   files?: Record<string, string>; // seeded files for predict questions that read files
 }
+
+/** Visualizer (frames and objects, like Python Tutor). A value is either inline or a reference to a heap object. */
+export type VizValue = [kind: string, text: string] | ['ref', number];
+export type VizObject =
+  | { kind: 'list' | 'tuple' | 'set'; label: string; items: VizValue[]; more: number }
+  | { kind: 'dict'; label: string; pairs: [VizValue, VizValue][]; more: number }
+  | { kind: 'instance' | 'class'; label: string; attrs: [string, VizValue][] }
+  | { kind: 'function'; label: string; name: string }
+  | { kind: 'file'; label: string; name: string; mode: string; closed: boolean }
+  | { kind: 'other'; label: string; repr: string };
+export interface VizFrame {
+  id: number;
+  name: string;
+  vars: [string, VizValue][];
+  returnValue?: VizValue;
+}
+export interface VizStep {
+  /** Next line to run (null once the program has ended). */
+  line: number | null;
+  /** Line that just ran. */
+  prevLine: number | null;
+  event: 'line' | 'call' | 'return' | 'exception' | 'done' | 'error';
+  frames: VizFrame[];
+  heap: [number, VizObject][];
+  out: string;
+  exception?: string;
+}
+export interface VizResult {
+  steps: VizStep[];
+  stdout: string;
+  stopped: boolean;
+  maxSteps: number;
+  error?: RunResult['error'];
+  timedOut?: boolean;
+}

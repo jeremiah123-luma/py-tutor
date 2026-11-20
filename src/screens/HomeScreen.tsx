@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, FileText, Home, Layers, Play, Sparkles, Timer } from 'lucide-react';
+import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, FileText, Home, Layers, Play, Sparkles, Timer, Eye } from 'lucide-react';
 import type { Concept, ConceptId, Mode, Progress } from '../types';
 import { ModeToggle } from '../ui/primitives';
 import { FinalPill, TopBar, daysToFinal } from '../ui/TopBar';
@@ -16,6 +16,8 @@ export interface HomeScreenProps {
   onContinue: () => void;
   onStart: (id: ConceptId) => void;
   onDrill?: () => void;
+  /** Open the visualizer (step through any program, frames and objects drawn). */
+  onVisualize?: () => void;
   /** Ask the tutor something from the home prompt; opens the current lesson with the question. */
   onAsk?: (text: string) => void;
   /** Mic button: switch to talk mode and start. */
@@ -103,6 +105,9 @@ export function HomeScreen(p: HomeScreenProps) {
           })}
           <button onClick={p.onDrill} disabled={!p.onDrill} className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 hover:text-ink">
             <Timer className="size-4" strokeWidth={1.75} aria-hidden="true" /> Exam drill
+          </button>
+          <button onClick={p.onVisualize} disabled={!p.onVisualize} className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 hover:text-ink">
+            <Eye className="size-4" strokeWidth={1.75} aria-hidden="true" /> Visualize
           </button>
         </nav>
       </header>
@@ -261,6 +266,26 @@ export function HomeScreen(p: HomeScreenProps) {
               <span className="text-[0.9375rem] text-ink-2">18 questions, timed. No tutor, no hints. Just like the real thing.</span>
               <span className="flex items-center gap-2 text-[0.9375rem] font-medium">
                 Start it
+                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} aria-hidden="true" />
+              </span>
+            </button>
+          </motion.li>
+          <motion.li {...rise(p.concepts.length + 2)}>
+            <button
+              onClick={p.onVisualize}
+              disabled={!p.onVisualize}
+              className="lift press ht-host group flex h-full w-full flex-col justify-between gap-4 rounded-2xl border border-line bg-surface p-5 text-left hover:border-line-strong"
+            >
+              <span className="halftone halftone-corner" aria-hidden="true" />
+              <span className="flex w-full items-center gap-3">
+                <span className="grid size-9 place-items-center rounded-lg bg-surface-2 text-tag-blue" aria-hidden="true">
+                  <Eye className="size-[18px]" strokeWidth={1.75} />
+                </span>
+                <span className="text-md font-semibold tracking-[-0.02em]">Visualize code</span>
+              </span>
+              <span className="text-[0.9375rem] text-ink-2">Paste any program and step through it. See every variable, list, dict, and object, with arrows.</span>
+              <span className="flex items-center gap-2 text-[0.9375rem] font-medium">
+                Open it
                 <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} aria-hidden="true" />
               </span>
             </button>
