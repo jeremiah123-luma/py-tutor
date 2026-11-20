@@ -9,7 +9,7 @@ export function daysToFinal(now = new Date()) {
 
 export function Logo({ onClick }: { onClick?: () => void }) {
   const mark = (
-    <span className="flex items-center gap-2">
+    <span className="flex shrink-0 items-center gap-2">
       <span
         aria-hidden="true"
         className="grid size-7 place-items-center rounded-lg font-code text-[0.75rem] font-bold text-[#111]"
@@ -17,7 +17,7 @@ export function Logo({ onClick }: { onClick?: () => void }) {
       >
         {'>_'}
       </span>
-      <span className="text-[1.0625rem] font-bold tracking-[-0.04em]">py-tutor</span>
+      <span className="text-[1.0625rem] font-bold tracking-[-0.04em] whitespace-nowrap max-[420px]:sr-only">py-tutor</span>
     </span>
   );
   return onClick ? (

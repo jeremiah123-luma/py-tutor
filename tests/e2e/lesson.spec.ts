@@ -2,6 +2,7 @@
 // Claude is mocked here for determinism (live Claude is covered by tests/live).
 import { expect, test, type Page } from '@playwright/test';
 import { dictionaries } from '../../src/curriculum/dictionaries';
+import { toSlides } from '../../src/ui/SlideDeck';
 
 const SEP = '␞';
 const lesson = dictionaries.lessons[0];
@@ -62,6 +63,16 @@ async function expectFitsScreen(page: Page, where: string) {
   expect(offenders, `${where}: elements wider than the screen`).toEqual([]);
 }
 
+/** Click through the Learn slides to the example. */
+async function throughSlides(page: Page) {
+  const done = page.getByRole('button', { name: 'Show me an example' });
+  for (let k = 0; k < 10 && !(await done.isVisible()); k++) {
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.waitForTimeout(150);
+  }
+  await done.click();
+}
+
 async function setCode(page: Page, code: string) {
   const ed = page.getByLabel('Your code');
   await ed.click();
@@ -78,9 +89,12 @@ test('full loop for one dictionaries lesson, type mode', async ({ page }) => {
   await expectFitsScreen(page, 'home');
   await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
 
-  await expect(page.getByText(lesson.define)).toBeVisible();
+  // Learn is slides only: big words, no editor or terminal yet.
+  await expect(page.getByText(toSlides(lesson.define)[0])).toBeVisible();
+  await expect(page.getByLabel('Example code')).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Console' })).toHaveCount(0);
   await expectFitsScreen(page, 'lesson');
-  await page.getByRole('button', { name: 'Show me an example' }).click();
+  await throughSlides(page);
   // Run on the example runs the example itself, with nothing in the input box (regression: it once ran the hidden starter).
   await page.getByRole('button', { name: 'Run', exact: true }).click();
   await expect(page.getByRole('tabpanel').getByText('1.99')).toBeVisible({ timeout: 30_000 }); // first run downloads Python
@@ -118,7 +132,7 @@ test('Run uses program input, and a runaway loop is stopped', async ({ page }) =
   await mockTutor(page);
   await unlock(page);
   await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
-  await page.getByRole('button', { name: 'Show me an example' }).click();
+  await throughSlides(page);
   await page.getByRole('button', { name: 'Go line by line' }).click();
   for (let i = 1; i < lesson.walkthrough.length; i++) await page.getByRole('button', { name: 'Next line' }).click();
   await page.getByRole('button', { name: 'I’ve got it' }).click();

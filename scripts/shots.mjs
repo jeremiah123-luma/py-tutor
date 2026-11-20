@@ -21,6 +21,8 @@ for (const [size, viewport] of Object.entries(sizes)) {
     await p.getByRole('button', { name: /^(Start|Continue):/ }).waitFor();
     await shot('home');
     await p.getByRole('button', { name: /^(Start|Continue):/ }).click();
+    await shot('learn-slide');
+    while (!(await p.getByRole('button', { name: 'Show me an example' }).isVisible())) await p.getByRole('button', { name: 'Next', exact: true }).click();
     await p.getByRole('button', { name: 'Show me an example' }).click();
     await p.getByRole('button', { name: 'Go line by line' }).click();
     await p.getByRole('button', { name: 'Next line' }).click();

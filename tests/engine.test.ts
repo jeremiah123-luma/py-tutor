@@ -190,3 +190,31 @@ describe('every example can be played step by step', () => {
     });
   }
 });
+
+describe('hints are free until the written ones run out', () => {
+  it('shows each written hint with no AI call, then asks the tutor', async () => {
+    const concept = Object.values(concepts)[0]!;
+    const lesson = concept.lessons[0];
+    const calls: TutorAsk[] = [];
+    const s = new Session(concept, 0, 'type', deps({ p: emptyProgress() }, calls));
+    s.start();
+    s.goTo('doit');
+    for (let k = 0; k < lesson.doit.hints.length; k++) {
+      await s.hint();
+      expect(s.state.turns.at(-1)!.text).toContain(lesson.doit.hints[k]);
+    }
+    expect(calls.filter((c) => c.kind === 'hint')).toHaveLength(0);
+    await s.hint();
+    expect(calls.filter((c) => c.kind === 'hint')).toHaveLength(1);
+  });
+  it('talk-it-through hints work the same way', async () => {
+    const concept = Object.values(concepts)[0]!;
+    const calls: TutorAsk[] = [];
+    const s = new Session(concept, 0, 'type', deps({ p: emptyProgress() }, calls));
+    s.start();
+    s.goTo('talkthrough');
+    await s.hint();
+    expect(calls).toHaveLength(0);
+    expect(s.state.freeHints?.talk).toBe(1);
+  });
+});

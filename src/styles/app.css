@@ -224,3 +224,4 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14), 0 8px 24px -10px rgb(0 0 0 / 0.6);
 }
 @keyframes var-flash { 0% { background: color-mix(in oklab, var(--accent) 35%, transparent); } 100% { background: transparent; } }
+@keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }

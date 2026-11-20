@@ -61,6 +61,7 @@ export class Session {
       turns: [],
       code: this.lesson.doit.starter,
       busy: 'idle',
+      freeHints: { talk: 0, doit: 0 },
     };
   }
 
@@ -131,7 +132,7 @@ export class Session {
         this.set({ step: 'feedback' });
         break;
       case 'feedback':
-        this.set({ step: 'doit', code: this.lesson.doit.starter, lastRun: undefined, lastGrade: undefined });
+        this.set({ step: 'doit', code: this.lesson.doit.starter, lastRun: undefined, lastGrade: undefined, freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
         this.checks = 0;
         this.doHints = 0;
         this.scripted(
@@ -170,6 +171,7 @@ export class Session {
         if (!isWriting(this.state.step)) {
           this.checks = 0;
           this.doHints = 0;
+          this.set({ freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
         }
         this.set({ step, walkLine: 0, lastRun: undefined, lastGrade: undefined });
         this.scripted(
@@ -298,11 +300,33 @@ export class Session {
     await this.callTutor({ kind: 'ask', learnerText: t, code: isWriting(step) ? this.state.code : undefined });
   }
 
+  /** The written hints for the question on screen, and how many he has already seen. */
+  hintBudget() {
+    const step = this.state.step;
+    const used = this.state.freeHints ?? { talk: 0, doit: 0 };
+    if (step === 'talkthrough') return { list: this.lesson.talkthrough.hints, used: used.talk };
+    if (isWriting(step)) return { list: this.lesson.doit.hints, used: used.doit };
+    return { list: [] as string[], used: 0 };
+  }
+
+  /**
+   * Hints cost nothing until the written ones run out: each lesson question ships with 2–3 hand-written hints,
+   * shown in order with no AI call. Only after those does Hint ask the tutor (which uses API credits).
+   */
   async hint() {
     const step = this.state.step;
     if (step === 'talkthrough') this.talkHints++;
     else if (step === 'doit') this.doHints++;
     this.push({ role: 'learner', text: 'Can I get a hint?' });
+    const { list, used } = this.hintBudget();
+    if (used < list.length) {
+      const text = `Hint ${used + 1} of ${list.length}: ${list[used]}`;
+      const fh = this.state.freeHints ?? { talk: 0, doit: 0 };
+      this.set({ freeHints: step === 'talkthrough' ? { ...fh, talk: fh.talk + 1 } : { ...fh, doit: fh.doit + 1 } });
+      this.push({ role: 'tutor', text });
+      this.events.onTutorLine?.(text, true);
+      return;
+    }
     await this.callTutor({
       kind: 'hint',
       code: isWriting(step) ? this.state.code : undefined,

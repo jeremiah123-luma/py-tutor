@@ -85,9 +85,11 @@ export interface ConsoleProps {
   programInput: string;
   onProgramInputChange: (v: string) => void;
   running?: boolean;
+  /** The program input box only matters when he is writing code that calls input(). */
+  showInput?: boolean;
 }
 
-export function Console({ run, grade, programInput, onProgramInputChange, running }: ConsoleProps) {
+export function Console({ run, grade, programInput, onProgramInputChange, running, showInput = true }: ConsoleProps) {
   const [tab, setTab] = useState<'output' | 'tests'>(grade ? 'tests' : 'output');
   const activeTab = grade ? tab : 'output';
   return (
@@ -114,7 +116,7 @@ export function Console({ run, grade, programInput, onProgramInputChange, runnin
         ))}
         {run && !running && <span className="tnum ml-auto text-xs text-ink-3">ran in {run.ms} ms</span>}
       </div>
-      <div className="grid min-h-0 flex-1 gap-0 md:grid-cols-[minmax(0,1fr)_14rem]">
+      <div className={`grid min-h-0 flex-1 gap-0 ${showInput ? 'md:grid-cols-[minmax(0,1fr)_14rem]' : ''}`}>
         <div className="min-h-[7rem] overflow-auto p-3" role="tabpanel">
           {activeTab === 'tests' && grade ? (
             <TestResults grade={grade} />
@@ -144,6 +146,7 @@ export function Console({ run, grade, programInput, onProgramInputChange, runnin
             </p>
           )}
         </div>
+        {showInput && (
         <label className="flex flex-col gap-1.5 border-t border-line p-3 md:border-t-0 md:border-l">
           <span className="text-xs font-medium text-ink-2">Program input</span>
           <textarea
@@ -155,6 +158,7 @@ export function Console({ run, grade, programInput, onProgramInputChange, runnin
             className="min-h-[4.5rem] flex-1 resize-none rounded-md border border-line bg-code-bg px-2.5 py-2 font-code text-[13.5px] leading-relaxed placeholder:font-ui placeholder:text-ink-3 focus-visible:border-accent"
           />
         </label>
+        )}
       </div>
     </section>
   );

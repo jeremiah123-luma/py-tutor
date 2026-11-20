@@ -9,6 +9,8 @@ export interface LessonStageProps {
   walkLine: number;
   onStep: (dir: 'next' | 'back') => void;
   onHint?: () => void;
+  /** Written hints already used on this step; label shows 'Hint 2 of 3', then 'Ask the tutor for help'. */
+  hintsUsed?: number;
 }
 
 function Voice({ children }: { children: React.ReactNode }) {
@@ -19,7 +21,9 @@ function Meta({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-ink-2">{children}</p>;
 }
 
-export function LessonStage({ lesson, step, walkLine, onStep, onHint }: LessonStageProps) {
+export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed = 0 }: LessonStageProps) {
+  const hintList = step === 'talkthrough' ? lesson.talkthrough.hints : lesson.doit.hints;
+  const hintLabel = hintsUsed < hintList.length ? `Hint ${hintsUsed + 1} of ${hintList.length}` : 'Ask the tutor for help';
   const total = lesson.walkthrough.length;
   const note = lesson.walkthrough.find((n) => n.line === walkLine);
 
@@ -102,7 +106,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint }: LessonSt
         <>
           {onHint && (
             <Button variant="ghost" onClick={onHint} icon={<Lightbulb className="size-4" strokeWidth={1.75} />}>
-              Hint
+              {hintLabel}
             </Button>
           )}
           <p className="flex items-center gap-1.5 text-sm text-ink-3">
@@ -136,7 +140,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint }: LessonSt
       );
       actions = onHint ? (
         <Button variant="ghost" onClick={onHint} icon={<Lightbulb className="size-4" strokeWidth={1.75} />}>
-          Hint
+          {hintLabel}
         </Button>
       ) : null;
       break;

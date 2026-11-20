@@ -140,6 +140,8 @@ export interface SessionState {
   lastRun?: RunResult;
   lastGrade?: GradeResult;
   busy: 'idle' | 'thinking' | 'running' | 'speaking' | 'listening';
+  /** Written hints already shown (free, no AI call), per question. After these run out, Hint asks the tutor. */
+  freeHints?: { talk: number; doit: number };
 }
 
 /** Exam Drill short question (16 per drill, plus 2 coding Problems). */

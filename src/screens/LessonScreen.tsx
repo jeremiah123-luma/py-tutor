@@ -1,4 +1,5 @@
-import { ArrowLeft, Play, ListChecks, Footprints } from 'lucide-react';
+import { ArrowLeft, Play, ListChecks, Footprints, X } from 'lucide-react';
+import { SlideDeck } from '../ui/SlideDeck';
 import { useCallback, useEffect, useState } from 'react';
 import type { TraceStep } from '../types';
 import { StepPlayer } from '../ui/StepPlayer';
@@ -49,6 +50,9 @@ export function LessonScreen(p: LessonScreenProps) {
     if (!canPlay) setPlayer(null);
   }, [canPlay, session.lessonIndex]);
   const onPlayerLine = useCallback((l: number) => setPlayerLine(l), []);
+  const [askOpen, setAskOpen] = useState(false);
+  // The output panel only appears once there is something to show (or while he is writing code).
+  const showConsole = writing || !!player || !!session.lastRun;
   const startPlayer = async () => {
     if (!p.onTrace) return;
     setTracing(true);
@@ -77,12 +81,44 @@ export function LessonScreen(p: LessonScreenProps) {
         </div>
       </header>
 
+      {defining ? (
+        <>
+          <SlideDeck
+            eyebrow={`${concept.title.replace(' and objects', '')} · Lesson ${session.lessonIndex + 1} of ${concept.lessons.length}`}
+            title={lesson.title}
+            text={lesson.define}
+            onDone={() => p.onStep('next')}
+            onAsk={() => setAskOpen(true)}
+          />
+          {askOpen && (
+            <aside
+              aria-label="Ask the tutor"
+              className="fixed inset-y-0 right-0 z-30 flex w-full max-w-md flex-col border-l border-line bg-paper/95 shadow-[0_0_60px_rgb(0_0_0/0.6)] backdrop-blur-xl animate-[drawer-in_320ms_var(--ease-out)]"
+            >
+              <div className="flex items-center justify-between border-b border-line px-4 py-3">
+                <p className="font-medium">Ask the tutor</p>
+                <Button variant="ghost" size="sm" onClick={() => setAskOpen(false)} icon={<X className="size-4" strokeWidth={2} />} aria-label="Close" />
+              </div>
+              <div className="flex min-h-0 flex-1 flex-col">
+                <Conversation turns={session.turns.filter((t) => !t.scripted)} thinking={session.busy === 'thinking'} onSend={p.onSend} />
+              </div>
+            </aside>
+          )}
+        </>
+      ) : (
       <main
         className="grid flex-1 md:min-h-0 md:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)]
           [grid-template-areas:'stage'_'code'_'convo'] md:[grid-template-areas:'stage_code'_'convo_code']"
       >
         <div className="border-b border-line [grid-area:stage] md:border-r">
-          <LessonStage lesson={lesson} step={session.step} walkLine={session.walkLine} onStep={p.onStep} onHint={p.onHint} />
+          <LessonStage
+            lesson={lesson}
+            step={session.step}
+            walkLine={session.walkLine}
+            onStep={p.onStep}
+            onHint={p.onHint}
+            hintsUsed={session.step === 'talkthrough' ? (session.freeHints?.talk ?? 0) : (session.freeHints?.doit ?? 0)}
+          />
         </div>
 
         <div className="flex min-h-0 flex-col border-b border-line bg-surface [grid-area:code] md:border-b-0">
@@ -111,14 +147,6 @@ export function LessonScreen(p: LessonScreenProps) {
             </div>
           </div>
           <div className="min-h-[13rem] flex-1 overflow-auto md:min-h-0">
-            {defining ? (
-              <div className="relative grid h-full min-h-[13rem] place-items-center overflow-hidden p-8">
-                <span className="halftone halftone-field" aria-hidden="true" />
-                <p className="relative max-w-[30ch] rounded-lg bg-surface px-4 py-3 text-center text-[0.9375rem] text-ink-2">
-                  Code shows up here once you’ve got the idea. Read the definition first.
-                </p>
-              </div>
-            ) : (
             <CodeEditor
               value={code}
               onChange={writing ? p.onCodeChange : undefined}
@@ -127,9 +155,9 @@ export function LessonScreen(p: LessonScreenProps) {
               focus={walking}
               label={writing ? 'Your code' : 'Example code'}
             />
-            )}
           </div>
-          <div className="border-t border-line bg-paper md:h-[17rem]">
+          {showConsole && (
+          <div className="border-t border-line bg-paper md:h-[17rem] animate-[stage-in_360ms_var(--ease-out)]">
             {player ? (
               <StepPlayer steps={player} notes={lesson.walkthrough} onLine={onPlayerLine} onClose={() => setPlayer(null)} />
             ) : (
@@ -140,15 +168,18 @@ export function LessonScreen(p: LessonScreenProps) {
               programInput={p.programInput}
               onProgramInputChange={p.onProgramInputChange}
               running={session.busy === 'running'}
+              showInput={writing}
             />
             )}
           </div>
+          )}
         </div>
 
         <div className="flex min-h-[24rem] flex-col [grid-area:convo] md:min-h-0 md:border-r md:border-line">
           <Conversation turns={session.turns.filter((t) => !t.scripted)} thinking={session.busy === 'thinking'} onSend={p.onSend} />
         </div>
       </main>
+      )}
     </div>
   );
 }

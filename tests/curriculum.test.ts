@@ -36,6 +36,7 @@ for (const concept of Object.values(concepts)) {
         it('has at least 2 wrong solutions and 2 hints', () => {
           expect(lesson.doit.wrong.length).toBeGreaterThanOrEqual(2);
           expect(lesson.doit.hints.length).toBeGreaterThanOrEqual(2);
+          expect(lesson.talkthrough.hints.length, "talk-it-through needs written hints so Hint is free").toBeGreaterThanOrEqual(2);
           expect(lesson.talkthrough.rubric.length).toBeGreaterThanOrEqual(2);
         });
       });
