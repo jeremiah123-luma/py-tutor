@@ -158,7 +158,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint }: LessonSt
         {body}
         {['example', 'walkthrough', 'doit', 'check'].includes(step) && (
           <FilePreview
-            files={sampleFiles(lesson.doit.tests)}
+            files={step === 'example' || step === 'walkthrough' ? (lesson.exampleFiles ?? sampleFiles(lesson.doit.tests)) : sampleFiles(lesson.doit.tests)}
             caption={step === 'doit' || step === 'check' ? 'Sample file (the tests use other files like it):' : 'The file this code reads:'}
           />
         )}

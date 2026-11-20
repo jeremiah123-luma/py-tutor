@@ -56,6 +56,7 @@ export interface Lesson {
   title: string;
   define: string; // 1–2 plain-English lines
   example: string; // short code
+  exampleFiles?: Record<string, string>; // files the example reads, if not the do-it sample files
   walkthrough: WalkNote[];
   talkthrough: Problem; // slightly harder variant, spoken
   doit: Problem; // typed and graded

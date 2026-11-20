@@ -4,23 +4,27 @@ export const dictionaries: Concept = {
   id: 'dictionaries',
   title: 'Dictionaries',
   blurb: 'Look things up by name instead of by position.',
+  // Matches zyBooks Module 10 (ch 11): {} and dict(a=1), d[k], d[k] = v, del, exactly four methods
+  // (clear, get, update, pop), keys/values/items views, list(view), sorted(). Labs and HW 10 use in, counting, dict of lists.
   allowed: [
-    'dict literals {}', 'd[key] read and assign', 'del d[key]', 'in / not in', '.get(key, default)',
-    '.keys() .values() .items()', 'for loops over a dict', 'len()', 'dicts holding lists or dicts',
+    'dict literals {} and dict(a=1)', 'd[key] read and assign', 'del d[key]', 'in / not in',
+    '.get(key, default) .pop(key, default) .update(other) .clear()', '.keys() .values() .items() (views)',
+    'list(view) and sorted()', 'for key in d / for k, v in d.items()', 'len()', 'dicts holding lists',
     'if/elif/else', 'while/for', 'strings and string methods', 'lists', 'functions', 'f-strings',
   ],
-  banned: ['dict comprehension', 'list comprehension', 'lambda', 'import collections'],
+  banned: ['dict comprehension', 'list comprehension', 'lambda', 'import collections', '.setdefault() (not taught in Module 10)'],
   lessons: [
     {
       subskill: 'create-read',
       title: 'Making a dictionary and reading from it',
       define:
         'A dictionary stores pairs: a key and its value. You look up a value by its key, like finding a word in a real dictionary to get its meaning.',
-      example: 'ages = {"Mia": 19, "Leo": 21}\nprint(ages["Mia"])\nprint(len(ages))',
+      example: 'prices = {"apples": 1.99, "oranges": 1.49}\nprint(prices["apples"])\nprint(f"The price of oranges is {prices[\'oranges\']}")\nprint(len(prices))',
       walkthrough: [
-        { line: 1, text: 'Curly braces make a dictionary. "Mia" is a key and 19 is its value. A colon joins each key to its value, and commas separate the pairs.', spoken: 'ages equals, curly brace, Mia colon 19, comma, Leo colon 21, close curly brace' },
-        { line: 2, text: 'Square brackets with a key look up its value. This prints 19.', spoken: 'print ages, square bracket, Mia' },
-        { line: 3, text: 'len counts the pairs, not the characters. Two pairs, so it prints 2.' },
+        { line: 1, text: 'Curly braces make a dictionary. "apples" is a key and 1.99 is its value. A colon joins each key to its value, and commas separate the pairs.', spoken: 'prices equals, curly brace, apples colon 1 point 9 9, comma, oranges colon 1 point 4 9, close curly brace' },
+        { line: 2, text: 'Square brackets with a key look up its value. This prints 1.99. You can\'t use a position like prices[0]; dictionaries are looked up by key, not by index.', spoken: 'print prices, square bracket, apples' },
+        { line: 3, text: 'Same lookup inside an f-string. The key uses single quotes because the f-string already uses double quotes. If you asked for a key that isn\'t there, like lemons, you\'d get a KeyError.' },
+        { line: 4, text: 'len counts the pairs, not the characters. Two pairs, so it prints 2.' },
       ],
       talkthrough: {
         id: 'dict-cr-talk',
@@ -138,17 +142,69 @@ export const dictionaries: Concept = {
       },
     },
     {
+      subskill: 'methods',
+      title: 'Dictionary methods: get, pop, update, clear',
+      define:
+        'Dictionaries come with four methods you need: get(key, default) reads without crashing, pop(key) removes a pair and hands back its value, update(other) merges another dictionary in, and clear() empties it.',
+      example: 'my_dict = {"Ahmad": 1, "Jane": 42}\nmy_dict.update({"John": 50})\nval = my_dict.pop("Ahmad")\nprint(val)\nprint(my_dict)\nmy_dict.clear()\nprint(my_dict)',
+      walkthrough: [
+        { line: 1, text: 'Two pairs to start: Ahmad maps to 1, Jane maps to 42.' },
+        { line: 2, text: 'update merges the other dictionary in. John is new, so he gets added. If John were already a key, his value would be overwritten.', spoken: 'my dict dot update, curly brace John colon 50' },
+        { line: 3, text: 'pop removes the Ahmad pair and gives you back its value, so val is 1.', spoken: 'val equals my dict dot pop, Ahmad' },
+        { line: 4, text: 'Prints 1, the value pop handed back.' },
+        { line: 5, text: 'Prints {\'Jane\': 42, \'John\': 50}. Ahmad is gone. The methods changed my_dict itself; they didn\'t make a copy.' },
+        { line: 6, text: 'clear removes every pair.' },
+        { line: 7, text: 'Prints {}, an empty dictionary.' },
+      ],
+      talkthrough: {
+        id: 'dict-me-talk',
+        subskill: 'methods',
+        prompt: 'cart = {"milk": 2} and extra = {"eggs": 12, "milk": 3}. What does cart look like after cart.update(extra), and why?',
+        starter: '',
+        tests: [],
+        rubric: ['eggs gets added to cart', 'milk becomes 3 because update overwrites keys that already exist', 'update changes cart itself (extra is unchanged)'],
+        hints: ['update copies every pair from extra into cart.', 'Keys are unique. What happens when cart already has milk?'],
+        reference: "{'milk': 3, 'eggs': 12}",
+        wrong: [],
+      },
+      doit: {
+        id: 'dict-me-do',
+        subskill: 'methods',
+        prompt: 'stock = {"pens": 4, "paper": 10, "ink": 2}. Read an item name. If it is in stock, remove it with pop and print "Removed pens (4)" using the value pop gave you. Otherwise print "Not in stock". Then merge {"tape": 5} into stock with update and print stock.',
+        starter: 'stock = {"pens": 4, "paper": 10, "ink": 2}\nitem = input()\n',
+        tests: [
+          { name: 'remove pens', stdin: ['pens'], expectStdout: "Removed pens (4)\n{'paper': 10, 'ink': 2, 'tape': 5}" },
+          { name: 'not in stock', stdin: ['glue'], expectStdout: "Not in stock\n{'pens': 4, 'paper': 10, 'ink': 2, 'tape': 5}" },
+          { name: 'remove ink', stdin: ['ink'], expectStdout: "Removed ink (2)\n{'pens': 4, 'paper': 10, 'tape': 5}", hidden: true },
+        ],
+        rubric: [],
+        hints: [
+          'Check with if item in stock: first.',
+          'count = stock.pop(item) removes the pair and gives you the number in one step.',
+          'stock.update({"tape": 5}) adds tape without wiping out the rest.',
+        ],
+        reference:
+          'stock = {"pens": 4, "paper": 10, "ink": 2}\nitem = input()\nif item in stock:\n    count = stock.pop(item)\n    print(f"Removed {item} ({count})")\nelse:\n    print("Not in stock")\nstock.update({"tape": 5})\nprint(stock)',
+        wrong: [
+          'stock = {"pens": 4, "paper": 10, "ink": 2}\nitem = input()\nif item in stock:\n    count = stock.pop(item)\n    print(f"Removed {item} ({count})")\nelse:\n    print("Not in stock")\nstock = {"tape": 5}\nprint(stock)',
+          'stock = {"pens": 4, "paper": 10, "ink": 2}\nitem = input()\nif item in stock:\n    count = stock[item]\n    print(f"Removed {item} ({count})")\nelse:\n    print("Not in stock")\nstock.update({"tape": 5})\nprint(stock)',
+          'stock = {"pens": 4, "paper": 10, "ink": 2}\nitem = input()\ncount = stock.pop(item)\nprint(f"Removed {item} ({count})")\nstock.update({"tape": 5})\nprint(stock)',
+        ],
+      },
+    },
+    {
       subskill: 'loop-items',
       title: 'Looping through a dictionary',
       define:
-        'A for loop over a dictionary visits each key. Use .items() to get the key and the value together on each pass.',
-      example: 'hours = {"Mon": 2, "Tue": 3}\nfor day in hours:\n    print(day)\nfor day, h in hours.items():\n    print(day, h)',
+        'A for loop over a dictionary visits each key. .items() gives you the key and the value together, .keys() just the keys, and .values() just the values. Those are views: you can loop over them, but to index or sort one, turn it into a list with list().',
+      example: 'hours = {"Mon": 2, "Tue": 3}\nfor day in hours:\n    print(day)\nfor day, h in hours.items():\n    print(day, h)\nprint(list(hours.values()))',
       walkthrough: [
         { line: 1, text: 'Two pairs: Monday 2 hours, Tuesday 3.' },
         { line: 2, text: 'Looping over the dictionary itself gives you each key, one at a time. day is Mon, then Tue.', spoken: 'for day in hours, colon' },
         { line: 3, text: 'Prints the key. Indented, so it runs once per key.' },
         { line: 4, text: '.items() hands you a key and its value together. Two names before in catch them: day gets the key, h gets the value.', spoken: 'for day comma h, in hours dot items, colon' },
         { line: 5, text: 'Prints Mon 2, then Tue 3.' },
+        { line: 6, text: '.values() is a view, and hours.values()[0] would be an error. list() turns it into a real list: [2, 3]. sorted() works on it too.', spoken: 'print list of hours dot values' },
       ],
       talkthrough: {
         id: 'dict-li-talk',

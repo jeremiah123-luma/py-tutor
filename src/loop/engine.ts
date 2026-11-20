@@ -261,7 +261,8 @@ export class Session {
     this.set({ busy: 'running' });
     const stdin = stdinText === '' ? [] : stdinText.split('\n');
     const tests = this.lesson.doit.tests;
-    const files = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
+    const sample = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
+    const files = this.lesson.exampleFiles ? { ...sample, ...this.lesson.exampleFiles } : sample;
     const lastRun = await this.deps.run(this.state.code, stdin, files);
     this.set({ lastRun, busy: 'idle' });
     return lastRun;

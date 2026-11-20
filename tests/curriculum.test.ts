@@ -16,7 +16,7 @@ for (const concept of Object.values(concepts)) {
     for (const lesson of concept!.lessons) {
       describe(lesson.subskill, () => {
         it('example runs cleanly and walkthrough lines exist', async () => {
-          const r = await py.run(lesson.example, [], lesson.doit.tests[0]?.files);
+          const r = await py.run(lesson.example, [], { ...lesson.doit.tests[0]?.files, ...lesson.exampleFiles });
           expect(r.error, JSON.stringify(r.error)).toBeUndefined();
           const n = lesson.example.split('\n').length;
           for (const w of lesson.walkthrough) expect(w.line).toBeLessThanOrEqual(n);
