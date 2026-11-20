@@ -143,6 +143,7 @@ export default function App() {
         s.start();
         setScreen('lesson');
       }
+      return s;
     },
     [setProgress, talk],
   );
@@ -218,6 +219,17 @@ export default function App() {
             if (m === 'talk') void loadTalk(); // warm the voice chunk
           }}
           onContinue={() => startLesson(cont.concept, cont.index, mode)}
+          onAsk={(text) => {
+            setMode('type');
+            const s = startLesson(cont.concept, cont.index, 'type');
+            void s.say(text);
+          }}
+          onTalkNow={() => {
+            setMode('talk');
+            unlockAudio();
+            void loadTalk();
+            startLesson(cont.concept, cont.index, 'talk');
+          }}
           onStart={(id) => {
             const c = conceptMap[id]!;
             const i = c.lessons.findIndex((l) => !sub(progress, id, l.subskill).mastered);

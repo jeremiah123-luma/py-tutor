@@ -8,6 +8,7 @@ import { CodeEditor } from '../ui/CodeEditor';
 import { TestResults } from '../ui/Console';
 import { Button } from '../ui/primitives';
 import { FilePreview, sampleFiles } from '../ui/FilePreview';
+import { TopBar } from '../ui/TopBar';
 
 export interface DrillScreenProps {
   drill: Drill;
@@ -65,7 +66,7 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
           {drill.short.map((x, k) => (
             <li key={x.id} className="flex items-start gap-3 py-3">
               {answers[x.id]?.correct ? (
-                <Check className="mt-0.5 size-4 shrink-0 text-accent" strokeWidth={2.25} aria-label="right" />
+                <Check className="mt-0.5 size-4 shrink-0 text-ok" strokeWidth={2.25} aria-label="right" />
               ) : (
                 <X className="mt-0.5 size-4 shrink-0 text-err" strokeWidth={2.25} aria-label="wrong" />
               )}
@@ -152,13 +153,23 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
 function Shell({ clock, label, onExit, children }: { clock: string | null; label: string; onExit: () => void; children: React.ReactNode }) {
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-line bg-paper/95 px-3 py-2 backdrop-blur-sm md:px-5">
-        <Button variant="ghost" size="sm" onClick={onExit} icon={<ArrowLeft className="size-4" strokeWidth={2} />} aria-label="Leave the drill">
-          <span className="hidden sm:inline">Leave</span>
-        </Button>
-        <p className="flex-1 text-sm font-medium">Exam drill</p>
-        <p className="tnum text-sm text-ink-2">{label}</p>
-        {clock && <p className="tnum min-w-[3.5rem] text-right text-sm font-medium" aria-label="time left">{clock}</p>}
+      <header className="sticky top-0 z-10 bg-paper/90 backdrop-blur-md">
+        <TopBar
+          crumbs={['Exam drill', label]}
+          onHome={onExit}
+          right={
+            <>
+              {clock && (
+                <span className="tnum inline-flex h-9 min-w-[4.5rem] items-center justify-center rounded-md border border-line-strong bg-surface px-3 text-sm font-medium" aria-label="time left">
+                  {clock}
+                </span>
+              )}
+              <Button variant="ghost" size="sm" onClick={onExit} icon={<ArrowLeft className="size-4" strokeWidth={2} />} aria-label="Leave the drill">
+                <span className="hidden sm:inline">Leave</span>
+              </Button>
+            </>
+          }
+        />
       </header>
       <main className="mx-auto max-w-2xl px-5 pt-8 pb-16 md:px-8 md:pt-12">{children}</main>
     </div>
@@ -174,7 +185,7 @@ function ShortQuestion({ q, answered, onAnswer }: { q: DrillQuestion; answered?:
   );
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-sm text-ink-3">{kindLabel}</p>
+      <p><span className="inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 text-sm text-tag-violet">{kindLabel}</span></p>
       <p className="font-voice text-lg leading-snug">{q.prompt}</p>
       <FilePreview files={q.files} caption="The file it reads:" />
       {q.code && (
@@ -214,7 +225,7 @@ function ShortQuestion({ q, answered, onAnswer }: { q: DrillQuestion; answered?:
             const tone = !locked
               ? 'border-line-strong hover:border-ink-3'
               : right
-                ? 'border-accent bg-nail-bg'
+                ? 'border-ok bg-nail-bg'
                 : picked
                   ? 'border-err bg-err-bg'
                   : 'border-line opacity-70';

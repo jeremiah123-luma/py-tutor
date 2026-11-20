@@ -9,11 +9,11 @@ export function FeedbackBlock({ nailed = [], fix = [] }: { nailed?: string[]; fi
     <div className="mt-3 flex flex-col gap-2">
       {nailed.length > 0 && (
         <div className="rounded-xl bg-nail-bg px-3.5 py-3">
-          <p className="mb-1.5 text-sm font-medium text-accent">What you nailed</p>
+          <p className="mb-1.5 text-sm font-medium text-ok">What you nailed</p>
           <ul className="flex flex-col gap-1">
             {nailed.map((n) => (
               <li key={n} className="flex gap-2 text-[0.9375rem] text-ink">
-                <Check className="mt-1 size-4 shrink-0 text-accent" strokeWidth={2} aria-hidden="true" />
+                <Check className="mt-1 size-4 shrink-0 text-ok" strokeWidth={2} aria-hidden="true" />
                 {n}
               </li>
             ))}
@@ -107,7 +107,7 @@ export function Conversation({ turns, thinking, onSend, placeholder = 'Ask anyth
             type="submit"
             disabled={!draft.trim()}
             aria-label="Send"
-            className="press grid size-9 shrink-0 place-items-center rounded-lg bg-accent text-on-accent disabled:bg-surface-2 disabled:text-ink-3"
+            className="press grid size-9 shrink-0 place-items-center rounded-md bg-ink text-paper disabled:bg-surface-2 disabled:text-ink-3"
           >
             <ArrowUp className="size-4.5" strokeWidth={2} />
           </button>

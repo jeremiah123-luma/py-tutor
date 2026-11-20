@@ -7,14 +7,14 @@ type Variant = 'primary' | 'secondary' | 'ghost';
 type Size = 'sm' | 'md' | 'lg';
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent text-on-accent hover:bg-accent-hover disabled:opacity-45',
-  secondary: 'bg-surface text-ink border border-line-strong hover:border-ink-3 disabled:text-ink-3',
+  primary: 'bg-ink text-paper hover:bg-white disabled:opacity-40',
+  secondary: 'bg-surface-2 text-ink border border-line-strong hover:border-ink-3 hover:bg-seg-on disabled:text-ink-3',
   ghost: 'text-ink-2 hover:text-ink hover:bg-surface-2 disabled:text-ink-3',
 };
 const sizes: Record<Size, string> = {
-  sm: 'h-9 px-3 text-sm gap-1.5 rounded-lg',
-  md: 'h-11 px-4 text-[0.9375rem] gap-2 rounded-lg',
-  lg: 'min-h-14 px-6 py-3 text-md gap-2.5 rounded-xl whitespace-normal text-left',
+  sm: 'h-9 px-3 text-sm gap-1.5 rounded-md',
+  md: 'h-11 px-4 text-[0.9375rem] gap-2 rounded-md',
+  lg: 'min-h-12 px-5 py-2.5 text-base gap-2.5 rounded-md whitespace-normal text-left',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -61,7 +61,7 @@ export function ModeToggle({ mode, onChange, size = 'sm' }: { mode: Mode; onChan
       value={mode}
       onValueChange={(v) => v && onChange(v as Mode)}
       aria-label="How you want to learn"
-      className="inline-flex rounded-lg bg-surface-2 p-1"
+      className="inline-flex rounded-md border border-line-strong bg-surface p-0.5"
     >
       {(
         [

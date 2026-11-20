@@ -1,6 +1,5 @@
-@import '@fontsource-variable/instrument-sans';
-@import '@fontsource-variable/fraunces';
-@import '@fontsource-variable/jetbrains-mono';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 @import 'tailwindcss';
 @import './tokens.css';
 
@@ -24,6 +23,11 @@
   --color-err: var(--err);
   --color-err-bg: var(--err-bg);
   --color-code-bg: var(--code-bg);
+  --color-ok: var(--ok);
+  --color-tag-violet: var(--tag-violet);
+  --color-tag-blue: var(--tag-blue);
+  --color-tag-green: var(--tag-green);
+  --color-tag-pink: var(--tag-pink);
   --font-voice: var(--font-voice);
   --font-ui: var(--font-ui);
   --font-code: var(--font-code);
@@ -55,7 +59,7 @@ body {
 ::selection { background: var(--hl); color: var(--ink); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-h1, h2, h3 { text-wrap: balance; letter-spacing: -0.02em; margin: 0; }
+h1, h2, h3 { text-wrap: balance; letter-spacing: -0.035em; font-weight: 650; margin: 0; }
 p { text-wrap: pretty; margin: 0; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:disabled { cursor: not-allowed; }
@@ -81,3 +85,38 @@ textarea, input { font: inherit; color: inherit; caret-color: var(--accent); }
 
 @keyframes stage-in { from { opacity: 0.35; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @keyframes talk-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.045); } 100% { transform: scale(1); } }
+
+/* Headline weight for the display face (unlayered, so it wins over font-medium on headings). */
+h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
+.font-voice { letter-spacing: -0.02em; }
+
+/* Pastel aurora behind hero areas. Dark text sits on it. */
+.aurora {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: #111111;
+  background:
+    radial-gradient(38% 60% at 12% 18%, rgb(165 180 252 / 0.85), transparent 70%),
+    radial-gradient(30% 55% at 30% 0%, rgb(167 139 250 / 0.7), transparent 70%),
+    radial-gradient(45% 70% at 62% 85%, rgb(244 114 182 / 0.45), transparent 70%),
+    radial-gradient(35% 60% at 92% 92%, rgb(167 139 250 / 0.75), transparent 70%),
+    radial-gradient(40% 60% at 85% 10%, rgb(251 207 232 / 0.9), transparent 70%),
+    linear-gradient(180deg, #F3E5F5 0%, #F6D7EC 100%);
+}
+.aurora::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.18;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+.aurora :focus-visible { outline-color: #111111; }
+
+/* Tab underline nav. */
+.tab { position: relative; }
+.tab[aria-current='page']::after, .tab[aria-current='step']::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--ink); border-radius: 2px;
+}

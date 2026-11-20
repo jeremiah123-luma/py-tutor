@@ -29,7 +29,7 @@ export function StepTrack({ step, compact }: { step: LoopStep; compact?: boolean
           </span>
         </p>
       ) : (
-        <ol className="flex items-center gap-5">
+        <ol className="flex items-center gap-1">
           {PHASES.map((p, i) => {
             const done = i < current;
             const now = i === current;
@@ -37,16 +37,22 @@ export function StepTrack({ step, compact }: { step: LoopStep; compact?: boolean
               <li
                 key={p.id}
                 aria-current={now ? 'step' : undefined}
-                className={`flex items-center gap-1.5 text-sm whitespace-nowrap ${now ? 'font-medium text-ink' : done ? 'text-ink-2' : 'text-ink-3'}`}
+                className={`tab flex h-11 items-center gap-1.5 px-2.5 text-[0.9375rem] whitespace-nowrap ${now ? 'font-medium text-ink' : done ? 'text-ink-2' : 'text-ink-3'}`}
               >
-                {done && <Check className="size-3.5 text-accent" strokeWidth={2.25} aria-label="done" />}
+                {done ? (
+                  <Check className="size-4 text-ok" strokeWidth={2.25} aria-label="done" />
+                ) : (
+                  <span className={`tnum grid size-5 place-items-center rounded-full text-xs ${now ? 'bg-ink text-paper' : 'bg-surface-2 text-ink-3'}`} aria-hidden="true">
+                    {i + 1}
+                  </span>
+                )}
                 {p.label}
               </li>
             );
           })}
         </ol>
       )}
-      <div className="mt-2 h-0.5 w-full rounded-full bg-line" aria-hidden="true">
+      <div className={`mt-2 h-0.5 w-full rounded-full bg-line ${compact ? '' : 'hidden'}`} aria-hidden="true">
         <div className="h-full rounded-full bg-accent transition-[width] duration-[240ms] ease-out" style={{ width: `${pct}%` }} />
       </div>
     </nav>

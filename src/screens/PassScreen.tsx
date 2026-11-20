@@ -1,17 +1,22 @@
 import { useState } from 'react';
 import { Button } from '../ui/primitives';
+import { Logo } from '../ui/TopBar';
 
 export function PassScreen({ onSubmit }: { onSubmit: (p: string) => Promise<boolean> }) {
   const [value, setValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [wrong, setWrong] = useState(false);
   return (
-    <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5">
-      <p className="font-voice text-md font-semibold">
-        py<span className="bg-[linear-gradient(transparent_55%,var(--hl)_55%)] px-0.5">tutor</span>
-      </p>
+    <main className="flex min-h-dvh flex-col">
+      <div className="flex h-14 items-center border-b border-line px-4 md:px-5">
+        <Logo />
+      </div>
+      <section className="aurora px-5 pt-16 pb-28 text-center md:pt-24">
+        <h1 className="font-voice text-[2.5rem] leading-[1.02] md:text-[3.75rem]">Ace the final.</h1>
+        <p className="mx-auto mt-3 max-w-[40ch] text-base text-[#3a3340]">Your Python tutor for dictionaries, files, and classes.</p>
+      </section>
       <form
-        className="mt-8 flex flex-col gap-3"
+        className="relative z-10 mx-auto -mt-16 flex w-[calc(100%-2rem)] max-w-md flex-col gap-3 rounded-xl border border-line-strong bg-surface p-5 shadow-soft"
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
@@ -34,7 +39,7 @@ export function PassScreen({ onSubmit }: { onSubmit: (p: string) => Promise<bool
           }}
           aria-invalid={wrong}
           aria-describedby={wrong ? 'pass-err' : undefined}
-          className="h-12 rounded-lg border border-line-strong bg-surface px-4 text-md focus-visible:outline-2 focus-visible:outline-accent"
+          className="h-12 rounded-md border border-line-strong bg-surface-2 px-4 text-md focus-visible:outline-2 focus-visible:outline-accent"
         />
         {wrong && (
           <p id="pass-err" className="text-sm text-err">

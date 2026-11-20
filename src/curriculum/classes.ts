@@ -350,64 +350,6 @@ export const classes: Concept = {
       },
     },
     {
-      subskill: 'str',
-      title: 'Printing an object nicely with __str__',
-      define:
-        'print(obj) normally shows something ugly like <__main__.Point object at 0x...>. If you write a __str__ method that returns a string, print and str() use that instead. It has to return the string, not print it.',
-      example: 'class Point:\n    def __init__(self, x, y):\n        self.x = x\n        self.y = y\n    def __str__(self):\n        return f"({self.x}, {self.y})"\np = Point(3, 4)\nprint(p)\nprint("At " + str(p))',
-      walkthrough: [
-        { line: 1, text: 'A Point blueprint.' },
-        { line: 2, text: 'Each point gets an x and a y.' },
-        { line: 3, text: 'Store x.' },
-        { line: 4, text: 'Store y.' },
-        { line: 5, text: '__str__ is a special method. Python calls it on its own whenever it needs the object as text.', spoken: 'def, underscore underscore str underscore underscore, open paren self, colon' },
-        { line: 6, text: 'It returns a string built from this point\'s x and y. return, not print.', spoken: 'return f string, open paren, self dot x, comma, self dot y, close paren' },
-        { line: 7, text: 'Make the point (3, 4).' },
-        { line: 8, text: 'print sees an object and calls __str__ for you. Prints (3, 4).' },
-        { line: 9, text: 'str(p) calls __str__ too, so you can glue it onto other text. Prints At (3, 4).' },
-      ],
-      talkthrough: {
-        id: 'cls-st-talk',
-        subskill: 'str',
-        prompt: 'A Pet class has name and kind. How would you make print(pet) show something like "Rex the dog"?',
-        starter: '',
-        tests: [],
-        rubric: ['adds def __str__(self): to the class', 'returns f"{self.name} the {self.kind}"', 'knows __str__ must return a string, not print it'],
-        hints: ['Which special method does print look for?', 'What happens if __str__ prints and returns nothing?'],
-        reference: 'def __str__(self):\n    return f"{self.name} the {self.kind}"',
-        wrong: [],
-      },
-      doit: {
-        id: 'cls-st-do',
-        subskill: 'str',
-        prompt: 'Write a class Time with hours and minutes. Give it a __str__ that returns the time like "9:05": the hours, a colon, and the minutes always as two digits. Then read hours and minutes with input(), make a Time, and print it.',
-        starter: 'class Time:\n    def __init__(self, hours, minutes):\n        self.hours = hours\n        self.minutes = minutes\n\nh = int(input())\nm = int(input())\n',
-        tests: [
-          { name: '10:30', stdin: ['10', '30'], expectStdout: '10:30' },
-          { name: 'one-digit minutes', stdin: ['9', '5'], expectStdout: '9:05', hidden: true },
-          {
-            name: 'str() works too',
-            stdin: ['1', '15'],
-            check: 't = Time(7, 0)\nassert str(t) == "7:00", f"str(Time(7, 0)) should be \\"7:00\\", got {str(t)!r}"',
-            hidden: true,
-          },
-        ],
-        rubric: [],
-        hints: [
-          'Add def __str__(self): inside the class and return a string from it.',
-          'For two-digit minutes, f"{self.minutes:02d}" pads with a zero. Or: if self.minutes < 10, put a "0" in front yourself.',
-          'At the bottom: t = Time(h, m) and then print(t).',
-        ],
-        reference:
-          'class Time:\n    def __init__(self, hours, minutes):\n        self.hours = hours\n        self.minutes = minutes\n\n    def __str__(self):\n        return f"{self.hours}:{self.minutes:02d}"\n\nh = int(input())\nm = int(input())\nt = Time(h, m)\nprint(t)',
-        wrong: [
-          'class Time:\n    def __init__(self, hours, minutes):\n        self.hours = hours\n        self.minutes = minutes\n\n    def __str__(self):\n        print(f"{self.hours}:{self.minutes:02d}")\n\nh = int(input())\nm = int(input())\nt = Time(h, m)\nprint(t)',
-          'class Time:\n    def __init__(self, hours, minutes):\n        self.hours = hours\n        self.minutes = minutes\n\n    def __str__(self):\n        return f"{self.hours}:{self.minutes}"\n\nh = int(input())\nm = int(input())\nt = Time(h, m)\nprint(t)',
-          'class Time:\n    def __init__(self, hours, minutes):\n        self.hours = hours\n        self.minutes = minutes\n\nh = int(input())\nm = int(input())\nt = Time(h, m)\nprint(t)',
-        ],
-      },
-    },
-    {
       subskill: 'objects-in-lists',
       title: 'A list full of objects',
       define:

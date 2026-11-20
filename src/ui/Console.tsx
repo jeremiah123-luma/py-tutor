@@ -27,7 +27,7 @@ export function TestResults({ grade }: { grade: GradeResult }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-2">
-        <span className={`font-medium ${grade.passed ? 'text-accent' : 'text-ink'}`}>
+        <span className={`font-medium ${grade.passed ? 'text-ok' : 'text-ink'}`}>
           {passed} of {grade.results.length} tests pass
         </span>
         {grade.passed ? ' · nice work' : ''}
@@ -43,7 +43,7 @@ export function TestResults({ grade }: { grade: GradeResult }) {
           <li key={r.name} className="py-2.5 first:pt-0">
             <div className="flex items-center gap-2 text-sm">
               {r.passed ? (
-                <CircleCheck className="size-4 shrink-0 text-accent" strokeWidth={1.75} aria-label="passed" />
+                <CircleCheck className="size-4 shrink-0 text-ok" strokeWidth={1.75} aria-label="passed" />
               ) : (
                 <CircleX className="size-4 shrink-0 text-err" strokeWidth={1.75} aria-label="failed" />
               )}

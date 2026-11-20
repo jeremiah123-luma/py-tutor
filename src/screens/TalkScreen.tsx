@@ -52,6 +52,10 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit }
         className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-6 outline-offset-[-8px]"
       >
         <div className="relative grid size-[min(64vw,17rem)] place-items-center" aria-hidden="true">
+          <div
+            className={`absolute -inset-12 rounded-full blur-3xl transition-opacity duration-500 ${state === 'idle' ? 'opacity-30' : 'opacity-60'}`}
+            style={{ background: 'radial-gradient(50% 50% at 30% 30%, #A5B4FC, transparent), radial-gradient(50% 50% at 70% 70%, #F472B6, transparent), radial-gradient(60% 60% at 50% 50%, #A78BFA, transparent)' }}
+          />
           <svg viewBox="0 0 200 200" className="absolute inset-0 size-full overflow-visible">
             <circle cx="100" cy="100" r="92" fill="none" stroke="white" strokeOpacity="0.08" strokeWidth="6" />
             {state === 'thinking' ? (

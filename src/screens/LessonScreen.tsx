@@ -6,6 +6,7 @@ import { Conversation } from '../ui/Conversation';
 import { LessonStage } from '../ui/LessonStage';
 import { StepTrack } from '../ui/StepTrack';
 import { Button, ModeToggle } from '../ui/primitives';
+import { TopBar } from '../ui/TopBar';
 
 export interface LessonScreenProps {
   session: SessionState;
@@ -35,24 +36,26 @@ export function LessonScreen(p: LessonScreenProps) {
 
   return (
     <div className="flex min-h-dvh flex-col md:h-dvh md:min-h-0">
-      <header className="flex items-center gap-3 border-b border-line px-3 py-2 md:gap-6 md:px-5">
-        <Button variant="ghost" size="sm" onClick={p.onBack} icon={<ArrowLeft className="size-4" strokeWidth={2} />} aria-label="Back to home">
-          <span className="hidden sm:inline">Home</span>
-        </Button>
-        <div className="min-w-0">
-          <h1 className="truncate text-[0.9375rem] font-semibold tracking-normal">{concept.title}</h1>
-          <p className="truncate text-sm text-ink-2">{lesson.title}</p>
-        </div>
-        <div className="mx-auto hidden max-w-xl flex-1 lg:block">
+      <header>
+        <TopBar
+          crumbs={[concept.title.replace(' and objects', ''), lesson.title]}
+          onHome={p.onBack}
+          right={
+            <>
+              <Button variant="ghost" size="sm" onClick={p.onBack} icon={<ArrowLeft className="size-4" strokeWidth={2} />} aria-label="Back to home">
+                <span className="hidden sm:inline">Home</span>
+              </Button>
+              <ModeToggle mode={p.mode} onChange={p.onModeChange} />
+            </>
+          }
+        />
+        <div className="hidden border-b border-line px-2 md:px-3 lg:block">
           <StepTrack step={session.step} />
         </div>
-        <div className="ml-auto lg:ml-0">
-          <ModeToggle mode={p.mode} onChange={p.onModeChange} />
+        <div className="border-b border-line px-5 py-3 lg:hidden">
+          <StepTrack step={session.step} compact />
         </div>
       </header>
-      <div className="border-b border-line px-5 py-3 lg:hidden">
-        <StepTrack step={session.step} compact />
-      </div>
 
       <main
         className="grid flex-1 md:min-h-0 md:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)]
