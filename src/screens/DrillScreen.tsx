@@ -185,7 +185,7 @@ function ShortQuestion({ q, answered, onAnswer }: { q: DrillQuestion; answered?:
   );
   return (
     <div className="flex flex-col gap-5">
-      <p><span className="inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 text-sm text-tag-violet">{kindLabel}</span></p>
+      <p><span className="glass-dark inline-flex items-center rounded-full px-3 py-1 text-sm text-tag-violet">{kindLabel}</span></p>
       {q.prompt.trim() !== kindLabel && <p className="font-voice text-lg leading-snug">{q.prompt}</p>}
       <FilePreview files={q.files} caption="The file it reads:" />
       {q.code && (

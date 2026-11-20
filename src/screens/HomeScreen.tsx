@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, FileText, Home, Play, Timer } from 'lucide-react';
+import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, FileText, Home, Layers, Play, Sparkles, Timer } from 'lucide-react';
 import type { Concept, ConceptId, Mode, Progress } from '../types';
 import { ModeToggle } from '../ui/primitives';
-import { FinalPill, TopBar } from '../ui/TopBar';
+import { FinalPill, TopBar, daysToFinal } from '../ui/TopBar';
 import { Aurora } from '../ui/Aurora';
 
 export interface HomeScreenProps {
@@ -107,7 +107,29 @@ export function HomeScreen(p: HomeScreenProps) {
         </nav>
       </header>
 
-      <Aurora className="px-5 pt-20 pb-32 text-center md:pt-28 md:pb-36">
+      <Aurora className="px-5 pt-14 pb-32 text-center md:pt-20 md:pb-36">
+        <ul className="mb-7 flex flex-wrap justify-center gap-2" aria-label="At a glance">
+          {[
+            { icon: CalendarClock, text: `${daysToFinal()} days to the final` },
+            { icon: Layers, text: `${p.concepts.reduce((n, c) => n + c.lessons.length, 0)} lessons` },
+            { icon: Sparkles, text: 'Built from your zyBook' },
+          ].map(({ icon: Icon, text }, i) => (
+            <motion.li
+              key={text}
+              initial={reduce ? false : { opacity: 0, y: 12, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.05 + i * 0.08, ease: EASE }}
+            >
+              <span
+                className="glass inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm font-medium text-[#1d1530]"
+                style={reduce ? undefined : { animation: `float-y ${5 + i}s ease-in-out ${i * 0.7}s infinite` }}
+              >
+                <Icon className="size-4 opacity-70" strokeWidth={2} aria-hidden="true" />
+                {text}
+              </span>
+            </motion.li>
+          ))}
+        </ul>
         <h1 className="font-voice text-[2.75rem] leading-[1.02] md:text-[4.5rem]" aria-label={headline}>
           {headline.split(' ').map((w, i) => (
             <motion.span
@@ -183,7 +205,7 @@ export function HomeScreen(p: HomeScreenProps) {
           <motion.li {...rise(0)} className="sm:col-span-2">
             <button
               onClick={p.onContinue}
-              className="lift press group flex w-full items-center gap-4 rounded-2xl bg-ink p-4 pr-5 text-left text-paper hover:shadow-[0_12px_40px_-8px_rgb(167_139_250/0.45)]"
+              className="lift press halftone-corner group flex w-full items-center gap-4 rounded-2xl bg-ink p-4 pr-5 text-left text-paper [--ht:rgb(167_139_250/0.55)] hover:shadow-[0_12px_40px_-8px_rgb(167_139_250/0.45)]"
             >
               <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-paper text-ink" aria-hidden="true">
                 <Play className="size-5 translate-x-px" strokeWidth={2} fill="currentColor" />
@@ -202,7 +224,7 @@ export function HomeScreen(p: HomeScreenProps) {
               <motion.li key={c.id} {...rise(i + 1)}>
                 <button
                   onClick={() => p.onStart(c.id)}
-                  className="lift press group flex h-full w-full flex-col gap-4 rounded-2xl border border-line bg-surface p-5 text-left hover:border-line-strong"
+                  className="lift press halftone-corner group flex h-full w-full flex-col gap-4 rounded-2xl border border-line bg-surface p-5 text-left hover:border-line-strong"
                 >
                   <span className="flex w-full items-center gap-3">
                     <span className={`grid size-9 place-items-center rounded-lg bg-surface-2 ${TINT[c.id] ?? ''}`} aria-hidden="true">
@@ -226,7 +248,7 @@ export function HomeScreen(p: HomeScreenProps) {
             <button
               onClick={p.onDrill}
               disabled={!p.onDrill}
-              className="lift press group flex h-full w-full flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-line bg-surface p-5 text-left hover:border-line-strong"
+              className="lift press halftone-corner group flex h-full w-full flex-col justify-between gap-4 rounded-2xl border border-line bg-surface p-5 text-left hover:border-line-strong"
             >
               <span className="flex w-full items-center gap-3">
                 <span className="grid size-9 place-items-center rounded-lg bg-surface-2 text-tag-green" aria-hidden="true">

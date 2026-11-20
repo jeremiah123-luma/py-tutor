@@ -49,8 +49,8 @@ export function TopBar({ crumbs = [], right, onHome }: { crumbs?: string[]; righ
 export function FinalPill() {
   const d = daysToFinal();
   return (
-    <span className="tnum inline-flex h-9 items-center gap-2 rounded-md border border-line-strong bg-surface px-3 text-sm whitespace-nowrap">
-      <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />
+    <span className="glass-dark tnum inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm whitespace-nowrap">
+      <span className="size-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" aria-hidden="true" />
       <span className="text-ink-2 max-sm:hidden">Final in</span>
       <span className="font-medium text-accent">
         {d} day{d === 1 ? '' : 's'}

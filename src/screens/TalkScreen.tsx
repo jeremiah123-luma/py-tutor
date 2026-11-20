@@ -37,10 +37,10 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit }
       style={{ colorScheme: 'dark' }}
     >
       <header className="relative z-10 flex items-center justify-between gap-4 px-5 pt-[max(1.25rem,env(safe-area-inset-top))]">
-        <p className="truncate text-[1.0625rem] text-[var(--talk-sub)]">{context}</p>
+        <p className="glass-dark truncate rounded-full px-4 py-2 text-[1.0625rem] text-[var(--talk-sub)]">{context}</p>
         <button
           onClick={onExit}
-          className="press inline-flex h-14 shrink-0 items-center gap-2 rounded-full border border-white/15 px-5 text-[1.0625rem] font-medium text-[var(--talk-ink)] hover:border-white/30"
+          className="press glass-dark inline-flex h-14 shrink-0 items-center gap-2 rounded-full px-5 text-[1.0625rem] font-medium text-[var(--talk-ink)] hover:border-white/30"
         >
           <X className="size-5" strokeWidth={2} aria-hidden="true" /> Done
         </button>
@@ -52,6 +52,7 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit }
         className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-6 outline-offset-[-8px]"
       >
         <div className="relative grid size-[min(64vw,17rem)] place-items-center" aria-hidden="true">
+          <div className="halftone-radial pointer-events-none absolute -inset-[60%] animate-[spin_90s_linear_infinite]" />
           <div
             className={`absolute -inset-12 animate-[spin_14s_linear_infinite] rounded-full blur-3xl transition-opacity duration-500 ${state === 'idle' ? 'opacity-30' : 'opacity-60'}`}
             style={{ background: 'radial-gradient(50% 50% at 30% 30%, #A5B4FC, transparent), radial-gradient(50% 50% at 70% 70%, #F472B6, transparent), radial-gradient(60% 60% at 50% 50%, #A78BFA, transparent)' }}

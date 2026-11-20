@@ -88,8 +88,8 @@ export function LessonScreen(p: LessonScreenProps) {
           </div>
           <div className="min-h-[13rem] flex-1 overflow-auto md:min-h-0">
             {defining ? (
-              <div className="grid h-full min-h-[13rem] place-items-center p-8">
-                <p className="max-w-[30ch] text-center text-[0.9375rem] text-ink-3">
+              <div className="halftone-grid grid h-full min-h-[13rem] place-items-center p-8">
+                <p className="max-w-[30ch] rounded-lg bg-surface px-4 py-3 text-center text-[0.9375rem] text-ink-2">
                   Code shows up here once you’ve got the idea. Read the definition first.
                 </p>
               </div>
