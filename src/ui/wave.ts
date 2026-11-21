@@ -35,10 +35,10 @@ uniform float uSeed;
 float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);
   return mix(mix(hash(i),hash(i+vec2(1.,0.)),u.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),u.x),u.y);}
-// iridescence in the brand's own colours: violet, pink, butter, sky
+// iridescence in the brand's own colours: violet, pink, lilac, sky
 vec3 irid(float h){
   h=fract(h)*4.;
-  vec3 c0=vec3(.655,.545,.980),c1=vec3(.976,.659,.831),c2=vec3(.992,.902,.541),c3=vec3(.576,.773,.992);
+  vec3 c0=vec3(.655,.545,.980),c1=vec3(.976,.659,.831),c2=vec3(.769,.710,.992),c3=vec3(.576,.773,.992);
   float f=smoothstep(0.,1.,fract(h));
   if(h<1.)return mix(c0,c1,f);
   if(h<2.)return mix(c1,c2,f);

@@ -423,7 +423,7 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <h2 id={titleId} aria-label={step.title} className="font-display text-[1.75rem] leading-[1.05] font-normal tracking-[-0.01em] text-ink">
+            <h2 id={titleId} aria-label={step.title} className="font-voice text-md font-semibold tracking-[-0.01em] text-ink">
               {step.title.split(' ').map((w, k, all) => (
                 <Fragment key={k}>
                   <span aria-hidden="true" className={reduce ? '' : 'tour-word'} style={{ animationDelay: `${60 + k * 55}ms` }}>

@@ -15,14 +15,15 @@ test('sign up, passkey, tour, sign out, passkey sign-in', async ({ page, context
     options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true },
   });
 
-  const username = `e2e-${Date.now().toString(36)}`;
+  const username = `e2e-${info.project.name.slice(0, 2)}${Date.now().toString(36)}`;
   await page.goto('/');
   // First visit: the intro plays before anything else, and moves on with taps or arrow keys.
   const intro = page.getByRole('dialog', { name: 'What py-tutor is' });
   await expect(intro).toBeVisible();
   await expect(intro.getByText('No more three tabs', { exact: true })).toHaveCount(0);
   await page.screenshot({ path: shot('0-intro') });
-  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight'); // the >_ mark -> the topic wheel
+  await page.keyboard.press('ArrowRight'); // -> the tabs flying apart
   await expect(intro.getByText('No more three tabs', { exact: true })).toBeVisible();
   for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');
   await intro.getByRole('button', { name: 'Get started' }).click();

@@ -55,29 +55,18 @@ One theme: a dark studio. Near-black surfaces, white primary actions, a violet a
 
 **Aurora** (heroes only): blobs of #A5B4FC, #C4B5FD, #F9A8D4, #A78BFA, #FBCFE8, #93C5FD that drift and shift hue on a #F4E8F7 to #F7DCEE base, with grain and a halftone ramp into the dark page. Dark text sits on it.
 
-**Intro pairs** (kinetic type only). Each is a full-bleed slab with its text in a clashing partner, all pulled from the aurora:
-
-| Slab | Text |
-|---|---|
-| #6D28D9 violet | #FBCFE8 pink |
-| #FBCFE8 pink | #6B0F3A berry |
-| #1E1B4B indigo | #93C5FD sky |
-| #93C5FD sky | #1E3A8A navy |
-| #111111 studio | #C4B5FD lilac |
-| #86EFAC mint | #14532D forest |
-| #FDE68A butter | #7C2D12 rust |
-| #2E1065 plum | #F9A8D4 pink |
-| #A78BFA violet | #14092B ink |
+**Intro colours** come only from that palette: studio black #111111, surface #1A1A1A, paper white #F5F5F5, violet #A78BFA, lilac #C4B5FD, pink #F9A8D4, sky #93C5FD. Dark slabs take lilac or pink text; light slabs take #111111. Nothing outside these, ever.
 
 ## Type
+Geist does everything. One family keeps it ours.
+
 | Role | Face | Use |
 |---|---|---|
-| Display | Instrument Serif 400 (and italic) | intro statements, hero headlines, tour titles, exam score |
-| UI | Geist Variable | everything else |
-| Code | Geist Mono Variable | code, program input and output, the `>_` mark |
+| UI and display | Geist Variable | everything, including intro statements (700, tracking -0.055em, leading 0.95) |
+| Code | Geist Mono Variable | code, program input and output, the `>_` mark, topic cards |
 
-- Display is always weight 400 (it has no bold) with tracking -0.02em and leading 0.95 to 1.05. Intro size: `clamp(2.5rem, min(12.5vw, 16vh), 11rem)`.
-- UI scale (rem): 0.75 / 0.875 / 1 / 1.1875 / 1.4375 / 1.75 / 2.125 / 2.5. Headings tighten to -0.035em.
+- Intro statement size: `clamp(2.75rem, min(12.5vw, 15vh), 9.5rem)`.
+- UI scale (rem): 0.75 / 0.875 / 1 / 1.1875 / 1.4375 / 1.75 / 2.125 / 2.5. Headings tighten to -0.035em or more.
 - Body measure stays under 68ch. Numbers use tabular figures.
 
 ## Motion
@@ -98,18 +87,18 @@ Tones:
 | Tone | Colour | When |
 |---|---|---|
 | success | green | a passing Check my code |
-| iridescent | violet → pink → butter → sky | mastering a skill, signing in, handing in the practice exam, "Get started" at the end of the intro, tapping the aurora |
+| iridescent | violet → pink → lilac → sky | mastering a skill, signing in, handing in the practice exam, "Get started" at the end of the intro, tapping the aurora |
 
 It plays only on a real success or a deliberate tap. Never on load, never on a timer, never on a failure.
 
-### Signature 2: kinetic type
-How py-tutor introduces itself. Inspired by Anagram's typography for Raison (`src/ui/Intro.tsx`).
-- One statement per screen, set huge in Instrument Serif, centred, on a full-bleed slab from the intro pairs.
-- The opener rises out of masks line by line, top line first.
-- Every later slab slides up over the last one (750 ms). Its lines ride up a beat behind it, bottom line first, so the statement builds upward and lands together.
-- The supporting sentence fades up last while its letter-spacing tightens from 0.03em to 0.
-- It moves on by itself (hold time grows with the words), or on tap, Space, or the arrow keys. A thin progress line per slide runs across the top in the slide's own ink.
-- Where: first visit (before sign-in), once for existing accounts, and from Replay tour in the profile. Spotlight tour titles use the same face and rise in word by word.
+### Signature 2: the intro
+How py-tutor introduces itself, about 16 seconds. Inspired by Anagram's motion for Raison (all three of its pieces), rebuilt in our own colours and type (`src/ui/Intro.tsx`, scenes in `src/intro/slides.ts`).
+1. **The mark builds.** One bar grows on black, the `>` unfolds out of it like a fan (ghost rays spread and fold away), the `_` slides out, the screen flashes lilac with the mark in outline, then it goes solid, shrinks, and types `py-tutor` beside itself. Coloured selection blocks (violet, pink, sky, lilac) sweep across the letters and a caret blinks at the end.
+2. **The topic wheel.** A ring of black bars spins and zooms out around a card that flips through `{ }` Dictionaries, `open()` Files, `class` Classes.
+3. **The old way flies apart.** App windows (zyBooks, slides, chatbot, editor, Canvas...) and small coloured squares burst out in 3D behind "No more three tabs and two apps just to learn Python.", then collapse into nothing.
+4. **Statements on slabs.** Each one rides up on a full-bleed slab; its lines trail the slab, bottom line first, and the supporting sentence fades up as its letter-spacing tightens. One screen / It coaches. You code. / Check your code. Free. / Watch your code think. / Study in the car. / Built for Dec 19.
+
+Each scene holds 1.5 to 2.9 s and moves on by itself; tap, Space, or the arrow keys skip ahead. Plays on first visit, once for existing accounts, and from Replay tour.
 
 ### Supporting motion
 - The highlighter sweep: the active code line fills left to right (420 ms).

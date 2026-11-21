@@ -94,7 +94,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
         <Logo />
       </div>
       <Aurora className="px-5 pt-16 pb-32 text-center md:pt-24">
-        <h1 className="font-display text-[3.25rem] leading-[0.95] font-normal tracking-[-0.02em] md:text-[5.5rem]">Ace the final.</h1>
+        <h1 className="font-voice text-[2.5rem] leading-[1.02] md:text-[4rem]">Ace the final.</h1>
         <p className="mx-auto mt-3 max-w-[40ch] text-base text-[#3a3340]">A Python tutor for CS 100: dictionaries, files, and classes. It coaches you, it never writes your code.</p>
         <button type="button" onClick={() => setIntro(true)} className="mt-4 text-sm font-medium text-[#111] underline underline-offset-4 hover:text-[#5b21b6]">
           What is py-tutor?

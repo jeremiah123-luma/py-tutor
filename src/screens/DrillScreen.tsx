@@ -56,7 +56,7 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
     const weakest = Object.entries(missedBy).sort((a, b) => b[1] - a[1])[0]?.[0] as ConceptId | undefined;
     return (
       <Shell clock={null} label="Results" onExit={onExit}>
-        <h1 className="font-display text-[3.5rem] leading-none font-normal tracking-[-0.02em] md:text-[4.5rem]">
+        <h1 className="font-voice text-2xl font-medium md:text-3xl">
           {shortRight + codingRight} of {total}
         </h1>
         <p className="mt-3 text-md text-ink-2">
