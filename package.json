@@ -12,7 +12,7 @@
     "predev": "node scripts/copy-assets.mjs",
     "prebuild": "node scripts/copy-assets.mjs",
     "test": "vitest run",
-    "worker:dev": "wrangler dev --local",
+    "worker:dev": "wrangler dev --local --local-upstream localhost:8787",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {

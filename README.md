@@ -1,5 +1,7 @@
 # py-tutor
 
+Live at **https://pytutor.jeremiahsleman.com** (the old workers.dev address redirects there).
+
 A voice-first Python tutor I built to get ready for my CS 100 final. It covers dictionaries, file I/O, and classes. Every concept runs through the same loop: a plain definition, an example, a line-by-line walkthrough, a spoken talk-through, then I write the code and real tests grade it, looping until I have it down.
 
 Two modes:
@@ -26,7 +28,7 @@ Built with Claude Code as a pair programmer.
 ```
 npm install
 cp .dev.vars.example .dev.vars   # add keys
-npm run build && npx wrangler dev --local    # app + API on :8787
+npm run build && npm run worker:dev    # app + API on :8787
 ```
 Tests: `npm test` (runtime, grader, every lesson's reference and wrong solutions, loop engine, drill), `npx playwright test` (browser, type and talk mode), `ANTHROPIC_API_KEY=... npx vitest run tests/live` (live tutor evals, costs a few cents).
 

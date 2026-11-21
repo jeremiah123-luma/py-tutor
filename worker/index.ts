@@ -36,6 +36,19 @@ type C = Context<{ Bindings: Env; Variables: Vars }>;
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 
+/** The site's home. The old workers.dev address sends every request to the same path here, so shared links keep working. */
+const CANONICAL_HOST = 'pytutor.jeremiahsleman.com';
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.hostname.endsWith('.workers.dev')) {
+    url.hostname = CANONICAL_HOST;
+    url.protocol = 'https:';
+    url.port = '';
+    return c.redirect(url.toString(), c.req.method === 'GET' || c.req.method === 'HEAD' ? 301 : 308);
+  }
+  await next();
+});
+
 const STT_VOCAB =
   'Python tutoring about dictionaries, files, and classes. Words: dict, key, value, .items(), .keys(), .values(), .get(), append, len, for, in, while, if, elif, else, print, input, int, str, open, with, as, read, readline, readlines, write, strip, split, close, "r", "w", "a", class, def, self, __init__, __str__, return, True, False, None, KeyError, FileNotFoundError, colon, square bracket, curly brace.';
 
@@ -52,8 +65,18 @@ function startSession(c: C, token: string) {
 
 const publicUser = (u: User) => ({ id: u.id, name: u.name, username: u.username, admin: u.admin, passkeys: u.passkeys.length });
 
+/**
+ * Passkeys belong to the address the person is actually on. The browser's Origin header is that address; the
+ * request URL can differ behind a custom-domain route (and in local dev). WebAuthn still checks the signed origin.
+ */
 function rp(c: C) {
-  const url = new URL(c.req.url);
+  let url = new URL(c.req.url);
+  try {
+    const o = c.req.header('origin');
+    if (o && o !== 'null') url = new URL(o);
+  } catch {
+    /* bad header: fall back to the request URL */
+  }
   return { rpID: url.hostname, origin: url.origin, rpName: 'py-tutor' };
 }
 
