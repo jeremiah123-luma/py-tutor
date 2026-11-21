@@ -189,7 +189,7 @@ function MarkScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'mark
           {word && typed > 0 && <span className="intro-caret" style={{ left: `${(typed / WORD.length) * 100}%`, background: s ? s[2] : C.violet }} aria-hidden="true" />}
         </p>
       </motion.div>
-      <div className="absolute top-full left-1/2 mt-[min(3.5vh,1.75rem)] w-[min(88vw,36rem)] -translate-x-1/2 text-center">
+      <div className="absolute top-full left-1/2 mt-[min(3.5svh,1.75rem)] w-[min(88vw,36rem)] -translate-x-1/2 text-center">
         {(word || reduce) && <Sub text={scene.sub} delay={reduce ? 0 : 0.8} reduce={reduce} />}
       </div>
       </div>
@@ -226,26 +226,26 @@ function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'whe
             key={i}
             className="absolute rounded-full shadow-[0_10px_30px_-12px_rgb(76_29_149/0.45)]"
             style={{
-              width: '6.5vmin',
-              height: '16vmin',
-              left: '-3.25vmin',
-              top: '-8vmin',
+              width: '6.5svmin',
+              height: '14svmin',
+              left: '-3.25svmin',
+              top: '-7svmin',
               background: BAR_FILLS[i % BAR_FILLS.length],
-              transform: `rotate(${(i * 360) / N}deg) translateY(-40vmin) rotate(${i % 2 ? 8 : -8}deg)`,
+              transform: `rotate(${(i * 360) / N}deg) translateY(-42svmin) rotate(${i % 2 ? 8 : -8}deg)`,
             }}
           />
         ))}
       </div>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-[2.5vmin]">
-        <div className="relative grid size-[20vmin] place-items-center">
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-[2.5svmin]">
+        <div className="relative grid size-[16svmin] place-items-center">
         <AnimatePresence initial={false}>
         <motion.div
           key={card.code}
-          className="absolute inset-0 grid place-items-center rounded-[2.4vmin] font-code font-semibold shadow-[0_24px_60px_-20px_rgb(76_29_149/0.55)]"
+          className="absolute inset-0 grid place-items-center rounded-[2.4svmin] font-code font-semibold shadow-[0_24px_60px_-20px_rgb(76_29_149/0.55)]"
           style={{
             background: `radial-gradient(120% 120% at 20% 10%, #FFFFFF99, transparent 55%), ${card.bg}`,
             color: C.black,
-            fontSize: card.code.length > 3 ? '4.6vmin' : '7vmin',
+            fontSize: card.code.length > 3 ? '3.8svmin' : '5.8svmin',
           }}
           initial={reduce ? false : { scale: 0.85, rotate: k % 2 ? 10 : -10, opacity: 0 }}
           animate={{ scale: 1, rotate: k % 2 ? -4 : 4, opacity: 1 }}
@@ -267,12 +267,12 @@ function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'whe
               transition={tr(reduce, 0.5, 0.18)}
             >
               <p className="intro-label">{card.label}</p>
-              <p className="intro-detail mx-auto mt-[0.6vmin] max-w-[34vmin] font-code text-balance">{card.detail}</p>
+              <p className="intro-detail mx-auto mt-[0.6svmin] max-w-[34svmin] font-code text-balance">{card.detail}</p>
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-[max(6vh,calc(env(safe-area-inset-bottom)+1.5rem))] px-6 text-center">
+      <div className="absolute inset-x-0 bottom-[max(6svh,calc(env(safe-area-inset-bottom)+1.5rem))] px-6 text-center">
         <Sub text={scene.sub} delay={0.7} reduce={reduce} />
       </div>
     </div>
@@ -300,21 +300,21 @@ function Window({ label, i }: { label: string; i: number }) {
   ][i % 3];
   return (
     <div
-      className="flex h-full w-full flex-col overflow-hidden rounded-[1.6vmin] shadow-[0_30px_60px_-24px_rgb(46_16_101/0.45)]"
+      className="flex h-full w-full flex-col overflow-hidden rounded-[1.6svmin] shadow-[0_30px_60px_-24px_rgb(46_16_101/0.45)]"
       style={{ background: dark ? 'linear-gradient(180deg, #1F1D24, #111111)' : 'linear-gradient(180deg, #FFFFFF, #F6F1FB)' }}
     >
-      <div className="flex items-center gap-[0.8vmin] px-[1.4vmin] py-[1.1vmin]">
+      <div className="flex items-center gap-[0.8svmin] px-[1.4svmin] py-[1.1svmin]">
         {[C.pink, C.lilac, C.sky].map((c) => (
-          <span key={c} className="size-[1.1vmin] rounded-full" style={{ background: c }} />
+          <span key={c} className="size-[1.1svmin] rounded-full" style={{ background: c }} />
         ))}
-        <span className="ml-[0.8vmin] truncate font-code text-[1.6vmin]" style={{ color: dark ? '#A8A8A8' : '#555555' }}>
+        <span className="ml-[0.8svmin] truncate font-code text-[1.6svmin]" style={{ color: dark ? '#A8A8A8' : '#555555' }}>
           {label}
         </span>
       </div>
-      <div className="flex flex-1 flex-col gap-[1vmin] px-[1.6vmin] pb-[1.6vmin]">
-        <span className="h-[1.2vmin] w-3/4 rounded-full" style={{ background: dark ? '#2E2B36' : '#ECE6F3' }} />
-        <span className="h-[1.2vmin] w-1/2 rounded-full" style={{ background: dark ? '#26242C' : '#F1ECF6' }} />
-        <span className="mt-auto h-[6vmin] w-full rounded-[1vmin]" style={{ background: accent }} />
+      <div className="flex flex-1 flex-col gap-[1svmin] px-[1.6svmin] pb-[1.6svmin]">
+        <span className="h-[1.2svmin] w-3/4 rounded-full" style={{ background: dark ? '#2E2B36' : '#ECE6F3' }} />
+        <span className="h-[1.2svmin] w-1/2 rounded-full" style={{ background: dark ? '#26242C' : '#F1ECF6' }} />
+        <span className="mt-auto h-[6svmin] w-full rounded-[1svmin]" style={{ background: accent }} />
       </div>
     </div>
   );
@@ -331,9 +331,9 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
             <motion.div
               key={label}
               className="absolute"
-              style={{ width: `${w}vmin`, height: `${w * 0.7}vmin`, left: `${-w / 2}vmin`, top: `${-w * 0.35}vmin` }}
+              style={{ width: `${w}svmin`, height: `${w * 0.7}svmin`, left: `${-w / 2}svmin`, top: `${-w * 0.35}svmin` }}
               initial={reduce ? false : { x: 0, y: 0, scale: 0.5, rotate: 0, opacity: 0 }}
-              animate={leaving ? { x: 0, y: 0, scale: 0.4, rotate: 0, opacity: 0 } : { x: `${x}vw`, y: `${y}vh`, scale: sc, rotate: rot, opacity: 1 }}
+              animate={leaving ? { x: 0, y: 0, scale: 0.4, rotate: 0, opacity: 0 } : { x: `${x}vw`, y: `${y}svh`, scale: sc, rotate: rot, opacity: 1 }}
               transition={leaving ? tr(reduce, 0.45, i * 0.02, EASE_IO) : tr(reduce, 1.1, 0.05 * i)}
             >
               {/* the slow float is CSS on an inner layer, so it never fights the entrance */}
@@ -347,7 +347,7 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
       <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
         {/* a soft pool of light under the words instead of a blurred scrim */}
         <motion.div
-          className="pointer-events-none absolute h-[70vmin] w-[110vmin] rounded-full"
+          className="pointer-events-none absolute h-[70svmin] w-[110svmin] rounded-full"
           style={{ background: 'radial-gradient(closest-side, #F7EEF9 30%, rgb(247 238 249 / 0))' }}
           initial={reduce ? false : { opacity: 0 }}
           animate={{ opacity: leaving ? 0 : 1 }}
@@ -368,7 +368,7 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
             </span>
           ))}
         </p>
-        <Sub text={scene.sub} delay={0.85} leaving={leaving} reduce={reduce} className="mt-[min(3vh,1.5rem)]" />
+        <Sub text={scene.sub} delay={0.85} leaving={leaving} reduce={reduce} className="mt-[min(3svh,1.5rem)]" />
         </div>
       </div>
     </div>
@@ -379,7 +379,7 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
 function fit(lines: string[], big: boolean, width = 90): string {
   const longest = Math.max(...lines.map((l) => l.length));
   const em = longest * (big ? 0.54 : 0.5); // Geist bold, tight tracking: about half an em per character
-  return big ? `min(${(width / em).toFixed(2)}vw, ${lines.length > 2 ? 15 : 22}vh, 12rem)` : `clamp(1.25rem, min(${(84 / em).toFixed(2)}vw, 6vh), 3.25rem)`;
+  return big ? `min(${(width / em).toFixed(2)}vw, ${lines.length > 2 ? 15 : 22}svh, 12rem)` : `clamp(1.25rem, min(${(84 / em).toFixed(2)}vw, 6svh), 3.25rem)`;
 }
 
 /* ---------- statement: Raison's grammar ---------- */
@@ -424,7 +424,7 @@ function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene,
             </span>
           ))}
         </p>
-        {scene.sub && <Sub text={scene.sub} delay={0.25 + n * 0.08} leaving={exiting} reduce={reduce} className="mt-[min(4vh,2rem)]" />}
+        {scene.sub && <Sub text={scene.sub} delay={0.25 + n * 0.08} leaving={exiting} reduce={reduce} className="mt-[min(4svh,2rem)]" />}
       </div>
     </div>
   );
