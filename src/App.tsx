@@ -24,6 +24,7 @@ import { AuthScreen } from './screens/AuthScreen';
 import { AdminScreen } from './screens/AdminScreen';
 import { CapDialog } from './ui/CapDialog';
 import { Tour } from './ui/Tour';
+import { pageTransition } from './ui/pageTransition';
 import { Intro } from './ui/Intro';
 import { introSeen, markIntroSeen } from './intro/state';
 import { TOUR_STEPS } from './tour/steps';
@@ -107,7 +108,9 @@ export default function App() {
   const [introOpen, setIntroOpen] = useState(false);
   const [progress, setProgressState] = useState<Progress>(emptyProgress);
   const progressRef = useRef(progress);
-  const [screen, setScreen] = useState<Screen>('home');
+  const [screen, setScreenNow] = useState<Screen>('home');
+  // every screen change opens out of the point that was tapped
+  const setScreen = useCallback((s: Screen) => void pageTransition(() => setScreenNow(s)), []);
   const [mode, setModeState] = useState<Mode>(readMode);
   const [session, setSession] = useState<Session | null>(null);
   const [talk, setTalk] = useState<TalkController | null>(null);
@@ -244,7 +247,7 @@ export default function App() {
   const contLesson = conceptMap[cont.concept]!.lessons[cont.index];
 
   if (unlocked === null) return <div className="min-h-dvh bg-paper" />;
-  if (!unlocked) return <AuthScreen onSignedIn={(u) => void enter(u)} />;
+  if (!unlocked) return <AuthScreen onSignedIn={(u) => enter(u)} />;
 
   // First-run tour: home right after signing in; the lesson tour the first time they reach "Try it",
   // when every part it points at is on screen.
@@ -291,8 +294,10 @@ export default function App() {
       void signOut();
       setAccount(null);
       setProgressUser('');
-      setScreen('home');
-      setUnlocked(false);
+      void pageTransition(() => {
+        setScreenNow('home');
+        setUnlocked(false);
+      });
     },
   };
 

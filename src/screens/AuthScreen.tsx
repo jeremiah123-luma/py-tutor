@@ -8,6 +8,7 @@ import { Aurora } from '../ui/Aurora';
 import { Intro } from '../ui/Intro';
 import { introSeen, markIntroSeen } from '../intro/state';
 import { distortionWave, recentTap } from '../ui/wave';
+import { pageTransition } from '../ui/pageTransition';
 import { addPasskey, passkeysSupported, signIn, signInWithPasskey, signUp, type Account } from '../loop/api';
 
 type Tab = 'signin' | 'signup';
@@ -37,7 +38,7 @@ function Field({ id, label, hint, error, children }: { id: string; label: string
 
 const passkeyCancelled = (e: unknown) => ['NotAllowedError', 'AbortError'].includes((e as Error)?.name);
 
-export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void }) {
+export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | Promise<void> }) {
   const [tab, setTab] = useState<Tab>('signin');
   const [busy, setBusy] = useState<'' | 'form' | 'passkey'>('');
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
@@ -46,11 +47,8 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
   const canPasskey = passkeysSupported();
   const [intro, setIntro] = useState(() => !introSeen());
   const cardRef = useRef<HTMLDivElement>(null);
-  // Signing in is the "it worked" moment: the wave goes through the card, then the app opens.
-  const welcome = async (u: Account) => {
-    await distortionWave(cardRef.current, { origin: recentTap(), tone: 'iridescent' });
-    onSignedIn(u);
-  };
+  // Signing in opens the app out of the button that was tapped (the page transition carries the wave).
+  const welcome = (u: Account) => pageTransition(() => onSignedIn(u));
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setF({ ...f, [k]: e.target.value });

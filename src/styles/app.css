@@ -300,3 +300,24 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
 /* Tour card titles rise in word by word. */
 .tour-word { display: inline-block; animation: tour-word 700ms var(--ease-out) both; }
 @keyframes tour-word { from { opacity: 0; transform: translateY(0.45em); filter: blur(3px); } to { opacity: 1; transform: none; filter: none; } }
+
+/* ---------- Page transitions (src/ui/pageTransition.ts) ---------- */
+@property --r { syntax: '<length>'; initial-value: 0px; inherits: false; }
+.page-ghost {
+  position: fixed; inset: 0; z-index: 115; pointer-events: none; overflow: hidden; background: var(--paper);
+  /* a soft-edged hole that grows from the tap point */
+  -webkit-mask-image: radial-gradient(circle at var(--px) var(--py), transparent var(--r), #000 calc(var(--r) + 110px));
+  mask-image: radial-gradient(circle at var(--px) var(--py), transparent var(--r), #000 calc(var(--r) + 110px));
+  will-change: transform;
+}
+.page-ghost > * { pointer-events: none; }
+.page-wave-stage { position: fixed; inset: 0; pointer-events: none; z-index: 116; }
+/* the new page's headings land with a colour split that settles */
+.page-entering h1, .page-entering h2, .page-entering .font-voice {
+  animation: chroma-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes chroma-in {
+  0% { text-shadow: -5px 0 rgb(249 168 212 / 0.85), 5px 0 rgb(147 197 253 / 0.85); transform: translate3d(0, 10px, 0) skewX(-6deg); opacity: 0.4; }
+  55% { text-shadow: -1.5px 0 rgb(249 168 212 / 0.5), 1.5px 0 rgb(147 197 253 / 0.5); transform: translate3d(0, 0, 0) skewX(1deg); opacity: 1; }
+  100% { text-shadow: none; transform: none; opacity: 1; }
+}

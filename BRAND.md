@@ -87,9 +87,11 @@ Tones:
 | Tone | Colour | When |
 |---|---|---|
 | success | green | a passing Check my code |
-| iridescent | violet → pink → lilac → sky | mastering a skill, signing in, handing in the practice exam, "Get started" at the end of the intro, tapping the aurora |
+| iridescent | violet → pink → lilac → sky | page transitions (riding the edge of the reveal), mastering a skill, handing in the practice exam, "Get started" at the end of the intro |
 
 It plays only on a real success or a deliberate tap. Never on load, never on a timer, never on a failure.
+
+**Page transitions.** Every screen change opens out of the point that was tapped: a still copy of the old page sits on top while a soft-edged hole grows from the tap (0.9 s, ease-in-out), the old page pushes away from the hole (zooming to 1.06 from the tap point), the wave rides the hole's edge, and the new page's headings land with a brief pink/sky colour split that settles. Inspired by a WebGPU page-transition demo; built in DOM and CSS (`src/ui/pageTransition.ts`). Reduced motion swaps instantly.
 
 ### Signature 2: the intro
 How py-tutor introduces itself, about 23 seconds, every scene on our aurora gradients. Inspired by Anagram's motion for Raison, rebuilt in Geist and our colours (`src/ui/Intro.tsx`, scenes in `src/intro/slides.ts`).

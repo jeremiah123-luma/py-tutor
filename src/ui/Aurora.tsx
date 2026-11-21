@@ -1,5 +1,4 @@
-import { useRef, type ReactNode } from 'react';
-import { distortionWave } from './wave';
+import type { ReactNode } from 'react';
 
 /**
  * A living pastel gradient: soft blobs that drift, breathe, and slowly shift hue behind hero content.
@@ -15,15 +14,8 @@ const BLOBS = [
 ];
 
 export function Aurora({ children, className = '' }: { children?: ReactNode; className?: string }) {
-  const ref = useRef<HTMLElement>(null);
   return (
     <section
-      ref={ref}
-      // Tap the open gradient (not a control) and a wave rolls out from your finger. Pure play, no meaning.
-      onClick={(e) => {
-        if ((e.target as HTMLElement).closest('button, a, input, textarea, select, label, [role="button"]')) return;
-        void distortionWave(ref.current, { origin: { x: e.clientX, y: e.clientY }, tone: 'iridescent', tilt: false, duration: 1300, blend: 'normal' });
-      }}
       className={`aurora-live relative isolate overflow-hidden text-[#111] ${className}`}>
       <div className="aurora-field absolute inset-0 -z-10" aria-hidden="true">
         {BLOBS.map((b, i) => (
