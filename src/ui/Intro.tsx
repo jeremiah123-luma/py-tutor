@@ -9,8 +9,8 @@
 // Smoothness rules (from the animation-performance skill): only transform and opacity move. Continuous motion
 // (grounds, holds, drift) is CSS keyframes on the compositor; entrances and exits are Motion, which hands
 // transform/opacity to WAAPI. No animated blur, letter-spacing, width, or backdrop-filter anywhere.
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { C, INTRO_SCENES, exitMs, sceneText, type Ground, type IntroScene } from '../intro/slides';
 import { distortionWave, recentTap } from './wave';
@@ -109,8 +109,8 @@ function MarkScene({ scene, reduce }: { scene: IntroScene; reduce: boolean }) {
   useEffect(() => {
     if (phase < 4 || reduce) return;
     const ids: ReturnType<typeof setTimeout>[] = [];
-    const typeEnd = 180 + WORD.length * 45;
-    for (let i = 1; i <= WORD.length; i++) ids.push(setTimeout(() => setTyped(i), 180 + i * 45));
+    const typeEnd = 380 + WORD.length * 45;
+    for (let i = 1; i <= WORD.length; i++) ids.push(setTimeout(() => setTyped(i), 380 + i * 45));
     SELECTIONS.forEach((_, k) => ids.push(setTimeout(() => setSel(k), typeEnd + 60 + k * 80)));
     ids.push(setTimeout(() => setSel(-1), typeEnd + 60 + SELECTIONS.length * 80));
     return () => ids.forEach(clearTimeout);
@@ -121,27 +121,59 @@ function MarkScene({ scene, reduce }: { scene: IntroScene; reduce: boolean }) {
   const word = phase >= 4;
   const s = sel >= 0 ? SELECTIONS[sel] : null;
 
+  // One mark the whole time. It lives at its final (small) size inside the wordmark row; until the wordmark
+  // phase it is scaled up and the row is shifted so the mark sits dead centre. Then both relax to 1 and 0
+  // together while the word types, so the mark glides into place with no swap and no jump.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const markRef = useRef<HTMLDivElement>(null);
+  const [fitBig, setFitBig] = useState({ scale: 4, x: 0 });
+  useLayoutEffect(() => {
+    const measure = () => {
+      const row = rowRef.current;
+      const mark = markRef.current;
+      if (!row || !mark) return;
+      const big = Math.min(window.innerWidth * 0.62, window.innerHeight * 0.62, 420);
+      const m = mark.offsetWidth || 1;
+      // centre of the mark relative to the row's centre (row is centred on screen)
+      const markCentre = mark.offsetLeft + m / 2;
+      setFitBig({ scale: big / m, x: row.offsetWidth / 2 - markCentre });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
   return (
     <div className="absolute inset-0 flex items-center justify-center" style={{ color: ink }}>
       <GroundLayer ground={outline ? 'lilac' : scene.ground} />
-      <div className="relative flex items-center gap-[0.3em] text-[clamp(3rem,11vw,7.5rem)] leading-none">
-        <motion.div layout transition={tr(reduce, 0.6)} style={{ width: word ? '1.1em' : 'min(62vmin, 420px)', aspectRatio: '200 / 120' }}>
+      <motion.div
+        ref={rowRef}
+        className="relative flex items-center gap-[0.3em] text-[clamp(3rem,11vw,7.5rem)] leading-none"
+        initial={false}
+        animate={{ x: word ? 0 : fitBig.x }}
+        transition={word ? tr(reduce, 0.7, 0, EASE_IO) : { duration: 0 }}
+      >
+        <motion.div
+          ref={markRef}
+          style={{ width: '1.1em', aspectRatio: '200 / 120' }}
+          initial={false}
+          animate={{ scale: word ? 1 : fitBig.scale }}
+          transition={word ? tr(reduce, 0.7, 0, EASE_IO) : { duration: 0 }}
+        >
           <MarkSvg ink={ink} outline={outline} phase={phase} reduce={reduce} />
         </motion.div>
-        {word && (
-          <p className="intro-word relative flex">
-            {WORD.split('').map((ch, i) => {
-              const on = !!s && i >= s[0] && i < s[1];
-              return (
-                <span key={i} style={{ visibility: i < typed ? 'visible' : 'hidden', background: on ? s![2] : 'transparent', color: on ? C.black : undefined }}>
-                  {ch}
-                </span>
-              );
-            })}
-            {typed > 0 && <span className="intro-caret" style={{ left: `${(typed / WORD.length) * 100}%`, background: s ? s[2] : C.violet }} aria-hidden="true" />}
-          </p>
-        )}
-      </div>
+        <p className="intro-word relative flex" aria-hidden={!word}>
+          {WORD.split('').map((ch, i) => {
+            const on = !!s && i >= s[0] && i < s[1];
+            return (
+              <span key={i} style={{ visibility: word && i < typed ? 'visible' : 'hidden', background: on ? s![2] : 'transparent', color: on ? C.black : undefined }}>
+                {ch}
+              </span>
+            );
+          })}
+          {word && typed > 0 && <span className="intro-caret" style={{ left: `${(typed / WORD.length) * 100}%`, background: s ? s[2] : C.violet }} aria-hidden="true" />}
+        </p>
+      </motion.div>
     </div>
   );
 }
@@ -186,26 +218,38 @@ function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'whe
         ))}
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-[2.5vmin]">
+        <div className="relative grid size-[20vmin] place-items-center">
+        <AnimatePresence initial={false}>
         <motion.div
           key={card.code}
-          className="grid place-items-center rounded-[2.4vmin] font-code font-semibold shadow-[0_24px_60px_-20px_rgb(76_29_149/0.55)]"
+          className="absolute inset-0 grid place-items-center rounded-[2.4vmin] font-code font-semibold shadow-[0_24px_60px_-20px_rgb(76_29_149/0.55)]"
           style={{
             background: `radial-gradient(120% 120% at 20% 10%, #FFFFFF99, transparent 55%), ${card.bg}`,
             color: C.black,
-            width: '20vmin',
-            height: '20vmin',
             fontSize: card.code.length > 3 ? '4.6vmin' : '7vmin',
           }}
           initial={reduce ? false : { scale: 0.85, rotate: k % 2 ? 10 : -10, opacity: 0 }}
           animate={{ scale: 1, rotate: k % 2 ? -4 : 4, opacity: 1 }}
+          exit={{ scale: 0.9, rotate: k % 2 ? -14 : 14, opacity: 0, transition: { duration: reduce ? 0 : 0.25, ease: 'easeOut' } }}
           transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.5, bounce: 0.25 }}
         >
           {card.code}
         </motion.div>
-        <div className="overflow-hidden pb-[0.1em]">
-          <motion.p key={card.label} className="intro-label" initial={reduce ? false : { y: '110%' }} animate={{ y: 0 }} transition={tr(reduce, 0.5, 0.05)}>
-            {card.label}
-          </motion.p>
+        </AnimatePresence>
+        </div>
+        <div className="relative grid overflow-hidden pb-[0.1em]">
+          <AnimatePresence initial={false}>
+            <motion.p
+              key={card.label}
+              className="intro-label col-start-1 row-start-1 text-center"
+              initial={reduce ? false : { y: '110%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '-110%', transition: tr(reduce, 0.22, 0, EASE_IO) }}
+              transition={tr(reduce, 0.5, 0.18)}
+            >
+              {card.label}
+            </motion.p>
+          </AnimatePresence>
         </div>
       </div>
     </div>
@@ -220,8 +264,8 @@ const WIN_POS: [number, number, number, number, number][] = [
   [36, -31, 0.8, 5, 28],
   [-37, 30, 0.85, 4, 30],
   [37, 30, 1, -4, 32],
-  [-4, -40, 0.6, 2, 24],
-  [4, 40, 0.65, -3, 24],
+  [-4, -34, 0.6, 2, 24],
+  [4, 35, 0.65, -3, 24],
 ];
 
 function Window({ label, i }: { label: string; i: number }) {
@@ -267,7 +311,7 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
               style={{ width: `${w}vmin`, height: `${w * 0.7}vmin`, left: `${-w / 2}vmin`, top: `${-w * 0.35}vmin` }}
               initial={reduce ? false : { x: 0, y: 0, scale: 0.5, rotate: 0, opacity: 0 }}
               animate={leaving ? { x: 0, y: 0, scale: 0.4, rotate: 0, opacity: 0 } : { x: `${x}vw`, y: `${y}vh`, scale: sc, rotate: rot, opacity: 1 }}
-              transition={leaving ? tr(reduce, 0.55, i * 0.03, EASE_IO) : tr(reduce, 1.1, 0.05 * i)}
+              transition={leaving ? tr(reduce, 0.45, i * 0.02, EASE_IO) : tr(reduce, 1.1, 0.05 * i)}
             >
               {/* the slow float is CSS on an inner layer, so it never fights the entrance */}
               <div className="h-full w-full" style={{ animation: reduce ? undefined : `drift-${i % 3} ${5 + i}s ease-in-out infinite alternate` }}>
@@ -279,15 +323,21 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
       </div>
       <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
         {/* a soft pool of light under the words instead of a blurred scrim */}
-        <div className="pointer-events-none absolute h-[70vmin] w-[110vmin] rounded-full" style={{ background: 'radial-gradient(closest-side, #F7EEF9 30%, rgb(247 238 249 / 0))' }} />
-        <p className="intro-display relative" style={{ fontSize: fit(scene.lines, true) }}>
+        <motion.div
+          className="pointer-events-none absolute h-[70vmin] w-[110vmin] rounded-full"
+          style={{ background: 'radial-gradient(closest-side, #F7EEF9 30%, rgb(247 238 249 / 0))' }}
+          initial={reduce ? false : { opacity: 0 }}
+          animate={{ opacity: leaving ? 0 : 1 }}
+          transition={tr(reduce, 0.5)}
+        />
+        <p className="intro-display relative" style={{ fontSize: fit(scene.lines, true, 62) }}>
           {scene.lines.map((line, i) => (
             <span key={i} className="block overflow-hidden pb-[0.08em]">
               <motion.span
                 className="block"
                 initial={reduce ? false : { y: '105%' }}
                 animate={leaving ? { y: '-105%' } : { y: 0 }}
-                transition={leaving ? tr(reduce, 0.45, i * 0.05, EASE_IO) : tr(reduce, 0.8, 0.3 + i * 0.09)}
+                transition={leaving ? tr(reduce, 0.4, i * 0.04, EASE_IO) : tr(reduce, 0.8, 0.3 + i * 0.09)}
               >
                 {line}
               </motion.span>
@@ -300,10 +350,10 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
 }
 
 /** Raison fills the frame: size the type from its longest line so it spans the width, capped by height. */
-function fit(lines: string[], big: boolean): string {
+function fit(lines: string[], big: boolean, width = 90): string {
   const longest = Math.max(...lines.map((l) => l.length));
   const em = longest * (big ? 0.54 : 0.5); // Geist bold, tight tracking: about half an em per character
-  return big ? `min(${(90 / em).toFixed(2)}vw, ${lines.length > 2 ? 15 : 22}vh, 12rem)` : `clamp(1.25rem, min(${(84 / em).toFixed(2)}vw, 6vh), 3.25rem)`;
+  return big ? `min(${(width / em).toFixed(2)}vw, ${lines.length > 2 ? 15 : 22}vh, 12rem)` : `clamp(1.25rem, min(${(84 / em).toFixed(2)}vw, 6vh), 3.25rem)`;
 }
 
 /* ---------- statement: Raison's grammar ---------- */
@@ -324,7 +374,7 @@ function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene,
   const exiting = leaving && scene.exit !== 'none';
   const exitTo = (i: number) => (scene.exit === 'split' ? { x: i % 2 === 0 ? '-115vw' : '115vw' } : { opacity: 0 });
   const exitT = (i: number) =>
-    scene.exit === 'split' ? tr(reduce, 0.5, i * 0.06, EASE_IO) : { duration: reduce ? 0 : 0.12, delay: reduce ? 0 : i * 0.14 };
+    scene.exit === 'split' ? tr(reduce, 0.42, i * 0.05, EASE_IO) : { duration: reduce ? 0 : 0.12, delay: reduce ? 0 : i * 0.14 };
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center" style={{ color: scene.ink }}>
@@ -332,10 +382,13 @@ function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene,
       <div className="relative" style={{ animation: holdAnim }}>
         <p className={big ? 'intro-display' : 'intro-small'} style={{ fontSize: fit(scene.lines, big) }}>
           {scene.lines.map((line, i) => (
-            <span key={i} className="block overflow-hidden pb-[0.08em]">
+            <span
+              key={i}
+              className="block overflow-hidden pb-[0.12em]"
+              style={{ ['--i' as string]: i, animation: !reduce && scene.hold === 'breathe' ? `hold-breathe ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both` : undefined } as CSSProperties}
+            >
               <motion.span
                 className="block"
-                style={{ ['--i' as string]: i, animation: !reduce && scene.hold === 'breathe' ? `hold-breathe ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both` : undefined } as CSSProperties}
                 initial={reduce ? false : { y: '105%' }}
                 animate={exiting ? exitTo(i) : { y: 0, x: 0, opacity: 1 }}
                 transition={exiting ? exitT(i) : tr(reduce, big ? 0.85 : 0.7, enterDelay(i))}
@@ -373,6 +426,22 @@ function Scene({ scene, leaving, reduce }: { scene: IntroScene; leaving: boolean
   }
 }
 
+/** One scene's layer. How it arrives is decided once, at mount, so nothing later can interrupt the slide. */
+function Layer({ how, children }: { how: 'wipe' | 'fade' | 'none'; children: React.ReactNode }) {
+  const [arrive] = useState(how);
+  return (
+    <motion.div
+      className="absolute inset-0"
+      initial={arrive === 'wipe' ? { y: '100%' } : arrive === 'fade' ? { opacity: 0 } : false}
+      animate={{ y: 0, opacity: 1 }}
+      transition={arrive === 'none' ? { duration: 0 } : { duration: arrive === 'wipe' ? 0.7 : 0.5, ease: [0.32, 0.72, 0, 1] }}
+      aria-hidden="true"
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 const wipes = (s: IntroScene) => s.kind === 'wheel' || (s.kind === 'statement' && s.enter === 'wipe');
 
 /* ---------- the player ---------- */
@@ -382,6 +451,9 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
   const [cur, setCur] = useState(0);
   const [prev, setPrev] = useState<number | null>(null);
   const [sceneLeaving, setSceneLeaving] = useState(false);
+  const [prevLeft, setPrevLeft] = useState(false); // did the scene now underneath a wipe already play its exit?
+  const leavingRef = useRef(false); // read in go() so starting an exit never re-creates go/next (that reset the timers)
+  leavingRef.current = sceneLeaving;
   const [leaving, setLeaving] = useState(false);
   const [fading, setFading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -392,6 +464,7 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
   const go = useCallback(
     (to: number) => {
       if (to < 0 || to >= INTRO_SCENES.length || leaving) return;
+      setPrevLeft(leavingRef.current);
       setSceneLeaving(false);
       setPrev(wipes(INTRO_SCENES[to]) ? cur : null); // a wipe slides over the last scene; a cut replaces it
       setCur(to);
@@ -426,7 +499,7 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
 
   useEffect(() => {
     if (prev === null) return;
-    const id = setTimeout(() => setPrev(null), reduce ? 0 : 700);
+    const id = setTimeout(() => setPrev(null), reduce ? 0 : 950); // well after the 700 ms slide has landed
     return () => clearTimeout(id);
   }, [prev, cur, reduce]);
 
@@ -474,16 +547,10 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
       {layers.map((i) => {
         const entering = i === cur && prev !== null;
         return (
-          <motion.div
-            key={`${i}-${i === cur ? 'on' : 'off'}`}
-            className="absolute inset-0"
-            initial={entering && !reduce ? { y: '100%' } : false}
-            animate={{ y: 0 }}
-            transition={tr(reduce, 0.7, 0, [0.32, 0.72, 0, 1] as const)}
-            aria-hidden="true"
-          >
-            <Scene scene={INTRO_SCENES[i]} leaving={i === cur && sceneLeaving} reduce={reduce} />
-          </motion.div>
+          // key is stable, so the scene underneath a wipe keeps its state instead of replaying
+          <Layer key={i} how={reduce ? 'none' : entering ? 'wipe' : i === 0 && prev === null ? 'fade' : 'none'}>
+            <Scene scene={INTRO_SCENES[i]} leaving={i === cur ? sceneLeaving : prevLeft} reduce={reduce} />
+          </Layer>
         );
       })}
 

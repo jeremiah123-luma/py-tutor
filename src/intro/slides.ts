@@ -118,7 +118,8 @@ export function sceneText(s: IntroScene): string {
 
 /** How long a scene's exit plays before the next scene takes over. */
 export function exitMs(s: IntroScene): number {
-  if (s.kind === 'drift') return 650;
+  // Each is timed so the next scene lands just as the last piece clears, with no empty frames between.
+  if (s.kind === 'drift') return 480;
   if (s.kind !== 'statement') return 0;
-  return s.exit === 'split' ? 520 : s.exit === 'lines' ? 140 * s.lines.length + 200 : 0;
+  return s.exit === 'split' ? 360 + (s.lines.length - 1) * 50 : s.exit === 'lines' ? 140 * s.lines.length + 40 : 0;
 }
