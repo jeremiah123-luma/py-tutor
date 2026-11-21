@@ -81,7 +81,7 @@ export async function me(): Promise<{ user: Account; usage: Usage } | null> {
     return null;
   }
 }
-export const signUp = (b: { name: string; username: string; password: string; code: string }) => postJSON<{ user: Account }>('/api/auth/signup', b);
+export const signUp = (b: { name: string; username: string; password: string; code?: string }) => postJSON<{ user: Account }>('/api/auth/signup', b);
 export const signIn = (b: { username: string; password: string }) => postJSON<{ user: Account }>('/api/auth/login', b);
 export const signOut = () => postJSON('/api/auth/logout').catch(() => undefined);
 

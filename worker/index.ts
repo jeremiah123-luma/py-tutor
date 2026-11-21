@@ -18,7 +18,6 @@ type Env = {
   ANTHROPIC_API_KEY: string;
   OPENAI_API_KEY: string;
   /** Code that classmates enter to make an account. */
-  INVITE_CODE: string;
   /** Code that makes an admin account (the old passcode). */
   ADMIN_CODE: string;
   /** Monthly AI budget for the class, USD. */
@@ -82,12 +81,9 @@ app.post('/api/auth/signup', async (c) => {
   const password = String(b.password ?? '');
   const code = String(b.code ?? '').trim();
   const ip = c.req.header('cf-connecting-ip') ?? 'local';
-  if (await tooManyTries(store, `code:${ip}`)) return c.json({ error: 'Too many tries. Wait 15 minutes and try again.' }, 429);
-  const admin = !!c.env.ADMIN_CODE && code === c.env.ADMIN_CODE;
-  if (!admin && (!c.env.INVITE_CODE || code.toLowerCase() !== c.env.INVITE_CODE.toLowerCase())) {
-    await noteFail(store, `code:${ip}`);
-    return c.json({ error: 'That class code isn’t right. Check the group chat for the current code.', field: 'code' }, 400);
-  }
+  // Sign-up is open (no class code). At most 10 new accounts per IP every 15 minutes keeps it from being farmed.
+  if (await tooManyTries(store, `signup:${ip}`)) return c.json({ error: 'Too many new accounts from here. Wait 15 minutes and try again.' }, 429);
+  const admin = !!c.env.ADMIN_CODE && code === c.env.ADMIN_CODE; // admin accounts are made through the API only
   if (!name) return c.json({ error: 'Enter your name.', field: 'name' }, 400);
   if (!USERNAME_RE.test(username))
     return c.json({ error: 'Usernames are 3 to 24 letters, numbers, dots, dashes or underscores.', field: 'username' }, 400);
@@ -95,6 +91,7 @@ app.post('/api/auth/signup', async (c) => {
   if (await store.userByName(username)) return c.json({ error: 'That username is taken. Try another.', field: 'username' }, 409);
   const user: User = { id: randomId(12), username, name, admin, createdAt: Date.now(), pw: await hashPassword(password), passkeys: [], bonus: 0 };
   await store.createUser(user);
+  await noteFail(store, `signup:${ip}`);
   startSession(c, await store.newSession(user.id));
   return c.json({ user: publicUser(user) });
 });

@@ -42,7 +42,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
   const [busy, setBusy] = useState<'' | 'form' | 'passkey'>('');
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
   const [offer, setOffer] = useState<Account | null>(null); // just signed up: offer a passkey
-  const [f, setF] = useState({ name: '', username: '', password: '', code: '' });
+  const [f, setF] = useState({ name: '', username: '', password: '' });
   const canPasskey = passkeysSupported();
   const [intro, setIntro] = useState(() => !introSeen());
   const cardRef = useRef<HTMLDivElement>(null);
@@ -157,11 +157,6 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
                   className={inputCls}
                 />
               </Field>
-              {tab === 'signup' && (
-                <Field id="code" label="Class code" hint="From the CS 100 group chat." error={err('code')}>
-                  <input id="code" name="code" autoComplete="off" autoCapitalize="none" value={f.code} onChange={set('code')} aria-invalid={!!err('code')} className={inputCls} />
-                </Field>
-              )}
 
               {error && !error.field && (
                 <p role="alert" className="text-sm text-err">
@@ -174,7 +169,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
                 variant="primary"
                 size="lg"
                 loading={busy === 'form'}
-                disabled={!!busy || !f.username.trim() || !f.password || (tab === 'signup' && (!f.name.trim() || !f.code.trim()))}
+                disabled={!!busy || !f.username.trim() || !f.password || (tab === 'signup' && !f.name.trim())}
                 className="justify-center"
               >
                 {tab === 'signin' ? 'Sign in' : 'Create account'}
@@ -205,8 +200,8 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
                 New here?{' '}
                 <button type="button" onClick={() => setTab('signup')} className="text-ink underline underline-offset-4 hover:text-accent">
                   Create an account
-                </button>{' '}
-                with the class code.
+                </button>
+                . It takes ten seconds.
               </p>
             )}
           </>

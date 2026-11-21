@@ -1,4 +1,4 @@
-// Onboarding end to end: sign up with the class code, add a passkey, sign back in with only the passkey,
+// Onboarding end to end: sign up (no class code), add a passkey, sign back in with only the passkey,
 // the first-run tour, and the "You hit your cap" pop-up through to the admin approving more.
 import { expect, test } from '@playwright/test';
 import { E2E } from './account';
@@ -38,11 +38,7 @@ test('sign up, passkey, tour, sign out, passkey sign-in', async ({ page, context
   await page.getByLabel('Your name').fill('Jordan Test');
   await page.getByLabel('Username').fill(username);
   await page.getByLabel('Password').fill(E2E.password);
-  await page.getByLabel('Class code').fill('not-the-code');
   await page.screenshot({ path: shot('2-create-account') });
-  await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page.getByText('That class code isn’t right.')).toBeVisible();
-  await page.getByLabel('Class code').fill(E2E.invite);
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
 
   // Right after sign-up: offer a passkey.
@@ -78,7 +74,7 @@ test('hitting the cap: pop-up, Ask for more, admin approves', async ({ page, bro
   test.skip(info.project.name !== 'laptop', 'one browser is enough');
   test.skip(!local, 'needs a local admin account');
   const username = `e2e-cap-${Date.now().toString(36)}`;
-  await page.request.post('/api/auth/signup', { data: { name: 'Casey Capped', username, password: E2E.password, code: E2E.invite } });
+  await page.request.post('/api/auth/signup', { data: { name: 'Casey Capped', username, password: E2E.password } });
   await page.addInitScript(() => localStorage.setItem('py-tutor.tour.skip-all', '1'));
   // Pretend the allowance is used up for this one call (the cap math itself is unit-tested).
   await page.route('**/api/tutor', (r) =>
