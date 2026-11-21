@@ -53,7 +53,7 @@ test('iPhone (WebKit): mic opens inside the tap, once, and survives several turn
   await tap(page, page.getByRole('radio', { name: /Talk/ }).first());
   await tap(page, page.getByRole('button', { name: /^(Start|Continue):/ }));
   await tap(page, page.getByRole('button', { name: 'Tap anywhere to start' }));
-  await expect(page.getByText(/Speaking/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('p:not([role=status])').filter({ hasText: /Speaking/ })).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => stt.length, { timeout: 120_000 }).toBeGreaterThanOrEqual(2); // two spoken turns heard
   expect(stt[0].toLowerCase()).toContain('dictionary');
   const gum = await page.evaluate(() => (window as any).__gum as (boolean | null)[]);

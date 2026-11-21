@@ -256,7 +256,7 @@ export const drill: DrillQuestion[] = [
     kind: 'choice',
     prompt: 'In this class, which one is a class attribute (one value shared by every Dog)?',
     code: 'class Dog:\n    species = "canine"\n\n    def __init__(self, name):\n        self.name = name',
-    choices: ['species', 'name', 'self', '__init__'],
+    choices: ['species', 'name', 'self', '"canine"'],
     answer: 0,
     explain: 'species is set inside the class but outside any method, so every Dog shares it. self.name is set in __init__, so each Dog gets its own.',
   },

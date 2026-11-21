@@ -2,6 +2,7 @@
 import { get, set } from 'idb-keyval';
 import type { ConceptId, LoopStep, Progress, SubskillProgress } from '../types';
 import { pullProgress, pushProgress } from './api';
+import { cleanProgress, mergeProgress, sameProgress } from './mergeProgress';
 
 const KEY = 'progress-v1';
 let who = '';
@@ -54,8 +55,12 @@ export async function loadProgress(): Promise<Progress> {
     /* IndexedDB blocked */
   }
   const remote = await pullProgress();
-  const best = [local, remote].filter(Boolean).sort((a, b) => b!.updatedAt - a!.updatedAt)[0];
-  return best ?? emptyProgress();
+  // Merge, never pick one: this device may have earned things the account copy doesn't have yet (offline, or a
+  // session that expired), and the account may have things from another device.
+  const r = remote ? cleanProgress(remote) : null;
+  const merged = mergeProgress(local ? cleanProgress(local) : emptyProgress(), r ?? emptyProgress());
+  if (local && (!r || !sameProgress(merged, r))) void pushProgress(merged);
+  return merged;
 }
 
 export async function saveProgress(p: Progress) {

@@ -31,11 +31,28 @@ export class Speaker {
   feed(delta: string) {
     this.buf += delta;
     for (;;) {
+      // The shortest run of whole sentences that's at least 12 characters: a short opener ("Yes!", "Close.") rides
+      // along with the next sentence instead of holding up everything behind it.
       const m = this.buf.match(/^([\s\S]*?[.!?])(\s+|$)/);
-      // Hold back very short fragments ("e.g.", "1.") until more arrives.
-      if (!m || m[1].trim().length < 12 || m[2] === '') break;
-      this.enqueue(m[1]);
-      this.buf = this.buf.slice(m[0].length);
+      if (!m || m[2] === '') {
+        // no sentence end yet: a long run without one still goes out in pieces (TTS takes at most 1500 characters)
+        if (this.buf.length > 400) {
+          const cut = this.buf.lastIndexOf(' ', 400);
+          this.enqueue(this.buf.slice(0, cut > 100 ? cut : 400));
+          this.buf = this.buf.slice(cut > 100 ? cut : 400);
+          continue;
+        }
+        break;
+      }
+      let end = m[0].length;
+      while (this.buf.slice(0, end).trim().length < 12) {
+        const more = this.buf.slice(end).match(/^([\s\S]*?[.!?])(\s+)/);
+        if (!more) break;
+        end += more[0].length;
+      }
+      if (this.buf.slice(0, end).trim().length < 12) break; // "e.g." alone: wait for more
+      this.enqueue(this.buf.slice(0, end));
+      this.buf = this.buf.slice(end);
     }
   }
 

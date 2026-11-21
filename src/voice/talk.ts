@@ -4,6 +4,7 @@
 import type { Session } from '../loop/engine';
 import { Listener } from './listener';
 import { Speaker } from './speaker';
+import { micStream } from './audio';
 
 export type RingState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -21,12 +22,19 @@ export class TalkController {
   heard = '';
   error = '';
   private subs = new Set<() => void>();
+  /** Set by the app: move on to the next skill (he said "next" after passing). */
+  onNextSkill: () => void = () => {};
+  private begunAt = -Infinity;
 
   private session: Session;
 
   constructor(session: Session) {
     this.session = session;
     this.listener = new Listener({
+      // Nothing usable came back (silence, a cough, a failed upload): listen again instead of sitting on "Thinking".
+      onNothing: () => {
+        if (!this.stopped && this.ring === 'thinking' && this.session.state.busy === 'idle') void this.listenNext();
+      },
       onUtterance: (t) => void this.onUtterance(t),
       // He started talking: never auto-advance over him.
       onSpeechStart: () => {
@@ -41,6 +49,10 @@ export class TalkController {
       this.update({ ring: s === 'speaking' ? 'speaking' : this.ring });
     };
     this.speaker.onDrained = () => void this.afterSpeech();
+    this.bind(session);
+  }
+
+  private bind(session: Session) {
     session.events = {
       onTutorText: (d) => {
         this.speaker.feed(d);
@@ -74,9 +86,29 @@ export class TalkController {
 
   private micReady: Promise<boolean> = Promise.resolve(false);
 
+  /**
+   * Next skill, still in Talk mode: keep the open mic and listener (reopening it can re-ask permission on an
+   * iPhone home-screen app) and start the new lesson right away.
+   */
+  async adopt(session: Session) {
+    if (this.advanceTimer) clearTimeout(this.advanceTimer);
+    this.speaker.stop();
+    this.session.interrupt();
+    this.session.events = {};
+    void this.listener.pause();
+    this.session = session;
+    this.bind(session);
+    this.caption = '';
+    this.heard = '';
+    this.begunAt = performance.now();
+    this.update({ ring: 'thinking', error: '' });
+    session.start();
+  }
+
   /** Must be called from a tap. Starts talking right away; the mic model loads in parallel. */
   async begin() {
     this.stopped = false;
+    this.begunAt = performance.now();
     await this.speaker.unlock();
     this.update({ ring: 'thinking' });
     void this.keepAwake();
@@ -87,6 +119,8 @@ export class TalkController {
 
   /** Whole screen is this button. */
   async tap() {
+    // a double tap to start shouldn't cut off the first line it just started
+    if (performance.now() - this.begunAt < 700) return;
     if (this.ring === 'speaking' || this.ring === 'thinking') {
       this.speaker.stop();
       this.session.interrupt();
@@ -97,12 +131,18 @@ export class TalkController {
       if (!this.speaker.audioContext) return this.begin();
       await this.speaker.unlock();
       // The mic failed earlier (or iOS dropped it): build a fresh listener from this tap.
-      if (!this.listener.ready) this.micReady = this.initMic();
-      await this.openMic();
+      if (!this.listener.ready) this.micReady = this.initMic(); // also after micEnded
+      await this.listenNext();
     }
   }
 
   private async afterSpeech() {
+    if (this.stopped) return;
+    await this.listenNext();
+  }
+
+  /** Open the mic for his turn; on the explanation steps the lesson moves on by itself if he says nothing. */
+  private async listenNext() {
     if (this.stopped) return;
     const step = this.session.state.step;
     // Scripted explanation steps flow on by themselves; he can say "repeat" or ask anything.
@@ -136,6 +176,9 @@ export class TalkController {
       return;
     }
     this.update({ ring: 'listening', error: '' });
+    void micStream()
+      .then((s) => s.getAudioTracks().forEach((t) => t.addEventListener('ended', this.micEnded, { once: true })))
+      .catch(() => {});
     if (this.advanceTimer) clearTimeout(this.advanceTimer);
     if (autoAdvanceMs) {
       this.advanceTimer = setTimeout(() => {
@@ -147,12 +190,24 @@ export class TalkController {
     }
   }
 
+  /** iOS turned the mic off (backgrounded, a call, Siri). Say so; a tap opens a fresh one. */
+  private micEnded = () => {
+    if (this.stopped) return;
+    if (this.advanceTimer) clearTimeout(this.advanceTimer);
+    void this.listener.destroy();
+    this.micReady = Promise.resolve(false);
+    this.update({ ring: 'idle', error: 'The microphone turned off. Tap to turn it back on.' });
+  };
+
   private async onUtterance(text: string) {
     if (this.advanceTimer) clearTimeout(this.advanceTimer);
     await this.listener.pause();
     this.update({ heard: text, ring: 'thinking' });
-    this.speaker.ack();
     const s = this.session;
+    if (NAV.test(text) && (s.state.step === 'check' || s.state.step === 'mastered')) {
+      this.onNextSkill();
+      return;
+    }
     if (NAV.test(text) && ['define', 'example', 'walkthrough', 'feedback'].includes(s.state.step)) {
       s.next();
       return;
@@ -177,6 +232,13 @@ export class TalkController {
   }
   private reacquire = async () => {
     if (document.visibilityState === 'visible' && !this.stopped) {
+      // back from the background: iOS may have killed the mic without an "ended" event reaching us
+      if (this.ring === 'listening') {
+        const alive = await micStream()
+          .then((s) => s.getAudioTracks().some((t) => t.readyState === 'live'))
+          .catch(() => false);
+        if (!alive) this.micEnded();
+      }
       try {
         this.wake = (await (navigator as any).wakeLock?.request('screen')) ?? null;
       } catch {

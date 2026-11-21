@@ -324,6 +324,13 @@ export const dictionaries: Concept = {
             why: 'Ana scores 100 then 95, so her highest is 100. Keep every score in her list (append, don\'t replace), and turn each score into an int, or "95" counts as higher than "100".',
           },
           { name: 'one student', stdin: ['Cy 50', 'done'], expectStdout: 'Cy 50', hidden: true },
+          {
+            name: 'names out of alphabetical order',
+            stdin: ['Zed 5', 'Amy 3', 'Zed 9', 'done'],
+            expectStdout: 'Zed 9\nAmy 3',
+            hidden: true,
+            why: 'Print the names in the order they first appeared (here Zed, then Amy), not sorted.',
+          },
           { name: 'no one', stdin: ['done'], expectStdout: '', hidden: true },
         ],
         rubric: [],

@@ -4,6 +4,15 @@ import type { GradeResult } from '../types';
 const show = (s: string) => (s === '' ? '(nothing)' : s.replace(/\n$/, ''));
 
 /** The first line where two outputs differ, 1-based, or 0 if they match line by line. */
+/** A prompt string passed to input() that shows up in the output but isn't expected there. */
+function inputPrompt(code: string, got: string, expected: string): string | null {
+  for (const m of code.matchAll(/input\(\s*(?:f?)(["'])((?:(?!\1).)+)\1\s*\)/g)) {
+    const t = m[2];
+    if (t.trim() && got.includes(t.trim()) && !expected.includes(t.trim())) return t;
+  }
+  return null;
+}
+
 function firstDiff(expected: string, got: string) {
   const a = expected.replace(/\n$/, '').split('\n');
   const b = got.replace(/\n$/, '').split('\n');
@@ -11,7 +20,7 @@ function firstDiff(expected: string, got: string) {
   return null;
 }
 
-export function gradeFeedback(grade: GradeResult): { text: string; nailed: string[]; fix: string[] } {
+export function gradeFeedback(grade: GradeResult, code = ''): { text: string; nailed: string[]; fix: string[] } {
   const total = grade.results.length;
   const passing = grade.results.filter((r) => r.passed).length;
   const nailed = passing ? [`${passing} of ${total} tests pass.`] : [];
@@ -56,6 +65,9 @@ export function gradeFeedback(grade: GradeResult): { text: string; nailed: strin
         else fix.push(`"${bad.name}": ${bad.file} line ${d.line} should be ${show(d.want)} but it is ${show(d.have)}.${modeHint}`);
       }
     }
+  } else if (bad.expected != null && bad.got != null && inputPrompt(code, bad.got, bad.expected)) {
+    // input("Enter a name: ") prints that text, like zyBooks does, and the tests don't expect it
+    fix.push(`Your output includes the text inside input(${show(inputPrompt(code, bad.got, bad.expected)!)}). The tests type the input for you, so use plain input() with nothing inside.`);
   } else if (bad.expected != null && bad.got != null) {
     const d = firstDiff(bad.expected, bad.got);
     if (!d) fix.push(`"${bad.name}" is off only by spacing or a blank line at the end. Compare your output with the expected output character by character.`);

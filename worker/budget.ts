@@ -57,6 +57,7 @@ export function applyCharge(spentToday: number, allowance: number, bonus: number
   return { spentToday: spentToday + cost, bonus: bonus - fromBonus };
 }
 
+/** bonus is what's LEFT of the extra credit: applyCharge already takes today's overage out of it. */
 export function isCapped(spentToday: number, allowance: number, bonus: number, monthSpent: number, budget: number): boolean {
-  return monthSpent >= budget || spentToday >= allowance + bonus;
+  return monthSpent >= budget || (spentToday >= allowance && bonus <= 1e-9);
 }

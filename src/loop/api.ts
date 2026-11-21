@@ -197,13 +197,16 @@ export async function pullProgress(): Promise<Progress | null> {
   }
 }
 
+/** Save to the account. The server merges with what other devices saved; a signed-out session asks to sign in
+ *  again (this device's copy is kept and merged back in on the next sign-in). */
 export async function pushProgress(p: Progress) {
   try {
-    await fetch('/api/progress', {
+    const r = await fetch('/api/progress', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(p),
     });
+    if (r.status === 401) window.dispatchEvent(new Event('py-tutor:locked'));
   } catch {
     /* offline: IndexedDB copy is still there, next save retries */
   }

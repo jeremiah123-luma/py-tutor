@@ -8,6 +8,10 @@
   "routes": [{ "pattern": "pytutor.jeremiahsleman.com", "custom_domain": true }],
   "workers_dev": true,
   "kv_namespaces": [{ "binding": "KV", "id": "da669864bff842b6a4874b89741d2788" }],
+  "ratelimits": [
+    { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "SIGNUP_LIMITER", "namespace_id": "1002", "simple": { "limit": 20, "period": 60 } }
+  ],
   "vars": { "MONTHLY_BUDGET_USD": "30", "ADMIN_EMAIL": "jms423@njit.edu" },
   "observability": { "enabled": true }
 }

@@ -17,6 +17,8 @@ export interface TalkScreenProps {
   onExit: () => void;
   /** The caption is an error (mic blocked, network); the button says how to recover. */
   error?: boolean;
+  /** He passed this skill: a tap (or saying "next") moves on. */
+  passed?: boolean;
 }
 
 const LABEL: Record<TalkState, string> = {
@@ -33,8 +35,13 @@ const RING: Record<TalkState, string> = {
   speaking: 'var(--talk-speak)',
 };
 
-export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, error }: TalkScreenProps) {
-  const label = error && state === 'idle' ? 'Tap to try again' : LABEL[state];
+export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, error, passed }: TalkScreenProps) {
+  const label =
+    error && state === 'idle'
+      ? 'Tap to try again'
+      : passed && (state === 'listening' || state === 'idle')
+        ? 'Passed · tap or say “next”'
+        : LABEL[state];
   // Earcons like a voice assistant: rising when the mic opens, falling when your turn is sent.
   const prevState = useRef(state);
   useEffect(() => {
@@ -65,7 +72,7 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, 
           if (state === 'speaking' || state === 'thinking') sfx.interrupt();
           onTap();
         }}
-        aria-label={label}
+        aria-label={`${label}. ${caption}`}
         className="flex flex-1 flex-col items-center justify-center gap-[min(2.5rem,4svh)] px-6 pb-4 outline-offset-[-8px]"
       >
         <div className="relative grid size-[min(64vw,17rem,30svh)] place-items-center" aria-hidden="true">
@@ -116,11 +123,16 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, 
           <p className="text-lg font-medium" style={{ color: RING[state] === 'var(--talk-sub)' ? 'var(--talk-ink)' : RING[state] }}>
             {label}
           </p>
-          <p aria-live="polite" className="line-clamp-4 max-w-[22ch] font-voice text-[clamp(1.75rem,4.5svh,1.875rem)] leading-[1.3] tracking-[-0.01em] text-[var(--talk-ink)] sm:max-w-[28ch]">
+          <p className="line-clamp-4 max-w-[22ch] font-voice text-[clamp(1.75rem,4.5svh,1.875rem)] leading-[1.3] tracking-[-0.01em] text-[var(--talk-ink)] sm:max-w-[28ch]">
             {caption}
           </p>
         </div>
       </button>
+
+      {/* state changes are announced; the streaming caption isn't (it would be read out word by word) */}
+      <p role="status" className="sr-only">
+        {label}
+      </p>
 
       <footer className="px-6 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-sm text-[var(--talk-sub)] [@media(max-height:600px)]:hidden">
         Keep the screen on and the phone in a mount. Eyes on the road. Tap anywhere to interrupt.

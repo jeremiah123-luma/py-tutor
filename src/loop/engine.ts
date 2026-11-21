@@ -64,6 +64,8 @@ export class Session {
   /** He read hints after passing; the next round starts with that hint already counted. */
   private hintsAfterPass = 0;
   private wasMastered = false;
+  /** He gave Talk it through a go this round (passed or not). */
+  private talkTried = false;
   readonly lesson: Lesson;
 
   readonly concept: Concept;
@@ -297,6 +299,7 @@ export class Session {
             ? "You've used today's AI help. Checks and written hints still work, and it resets tomorrow."
             : "I couldn't reach the tutor just now. Check your connection and try again.";
       this.replaceLast({ role: 'tutor', text: msg, at });
+      this.events.onTutorLine?.(msg, true); // Talk mode says it out loud and finishes the turn
       return null;
     } finally {
       if (this.ctrl === ctrl) {
@@ -320,6 +323,7 @@ export class Session {
     if (step === 'talkthrough') {
       const res = await this.callTutor({ kind: 'assess-talk', learnerText: t, hintsUsed: this.talkHints });
       if (!res) return;
+      this.talkTried = true;
       if (res.meta.verdict === 'pass') {
         const p = record(this.deps.getProgress(), this.concept.id, this.lesson.subskill, {
           passed: true,
@@ -420,7 +424,7 @@ export class Session {
     this.checks++;
     this.set({ lastGrade, busy: 'idle', gradeExplained: false });
     this.push({ role: 'learner', text: 'Check my code.' });
-    const fb = gradeFeedback(lastGrade);
+    const fb = gradeFeedback(lastGrade, this.state.code);
     this.push({ role: 'tutor', text: fb.text, nailed: fb.nailed, fix: fb.fix });
     this.events.onTutorLine?.(fb.text, true);
     this.finishDoit(lastGrade.passed, true);
@@ -445,6 +449,8 @@ export class Session {
       // He's working on new code now, so it's mid-round again: a tab jump must not reset it to the starter.
       if (this.state.step === 'check' || this.state.step === 'mastered') {
         this.roundDone = false;
+        this.doHints += this.hintsAfterPass; // hints read on the pass screen belong to this (continued) round
+        this.hintsAfterPass = 0;
         this.set({ step: 'doit' });
       }
       return;
@@ -453,15 +459,19 @@ export class Session {
     const mastered = sub(p, this.concept.id, this.lesson.subskill).mastered;
     if (mastered) this.wasMastered = true;
     // why it isn't mastered yet, in plain words (shown on the pass screen)
+    const sp = sub(p, this.concept.id, this.lesson.subskill);
     const passReason: SessionState['passReason'] = !clean
       ? 'notClean'
-      : this.state.skippedTalk
-        ? 'skippedTalk'
-        : this.talkClean
-          ? 'streakReset'
-          : (this.state.seen ?? []).includes('feedback')
-            ? 'talkHinted'
-            : 'notTalked';
+      : !sp.typedPass
+        ? 'notTyped'
+        : this.state.skippedTalk
+          ? 'skippedTalk'
+          : this.talkClean
+            ? 'streakReset'
+            : this.talkTried
+              ? 'talkHinted'
+              : 'notTalked';
+    this.talkTried = false;
     this.set({ step: mastered ? 'mastered' : 'check', lastClean: clean, passReason });
     this.saveLast();
   }

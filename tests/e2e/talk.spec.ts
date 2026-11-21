@@ -61,7 +61,7 @@ test('talk mode: tutor speaks, hears a spoken question, answers', async ({ page 
   // let the page transition finish (the new screen only takes taps inside its opening circle until then)
   await page.waitForFunction(() => document.querySelectorAll('[data-screen]').length === 1);
   await page.mouse.click(400, 400);
-  await expect(page.getByText(/Speaking/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('p:not([role=status])').filter({ hasText: /Speaking/ })).toBeVisible({ timeout: 20_000 });
   // The definition is spoken with real TTS, then the mic opens and VAD hears the recorded question.
   await expect.poll(() => stt.length, { timeout: 120_000 }).toBeGreaterThan(0);
   console.log('heard:', stt[0], '| tts requests:', ttsTimes.length);

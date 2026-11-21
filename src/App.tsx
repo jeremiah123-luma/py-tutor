@@ -123,16 +123,30 @@ export default function App() {
   };
   const talkReady = useRef<Promise<TalkController | null> | null>(null);
   const talkGen = useRef(0);
+  const [talkLoadFailed, setTalkLoadFailed] = useState(false);
+  const nextSkillRef = useRef<() => void>(() => {});
   /** Load Talk mode for this session. If he leaves before it finishes loading, it shuts itself down instead of
    *  starting to speak (and opening the mic) on whatever screen he's on by then. */
   const loadTalkFor = (s: Session) => {
     const gen = ++talkGen.current;
-    talkReady.current = loadTalk().then((TC) => {
-      if (gen !== talkGen.current) return null;
-      const tc = new TC(s);
-      setTalk(tc);
-      return tc;
-    });
+    setTalkLoadFailed(false);
+    talkReady.current = loadTalk().then(
+      (TC) => {
+        if (gen !== talkGen.current) return null;
+        const tc = new TC(s);
+        tc.onNextSkill = () => nextSkillRef.current();
+        setTalk(tc);
+        return tc;
+      },
+      () => {
+        // the voice code didn't download (bad signal, or a new version went live): say so; a tap retries
+        if (gen === talkGen.current) {
+          releaseMic();
+          setTalkLoadFailed(true);
+        }
+        return null;
+      },
+    );
   };
   const cancelTalk = () => {
     talkGen.current++;
@@ -193,9 +207,12 @@ export default function App() {
 
   const startLesson = useCallback(
     (conceptId: ConceptId, index: number, m: Mode) => {
-      cancelTalk();
-      talk?.end();
-      setTalk(null);
+      const keep = m === 'talk' && talk ? talk : null; // next skill in Talk mode keeps the open mic
+      if (!keep) {
+        cancelTalk();
+        talk?.end();
+        setTalk(null);
+      }
       const concept = conceptMap[conceptId]!;
       const s = new Session(concept, index, m, {
         tutor: askTutor,
@@ -206,7 +223,10 @@ export default function App() {
       });
       setSession(s);
       setProgramInput('');
-      if (m === 'talk') {
+      if (m === 'talk' && keep) {
+        setScreen('talk');
+        void keep.adopt(s);
+      } else if (m === 'talk') {
         setScreen('talk');
         loadTalkFor(s); // starts on the first tap (iOS audio needs a gesture)
       } else {
@@ -240,6 +260,8 @@ export default function App() {
       else goHome();
     }
   };
+
+  nextSkillRef.current = () => nextSkill();
 
   const switchMode = (m: Mode) => {
     setMode(m);
@@ -285,12 +307,24 @@ export default function App() {
     }
   }, [screen, account]);
   useEffect(() => {
-    const onPop = () => {
+    // Reloaded on an inner screen: the app starts on Home, so step off that leftover entry.
+    if ((window.history.state as { pyInner?: boolean } | null)?.pyInner) {
+      ignorePop.current = true;
+      window.history.back();
+    }
+    const onPop = (e: PopStateEvent) => {
       if (ignorePop.current) {
         ignorePop.current = false;
         return;
       }
-      if (!inner.current) return;
+      if (!inner.current) {
+        // Forward onto an old inner entry while on Home: there's nothing to show, so go back off it.
+        if ((e.state as { pyInner?: boolean } | null)?.pyInner) {
+          ignorePop.current = true;
+          window.history.back();
+        }
+        return;
+      }
       inner.current = false;
       backRef.current();
     };
@@ -430,13 +464,16 @@ export default function App() {
         <Reveal key="talk">
         <TalkScreen
           state={talk?.ring ?? 'idle'}
-          error={!!talk?.error}
-          caption={talk?.error || talk?.caption || (state.turns.length ? '' : 'I’ll explain it out loud, then you answer out loud. No reading needed.')}
+          error={!!talk?.error || talkLoadFailed}
+          passed={state.step === 'check' || state.step === 'mastered'}
+          caption={(talkLoadFailed ? 'Voice mode didn’t load. Check your connection and tap to try again.' : '') || talk?.error || talk?.caption || (state.turns.length ? '' : 'I’ll explain it out loud, then you answer out loud. No reading needed.')}
           context={`${session.concept.title} · ${phaseIndex(state.step) < PHASES.length ? PHASES[phaseIndex(state.step)].label : 'Mastered'}`}
           onTap={() => {
-            if (state.step === 'check' || state.step === 'mastered') return nextSkill();
+            // After a pass, a tap moves on, but only once he's had the feedback (a tap while it speaks interrupts it)
+            if ((state.step === 'check' || state.step === 'mastered') && (talk?.ring === 'listening' || talk?.ring === 'idle')) return nextSkill();
             unlockAudio(); // synchronously, inside the gesture
             void primeMic().catch(() => {}); // iPhone: the mic must be asked for inside the tap
+            if (talkLoadFailed) loadTalkFor(session);
             void talkReady.current?.then((t) => t?.tap());
           }}
           onExit={goHome}

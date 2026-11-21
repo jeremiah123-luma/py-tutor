@@ -310,4 +310,5 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
 }
 
 /* screens take focus on arrival (for keyboards and screen readers) without drawing a ring */
-[data-screen] h1[tabindex="-1"]:focus { outline: none; }
+h1[tabindex="-1"]:focus,
+[data-screen][tabindex="-1"]:focus { outline: none; }

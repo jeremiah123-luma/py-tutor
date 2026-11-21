@@ -15,11 +15,12 @@ export interface LessonStageProps {
   skippedTalk?: boolean;
   /** The pass that brought him here was clean (first check, no hints). */
   lastClean?: boolean;
-  passReason?: 'notClean' | 'skippedTalk' | 'notTalked' | 'talkHinted' | 'streakReset';
+  passReason?: 'notClean' | 'notTyped' | 'skippedTalk' | 'notTalked' | 'talkHinted' | 'streakReset';
 }
 
 const PASS_REASON = {
   notClean: 'That works. It took a hint or more than one check, so it needs a clean round (first check, no hints) to count as mastered.',
+  notTyped: 'Clean pass. To master it, write it once in Type mode and pass it clean (first check, no hints).',
   skippedTalk: 'Clean pass. You skipped Talk it through, so explain it there (or write it clean once more) and it’s mastered.',
   notTalked: 'Clean pass. One more clean pass masters it: explain it in Talk it through, or write it clean again.',
   talkHinted: 'Clean pass. Talk it through needed a hint or a second try, so one more clean pass masters it.',

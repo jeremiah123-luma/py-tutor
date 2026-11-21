@@ -52,15 +52,23 @@ export function useScreenReveal<T extends HTMLElement>() {
     // finger lifting, which iPhone also counts as the gesture.)
     let forwardedAt = -1e9;
     const early = (e: PointerEvent | MouseEvent) => {
+      // the native click that follows a forwarded tap (it can land inside the new screen once the circle is full)
+      if (e.type === 'click' && performance.now() - forwardedAt < 600) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (el.contains(e.target as Node)) return;
-      if (e.type === 'click' && performance.now() - forwardedAt < 600) return; // already handled on pointerup
       anim.finish();
       const hit = document.elementFromPoint(e.clientX, e.clientY);
-      if (hit && el.contains(hit) && hit instanceof HTMLElement) {
+      if (hit && el.contains(hit)) {
         forwardedAt = performance.now();
         e.preventDefault();
         e.stopPropagation();
-        hit.click();
+        // an icon or ring (SVG) inside a button forwards to the button
+        const target = hit.closest<HTMLElement>('button,a,label,input,select,textarea,[role=button],[role=tab],[role=radio]') ?? hit;
+        if (target instanceof HTMLElement) target.click();
+        else target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
       }
     };
     document.addEventListener('pointerup', early, true);

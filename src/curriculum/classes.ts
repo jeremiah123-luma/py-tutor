@@ -58,7 +58,7 @@ export const classes: Concept = {
           {
             name: 'a new Book starts empty',
             stdin: ['Dune', '412'],
-            check: 'b = Book()\nassert hasattr(b, "title") and hasattr(b, "pages"), "__init__ should set self.title and self.pages."\nassert b.title == "", f"Book().title should start as \\"\\", got {b.title!r}"\nassert b.pages == 0, f"Book().pages should start as 0, got {b.pages!r}"',
+            check: 'b = Book()\nassert "title" in vars(b) and "pages" in vars(b), "Each Book needs its own title and pages: set self.title and self.pages inside __init__ (not as class attributes)."\nassert b.title == "", f"Book().title should start as \\"\\", got {b.title!r}"\nassert b.pages == 0, f"Book().pages should start as 0, got {b.pages!r}"',
             hidden: true,
           },
           {
@@ -80,6 +80,7 @@ export const classes: Concept = {
           'class Book:\n    def __init__(self):\n        title = ""\n        pages = 0\n\nmy_book = Book()\nmy_book.title = input()\nmy_book.pages = int(input())\nprint(f"{my_book.title} has {my_book.pages} pages")',
           'class Book:\n    def __init__(self):\n        self.title = ""\n        self.pages = 0\n\nmy_book = Book()\nmy_book.title = input()\nmy_book.pages = input()\nprint(f"{my_book.title} has {my_book.pages} pages")',
           'class Book:\n    def __init__(self):\n        self.title = ""\n        self.pages = 0\n\nmy_book = Book()\nmy_book.title = input()\nmy_book.pages = int(input())\nprint(f"title has pages pages")',
+          'class Book:\n    title = ""\n    pages = 0\n\nmy_book = Book()\nmy_book.title = input()\nmy_book.pages = int(input())\nprint(f"{my_book.title} has {my_book.pages} pages")',
         ],
       },
     },
@@ -140,6 +141,11 @@ export const classes: Concept = {
             expectStdout: '',
             hidden: true,
           },
+          {
+            name: 'each account has its own balance',
+            check: 'a = BankAccount()\nb = BankAccount()\na.deposit(10)\nassert b.get_balance() == 0, "Depositing into one account changed another one. Keep the balance on self (self.balance in __init__), not on the class."',
+            hidden: true,
+          },
         ],
         rubric: [],
         hints: [
@@ -150,6 +156,7 @@ export const classes: Concept = {
         reference:
           'class BankAccount:\n    def __init__(self):\n        self.balance = 0\n\n    def deposit(self, amount):\n        self.balance += amount\n\n    def withdraw(self, amount):\n        if amount > self.balance:\n            print("Insufficient funds")\n        else:\n            self.balance -= amount\n\n    def get_balance(self):\n        return self.balance',
         wrong: [
+          'class BankAccount:\n    balance = 0\n\n    def deposit(self, amount):\n        BankAccount.balance += amount\n\n    def withdraw(self, amount):\n        if amount > BankAccount.balance:\n            print("Insufficient funds")\n        else:\n            BankAccount.balance -= amount\n\n    def get_balance(self):\n        return BankAccount.balance\n',
           'class BankAccount:\n    def __init__(self):\n        self.balance = 0\n\n    def deposit(self, amount):\n        self.balance += amount\n\n    def withdraw(self, amount):\n        self.balance -= amount\n\n    def get_balance(self):\n        return self.balance',
           'class BankAccount:\n    def __init__(self):\n        self.balance = 0\n\n    def deposit(self, amount):\n        self.balance = amount\n\n    def withdraw(self, amount):\n        if amount > self.balance:\n            print("Insufficient funds")\n        else:\n            self.balance -= amount\n\n    def get_balance(self):\n        return self.balance',
           'class BankAccount:\n    def __init__(self):\n        self.balance = 0\n\n    def deposit(self, amount):\n        self.balance += amount\n\n    def withdraw(self, amount):\n        if amount > self.balance:\n            print("Insufficient funds")\n        else:\n            self.balance -= amount\n\n    def get_balance(self):\n        print(self.balance)',
@@ -434,7 +441,7 @@ export const classes: Concept = {
         prompt: 'Write a class Student with name and grade, and a method passed() that returns True if the grade is 60 or more. Read lines like "Ana 91" (a name, a space, a whole-number grade) until the line "done", and put a Student for each one into the list students. Then print the name of everyone who passed, one per line, in the order they were typed. Last, print "Passed: X of Y", where X is how many passed and Y is how many students there are, like "Passed: 2 of 3".',
         starter: 'class Student:\n    def __init__(self, name, grade):\n        self.name = name\n        self.grade = grade\n\n    def passed(self):\n        pass\n\nstudents = []\n',
         tests: [
-          { name: 'mixed class', stdin: ['Ana 91', 'Ben 45', 'Cy 78', 'done'], expectStdout: 'Ana\nCy\nPassed: 2 of 3' },
+          { name: 'mixed class', stdin: ['Cy 78', 'Ben 45', 'Ana 91', 'done'], expectStdout: 'Cy\nAna\nPassed: 2 of 3' },
           { name: 'exactly 60 passes', stdin: ['Dee 60', 'Ed 59', 'done'], expectStdout: 'Dee\nPassed: 1 of 2', hidden: true },
           { name: 'nobody', stdin: ['done'], expectStdout: 'Passed: 0 of 0', hidden: true },
           {

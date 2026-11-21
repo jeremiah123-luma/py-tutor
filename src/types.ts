@@ -162,7 +162,7 @@ export interface SessionState {
   /** The last pass was clean (first check, no hints); drives the copy after a pass. */
   lastClean?: boolean;
   /** Why a pass didn't master the skill yet. */
-  passReason?: 'notClean' | 'skippedTalk' | 'notTalked' | 'talkHinted' | 'streakReset';
+  passReason?: 'notClean' | 'notTyped' | 'skippedTalk' | 'notTalked' | 'talkHinted' | 'streakReset';
   /** Steps he has actually been on this lesson (the step row only ticks these). */
   seen?: LoopStep[];
 }

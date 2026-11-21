@@ -12,7 +12,8 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { concepts } from '../src/curriculum';
 import { USERNAME_RE, Store, b64u, checkPassword, hashPassword, normUsername, randomId, type CreditRequest, type User } from './accounts';
 import { PRICES, claudeCost, nyDate, type ClaudeUsage } from './budget';
-import { tutorParams, type TutorRequest } from './prompt';
+import { cleanTutorRequest, tutorParams } from './prompt';
+import { cleanProgress, mergeProgress } from '../src/loop/mergeProgress';
 
 type Env = {
   ANTHROPIC_API_KEY: string;
@@ -29,6 +30,9 @@ type Env = {
   TTS_VOICE?: string;
   KV: KVNamespace;
   ASSETS?: Fetcher;
+  /** Cloudflare rate limiters (atomic, unlike counters in KV). Optional so tests without them still run. */
+  LOGIN_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> };
+  SIGNUP_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> };
 };
 
 type Vars = { user: User; store: Store };
@@ -47,6 +51,38 @@ app.use('*', async (c, next) => {
     return c.redirect(url.toString(), c.req.method === 'GET' || c.req.method === 'HEAD' ? 301 : 308);
   }
   await next();
+});
+
+/** Hosts this app is served from. Passkeys and the cross-site check only trust these. */
+const isOwnHost = (h: string) => h === CANONICAL_HOST || h === 'localhost' || h === '127.0.0.1';
+
+// Every API write must be JSON from this site (the voice upload is the one form). Blocks cross-site form posts,
+// like a page that signs a visitor into someone else's account.
+app.use('/api/*', async (c, next) => {
+  if (c.req.method === 'POST' || c.req.method === 'PUT') {
+    const o = c.req.header('origin');
+    if (o && o !== 'null') {
+      let host = '';
+      try {
+        host = new URL(o).hostname;
+      } catch {
+        /* bad header */
+      }
+      if (!isOwnHost(host) && host !== new URL(c.req.url).hostname) return c.json({ error: 'wrong site' }, 403);
+    }
+    const ct = c.req.header('content-type') ?? '';
+    const isForm = c.req.path === '/api/stt';
+    if (!(isForm ? ct.startsWith('multipart/form-data') : ct.startsWith('application/json')) && c.req.path !== '/api/auth/logout')
+      return c.json({ error: 'expected JSON' }, 415);
+  }
+  await next();
+});
+
+// A malformed request is a 400 with a message, never a bare "Internal Server Error".
+app.onError((e, c) => {
+  if (e instanceof SyntaxError || e instanceof TypeError) return c.json({ error: 'bad request' }, 400);
+  console.error('unhandled', e);
+  return c.json({ error: 'Something went wrong. Try again.' }, 500);
 });
 
 const STT_VOCAB =
@@ -77,6 +113,7 @@ function rp(c: C) {
   } catch {
     /* bad header: fall back to the request URL */
   }
+  if (!isOwnHost(url.hostname)) url = new URL(`https://${CANONICAL_HOST}`);
   return { rpID: url.hostname, origin: url.origin, rpName: 'py-tutor' };
 }
 
@@ -105,6 +142,8 @@ app.post('/api/auth/signup', async (c) => {
   const ip = c.req.header('cf-connecting-ip') ?? 'local';
   // Sign-up is open (no class code). At most 40 new accounts per IP every 15 minutes: enough for a whole class
   // on one campus Wi-Fi address, low enough that nobody can farm accounts.
+  if (c.env.SIGNUP_LIMITER && new URL(c.req.url).hostname !== 'localhost' && !(await c.env.SIGNUP_LIMITER.limit({ key: ip })).success)
+    return c.json({ error: 'Too many new accounts from here. Wait a minute and try again.' }, 429);
   if (await tooManyTries(store, `signup:${ip}`, 40)) return c.json({ error: 'Too many new accounts from here. Wait 15 minutes and try again.' }, 429);
   const admin = !!c.env.ADMIN_CODE && code === c.env.ADMIN_CODE; // admin accounts are made through the API only
   if (!name) return c.json({ error: 'Enter your name.', field: 'name' }, 400);
@@ -126,6 +165,10 @@ app.post('/api/auth/login', async (c) => {
   // Per username and network, so typing someone else's username wrong can't lock them out everywhere.
   const failKey = `login:${username}:${c.req.header('cf-connecting-ip') ?? 'local'}`;
   if (await tooManyTries(store, failKey)) return c.json({ error: 'Too many tries. Wait 15 minutes and try again.' }, 429);
+  // KV counters can be outrun by many tries at once; this limiter can't (10 a minute per username, any network).
+  // (Not on localhost, where the end-to-end tests sign one test account in many times a minute.)
+  if (c.env.LOGIN_LIMITER && new URL(c.req.url).hostname !== 'localhost' && !(await c.env.LOGIN_LIMITER.limit({ key: `u:${username}` })).success)
+    return c.json({ error: 'Too many tries. Wait a minute and try again.' }, 429);
   const user = username ? await store.userByName(username) : null;
   if (!user || !(await checkPassword(user, String(b.password ?? '')))) {
     await noteFail(store, failKey);
@@ -153,7 +196,7 @@ app.post('/api/passkey/login/options', async (c) => {
 
 app.post('/api/passkey/login/verify', async (c) => {
   const store = c.get('store');
-  const { id, response } = await c.req.json<{ id: string; response: any }>();
+  const { id, response } = (await c.req.json<{ id: string; response: any }>()) ?? ({} as any);
   const challenge = await store.raw().get(`chal:${id}`);
   if (!challenge) return c.json({ error: 'That took too long. Try again.' }, 400);
   await store.raw().delete(`chal:${id}`);
@@ -224,6 +267,8 @@ app.post('/api/passkey/register/verify', async (c) => {
     const v = await verifyRegistrationResponse({ response, expectedChallenge: challenge, expectedOrigin: origin, expectedRPID: rpID });
     if (!v.verified) throw new Error('not verified');
     const cred = v.registrationInfo.credential;
+    const owner = await store.raw().get(`cred:${cred.id}`);
+    if (owner && owner !== u.id) return c.json({ error: 'That passkey is already linked to another account.' }, 409);
     const fresh = (await store.user(u.id)) ?? u;
     fresh.passkeys = [
       ...fresh.passkeys.filter((p) => p.id !== cred.id),
@@ -247,7 +292,8 @@ async function capCheck(c: C) {
 }
 
 app.post('/api/tutor', async (c) => {
-  const req = (await c.req.json()) as TutorRequest;
+  const req = cleanTutorRequest(await c.req.json());
+  if (!req) return c.json({ error: 'bad request' }, 400);
   const concept = concepts[req.concept as keyof typeof concepts];
   const lesson = concept?.lessons.find((l) => l.subskill === req.subskill);
   if (!concept || !lesson) return c.json({ error: 'unknown lesson' }, 400);
@@ -261,9 +307,12 @@ app.post('/api/tutor', async (c) => {
   const stream = client.beta.messages.stream(tutorParams(req, concept, lesson, c.env.TUTOR_MODEL) as any);
   const usage: ClaudeUsage = {};
   let charged = false;
+  let sentChars = 0;
   const chargeOnce = () => {
     if (charged) return;
     charged = true;
+    // Cut off early (barge-in), the final token count never arrives: bill what was streamed (~3.5 characters a token).
+    usage.output_tokens = Math.max(usage.output_tokens ?? 0, Math.ceil(sentChars / 3.5));
     c.executionCtx.waitUntil(store.charge(user, claudeCost(usage), budget(c)));
   };
 
@@ -274,7 +323,10 @@ app.post('/api/tutor', async (c) => {
         for await (const ev of stream as any) {
           if (ev.type === 'message_start') Object.assign(usage, ev.message?.usage ?? {});
           if (ev.type === 'message_delta' && ev.usage) Object.assign(usage, Object.fromEntries(Object.entries(ev.usage).filter(([, v]) => v != null)));
-          if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') ctrl.enqueue(enc.encode(ev.delta.text));
+          if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+            sentChars += ev.delta.text.length;
+            ctrl.enqueue(enc.encode(ev.delta.text));
+          }
         }
         const final = await (stream as any).finalMessage();
         if (final.usage) Object.assign(usage, final.usage);
@@ -302,6 +354,9 @@ app.post('/api/stt', async (c) => {
   const form = await c.req.formData();
   const audio = form.get('audio');
   if (!(audio instanceof File)) return c.json({ error: 'no audio' }, 400);
+  if (audio.size > 3_000_000) return c.json({ error: 'That was too long. Try a shorter answer.' }, 413);
+  // priced per minute; compressed speech is about 16 KB a second
+  const sttCost = Math.max(PRICES.sttPerCall, (audio.size / (16_000 * 60)) * PRICES.sttPerCall);
   const out = new FormData();
   out.append('file', audio, audio.name || 'speech.webm');
   out.append('model', c.env.STT_MODEL ?? 'gpt-4o-mini-transcribe');
@@ -313,14 +368,15 @@ app.post('/api/stt', async (c) => {
     body: out,
   });
   if (!r.ok) return c.json({ error: 'stt failed', detail: await r.text() }, 502);
-  c.executionCtx.waitUntil(c.get('store').charge(c.get('user'), PRICES.sttPerCall, budget(c)));
+  c.executionCtx.waitUntil(c.get('store').charge(c.get('user'), sttCost, budget(c)));
   const j = (await r.json()) as { text: string };
   return c.json({ text: j.text });
 });
 
 app.post('/api/tts', async (c) => {
-  const { text } = (await c.req.json()) as { text: string };
-  if (!text?.trim()) return c.body(null, 204);
+  const b = (await c.req.json()) as { text?: unknown } | null;
+  const text = typeof b?.text === 'string' ? b.text : '';
+  if (!text.trim()) return c.body(null, 204);
   const capped = await capCheck(c);
   if (capped) return capped;
   const input = text.slice(0, 1500);
@@ -387,10 +443,12 @@ app.get('/api/admin/overview', async (c) => {
 
 app.post('/api/admin/requests/:id', async (c) => {
   const store = c.get('store');
-  const { action, amount } = await c.req.json<{ action: 'approve' | 'decline'; amount?: number }>();
+  const { action, amount } = ((await c.req.json<{ action: 'approve' | 'decline'; amount?: number }>()) ?? {}) as { action?: string; amount?: number };
+  if (action !== 'approve' && action !== 'decline') return c.json({ error: 'bad action' }, 400);
   const reqs = await store.requests();
   const r = reqs.find((x) => x.id === c.req.param('id'));
   if (!r) return c.json({ error: 'not found' }, 404);
+  if (r.status !== 'pending') return c.json({ ok: true, request: r }); // already handled: approving twice grants once
   if (action === 'approve') {
     const u = await store.user(r.userId);
     if (!u) return c.json({ error: 'user gone' }, 404);
@@ -411,17 +469,34 @@ app.get('/api/progress', async (c) => {
   const store = c.get('store');
   let v = await store.raw().get(`progress:${u.id}`);
   if (!v && u.admin) v = await store.raw().get('progress'); // carry over progress from before accounts
-  return c.json(v ? JSON.parse(v) : null);
+  try {
+    return c.json(v ? cleanProgress(JSON.parse(v)) : null);
+  } catch {
+    return c.json(null);
+  }
 });
 
 app.put('/api/progress', async (c) => {
   const u = c.get('user');
-  const body = await c.req.json<{ updatedAt: number }>();
+  const raw = await c.req.text();
+  if (raw.length > 64_000) return c.json({ error: 'too big' }, 413);
+  let body: unknown;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    return c.json({ error: 'bad json' }, 400);
+  }
   const key = `progress:${u.id}`;
   const cur = await c.env.KV.get(key);
-  // last write wins by timestamp, so an old tab can't clobber newer progress
-  if (cur && JSON.parse(cur).updatedAt > body.updatedAt) return c.json({ kept: 'server' });
-  await c.env.KV.put(key, JSON.stringify(body));
+  // Merge per lesson instead of last-write-wins: an old tab or another device can't wipe what was earned elsewhere.
+  let prev = cleanProgress(null);
+  try {
+    if (cur) prev = cleanProgress(JSON.parse(cur));
+  } catch {
+    /* a bad stored copy is replaced */
+  }
+  const merged = mergeProgress(prev, cleanProgress(body));
+  await c.env.KV.put(key, JSON.stringify(merged));
   return c.json({ ok: true });
 });
 
