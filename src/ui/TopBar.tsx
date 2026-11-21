@@ -3,8 +3,17 @@ import { ProfileMenu } from './Profile';
 
 export const FINAL_DATE = new Date('2026-12-19T09:00:00-05:00');
 
+/** Whole calendar days until the final, counted in New York time (so it changes at midnight, not at 9 AM). */
 export function daysToFinal(now = new Date()) {
-  return Math.max(0, Math.ceil((FINAL_DATE.getTime() - now.getTime()) / 86_400_000));
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const [y, m, d] = ymd.split('-').map(Number);
+  return Math.max(0, Math.round((Date.UTC(2026, 11, 19) - Date.UTC(y, m - 1, d)) / 86_400_000));
+}
+
+/** "Final in 3 days", "Final is tomorrow", "Final is today". */
+export function finalIn(now = new Date()) {
+  const d = daysToFinal(now);
+  return d === 0 ? 'Final is today' : d === 1 ? 'Final is tomorrow' : `Final in ${d} days`;
 }
 
 export function Logo({ onClick }: { onClick?: () => void }) {
@@ -56,10 +65,16 @@ export function FinalPill() {
   return (
     <span className="pill-final tnum inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm whitespace-nowrap">
       <span className="size-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" aria-hidden="true" />
-      <span className="text-ink-2 max-sm:hidden">Final in</span>
-      <span className="font-medium text-accent">
-        {d} day{d === 1 ? '' : 's'}
-      </span>
+      {d === 0 ? (
+        <span className="font-medium text-accent">Final today</span>
+      ) : (
+        <>
+          <span className="text-ink-2 max-sm:hidden">Final in</span>
+          <span className="font-medium text-accent">
+            {d} day{d === 1 ? '' : 's'}
+          </span>
+        </>
+      )}
     </span>
   );
 }

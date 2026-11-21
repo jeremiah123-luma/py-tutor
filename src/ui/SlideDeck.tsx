@@ -7,12 +7,14 @@ import { Button } from './primitives';
 /** Split a definition into slides: one idea (sentence) each, merging very short ones. */
 export function toSlides(text: string): string[] {
   const sentences = text
-    .split(/(?<=[.!?])\s+(?=[A-Z"'(])/)
+    // a new sentence can also start with code (dict[key], del, self, __init__), so don't require a capital
+    .split(/(?<=[.!?])\s+(?=[A-Za-z_"'(])/)
     .map((s) => s.trim())
     .filter(Boolean);
   const out: string[] = [];
   for (const s of sentences) {
-    if (out.length && (out[out.length - 1].length < 45 || s.length < 30)) out[out.length - 1] += ' ' + s;
+    // merge very short pieces, but never into a slide that would get too long to fit a phone screen
+    if (out.length && (out[out.length - 1].length < 45 || s.length < 30) && out[out.length - 1].length + s.length < 150) out[out.length - 1] += ' ' + s;
     else out.push(s);
   }
   return out.length ? out : [text];

@@ -47,8 +47,13 @@ export interface ConversationProps {
 export function Conversation({ turns, thinking, onSend, placeholder = 'Ask anything, or explain your thinking…' }: ConversationProps) {
   const [draft, setDraft] = useState('');
   const end = useRef<HTMLDivElement>(null);
+  const seen = useRef(turns.length);
   useEffect(() => {
-    end.current?.scrollIntoView({ block: 'end' });
+    // Opening a lesson must not jump the page down to the chat. Only a new message (or the tutor starting to
+    // think) scrolls, and only as far as needed to show it.
+    if (turns.length === seen.current && !thinking) return;
+    seen.current = turns.length;
+    end.current?.scrollIntoView({ block: 'nearest' });
   }, [turns.length, thinking]);
   const send = () => {
     const t = draft.trim();
@@ -79,6 +84,7 @@ export function Conversation({ turns, thinking, onSend, placeholder = 'Ask anyth
         <div ref={end} />
       </ol>
       <form
+        data-tour="lesson-convo"
         className="sticky bottom-0 border-t border-line bg-paper p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:static"
         onSubmit={(e) => {
           e.preventDefault();

@@ -72,7 +72,11 @@ export function placeCard(target: Rect | null, card: Size, vp: Viewport, opts: P
   const h = card.height;
 
   if (isDocked(vp, opts)) {
-    return { mode: 'dock', top: Math.max(T, B - h), left: L, width: Math.max(0, R - L) };
+    // Docked at the bottom, unless the target itself lives down there (a composer pinned to the screen's
+    // bottom can't scroll up), in which case the card docks at the top instead.
+    const bottomTop = Math.max(T, B - h);
+    const targetLow = !!target && target.top + target.height > bottomTop - gap && target.top > T + h + gap;
+    return { mode: 'dock', top: targetLow ? T : bottomTop, left: L, width: Math.max(0, R - L) };
   }
 
   const center = (): CardPlacement => ({
@@ -164,6 +168,17 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
   const probeRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
   const [cardH, setCardH] = useState(0);
+  const cardHRef = useRef(0);
+  cardHRef.current = cardH;
+  // While the tour runs, add room under the page so even the last item can scroll up above the docked card.
+  useEffect(() => {
+    const body = document.body;
+    const prev = body.style.paddingBottom;
+    body.style.paddingBottom = '70vh';
+    return () => {
+      body.style.paddingBottom = prev;
+    };
+  }, []);
   const [glide, setGlide] = useState(false);
 
   const go = useCallback((to: number) => setPos({ screen, i: to }), [screen]);
@@ -176,7 +191,10 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
     if (!step) return;
     let raf = 0;
     let observed: HTMLElement | null = null;
-    let scrolledFor = false;
+    // The page can still move right after a step starts (a chat scrolling itself, content loading), so keep
+    // correcting for the first moments of the step, then leave scrolling to the person.
+    const stepStart = performance.now();
+    let lastScroll = 0;
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => schedule()) : null;
 
     const measure = () => {
@@ -200,20 +218,24 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
           if (el) ro?.observe(el);
           observed = el;
         }
-        if (el && !scrolledFor) {
-          scrolledFor = true;
+        const now = performance.now();
+        if (el && now - stepStart < 1500 && now - lastScroll > 400) {
           const r = el.getBoundingClientRect();
           const docked = isDocked(vp);
-          // On phones the card covers the bottom, so the target has to sit in the upper part.
-          const bottomLimit = docked ? vp.height * 0.55 : vp.height - insets.bottom;
+          // On phones the card covers the bottom, so the target has to sit above the card's real top.
+          const cardTop = vp.height - insets.bottom - 12 - (cardHRef.current || vp.height * 0.45);
+          const bottomLimit = docked ? cardTop - 8 : vp.height - insets.bottom;
           // A sticky page header would cover a target scrolled to the very top, so keep it below the header.
           let headerBottom = insets.top;
           for (const h of document.querySelectorAll<HTMLElement>('header, [data-sticky-header]')) {
             const cs = getComputedStyle(h);
             if (cs.position === 'sticky' || cs.position === 'fixed') headerBottom = Math.max(headerBottom, h.getBoundingClientRect().bottom);
           }
-          if (r.top < headerBottom || r.bottom > bottomLimit) {
+          // A tall target can't fit above the card; then at least its top part (where the action is) must show.
+          const fits = r.height <= bottomLimit - headerBottom - 12;
+          if (r.top < headerBottom - 1 || (fits ? r.bottom > bottomLimit + 1 : r.top > headerBottom + 24)) {
             const want = docked ? headerBottom + 12 : Math.max(headerBottom + 12, (vp.height - r.height) / 2);
+            lastScroll = now;
             window.scrollTo({ top: window.scrollY + r.top - want, behavior: reduce ? 'auto' : 'smooth' });
           }
         }
@@ -406,7 +428,7 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
       >
         <motion.div
           key={step.id}
-          className="flex flex-col gap-4 p-5"
+          className="flex flex-col gap-3 p-4 sm:gap-4 sm:p-5"
           initial={reduce ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.24, ease: EASE }}
@@ -439,7 +461,7 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Button variant="ghost" size="md" onClick={skip} className="-ml-2 px-2">
-              Skip tutorial
+              Skip<span className="max-[400px]:hidden">&nbsp;tutorial</span>
             </Button>
             <div className="ml-auto flex items-center gap-2">
               <Button

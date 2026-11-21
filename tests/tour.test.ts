@@ -155,3 +155,15 @@ describe('placeCard', () => {
     expect(spotlightRect({ top: 10, left: 20, width: 30, height: 40 }, 8)).toEqual({ top: 2, left: 12, width: 46, height: 56 });
   });
 });
+
+describe('docked card and bottom-pinned targets', () => {
+  it('docks at the top when the target is pinned to the bottom of a phone screen', async () => {
+    const { placeCard } = await import('../src/ui/Tour');
+    const vp = { width: 375, height: 553 };
+    const low = placeCard({ top: 480, left: 8, width: 359, height: 64 }, { width: 351, height: 240 }, vp);
+    expect(low.mode).toBe('dock');
+    expect(low.top).toBeLessThan(100);
+    const high = placeCard({ top: 80, left: 8, width: 359, height: 64 }, { width: 351, height: 240 }, vp);
+    expect(high.top).toBeGreaterThan(250);
+  });
+});

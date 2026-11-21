@@ -86,6 +86,26 @@ for (const concept of Object.values(concepts)) {
       expect(sub(prog.p, concept!.id, lesson.subskill)).toMatchObject({ streak: 2, typedPass: true, mastered: true });
     }, 30_000);
 
+    it('tab jumps keep his code and hints, and can\'t farm a clean pass', async () => {
+      const prog = { p: emptyProgress() };
+      const lesson = concept!.lessons[0];
+      const s = new Session(concept!, 0, 'type', deps(prog, []));
+      s.start(); s.goTo('doit');
+      s.setCode('# my work');
+      s.goTo('example');
+      expect(s.state.lastGrade).toBeUndefined();
+      s.goTo('doit');
+      expect(s.state.code).toBe('# my work'); // coming back keeps his code
+      s.setCode(lesson.doit.reference);
+      await s.check(); // passes; talk was skipped, so streak 1
+      expect(s.state.step).toBe('check');
+      s.goTo('example'); s.goTo('doit');
+      expect(s.state.code).toBe(lesson.doit.starter); // a new round starts from the starter
+      s.setCode(lesson.doit.wrong[0]);
+      await s.check();
+      expect(s.state.step).toBe('doit'); // a failing re-check never leaves "All tests pass" up
+    }, 30_000);
+
     it('talk mode grades spoken code and never marks typed mastery', async () => {
       const prog = { p: emptyProgress() };
       const lesson = concept!.lessons[0];

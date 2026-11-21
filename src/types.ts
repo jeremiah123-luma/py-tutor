@@ -34,6 +34,8 @@ export interface TestCase {
   /** Files expected after the run: path -> contents. */
   expectFiles?: Record<string, string>;
   hidden?: boolean;
+  /** When this test fails, the likely reason in plain words (shown instead of a generic hint). */
+  why?: string;
 }
 
 export interface Problem {
@@ -87,6 +89,8 @@ export interface RunResult {
   timedOut: boolean;
   files: Record<string, string>;
   ms: number;
+  /** Files the program created or changed (set by the lesson engine), so Run can show what it wrote. */
+  changedFiles?: Record<string, string>;
 }
 
 export interface TestResult {
@@ -96,12 +100,21 @@ export interface TestResult {
   expected?: string;
   got?: string;
   error?: string;
+  /** error is an assert message from the test's check, not a crash. */
+  checkFailed?: boolean;
+  /** The mismatch is in this file's contents, not in printed output. */
+  file?: string;
+  why?: string;
+  /** Files opened for writing that were never closed (their writes may be missing). */
+  unclosed?: string[];
 }
 
 export interface GradeResult {
   passed: boolean;
   results: TestResult[];
   bannedUsed: string[];
+  /** Correct but not how class teaches it (with, try). Never fails the check. */
+  notes?: string[];
 }
 
 /** One tutor turn, as the UI renders it. */
@@ -144,6 +157,12 @@ export interface SessionState {
   busy: 'idle' | 'thinking' | 'running' | 'speaking' | 'listening';
   /** Written hints already shown (free, no AI call), per question. After these run out, Hint asks the tutor. */
   freeHints?: { talk: number; doit: number };
+  /** He skipped Talk it through this round. */
+  skippedTalk?: boolean;
+  /** The last pass was clean (first check, no hints); drives the copy after a pass. */
+  lastClean?: boolean;
+  /** Steps he has actually been on this lesson (the step row only ticks these). */
+  seen?: LoopStep[];
 }
 
 /** Exam Drill short question (16 per drill, plus 2 coding Problems). */

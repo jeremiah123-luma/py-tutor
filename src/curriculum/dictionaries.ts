@@ -184,8 +184,8 @@ export const dictionaries: Concept = {
         rubric: [],
         hints: [
           'Check with if item in stock: first.',
-          'count = stock.pop(item) removes the entry and returns its value in one step.',
-          'stock.update({"tape": 5}) merges tape in without wiping out the other entries.',
+          'One method removes an entry and hands back its value at the same time. Which one?',
+          'update() merges a whole dictionary in without wiping out the other entries. What small dictionary would you pass it?',
         ],
         reference:
           'stock = {"pens": 4, "paper": 10, "ink": 2}\nitem = input()\nif item in stock:\n    count = stock.pop(item)\n    print(f"Removed {item} ({count})")\nelse:\n    print("Not in stock")\nstock.update({"tape": 5})\nprint(stock)',
@@ -232,7 +232,7 @@ export const dictionaries: Concept = {
           { name: 'budget 100', stdin: ['100'], expectStdout: 'pen\nbook\nbag', hidden: true },
         ],
         rubric: [],
-        hints: ['Loop with for item, cost in prices.items():', '"At most" means less than or equal: <=.'],
+        hints: ['Loop with for item, cost in prices.items():', '"The budget or less" means less than or equal: <=.'],
         reference: 'prices = {"pen": 2, "book": 12, "bag": 30}\nbudget = int(input())\nfor item, cost in prices.items():\n    if cost <= budget:\n        print(item)',
         wrong: [
           'prices = {"pen": 2, "book": 12, "bag": 30}\nbudget = int(input())\nfor item, cost in prices.items():\n    if cost < budget:\n        print(item)',
@@ -316,7 +316,13 @@ export const dictionaries: Concept = {
         starter: 'scores = {}\nline = input()\nwhile line != "done":\n    # your code\n    line = input()\n',
         tests: [
           { name: 'two students', stdin: ['Ana 90', 'Ben 70', 'Ana 95', 'done'], expectStdout: 'Ana 95\nBen 70' },
-          { name: 'highest comes first', stdin: ['Ana 100', 'Ben 70', 'Ana 95', 'done'], expectStdout: 'Ana 100\nBen 70', hidden: true },
+          {
+            name: 'highest comes first',
+            stdin: ['Ana 100', 'Ben 70', 'Ana 95', 'done'],
+            expectStdout: 'Ana 100\nBen 70',
+            hidden: true,
+            why: 'Ana scores 100 then 95, so her highest is 100. Keep every score in her list (append, don\'t replace), and turn each score into an int, or "95" counts as higher than "100".',
+          },
           { name: 'one student', stdin: ['Cy 50', 'done'], expectStdout: 'Cy 50', hidden: true },
           { name: 'no one', stdin: ['done'], expectStdout: '', hidden: true },
         ],

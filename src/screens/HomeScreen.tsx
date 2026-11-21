@@ -115,7 +115,7 @@ export function HomeScreen(p: HomeScreenProps) {
       <Aurora className="px-5 pt-14 pb-32 text-center md:pt-20 md:pb-36">
         <ul className="mb-7 flex flex-wrap justify-center gap-2" aria-label="At a glance">
           {[
-            { icon: CalendarClock, text: `${daysToFinal()} days to the final` },
+            { icon: CalendarClock, text: daysToFinal() === 0 ? 'Final is today' : `${daysToFinal()} day${daysToFinal() === 1 ? '' : 's'} to the final` },
             { icon: Layers, text: `${p.concepts.reduce((n, c) => n + c.lessons.length, 0)} lessons` },
             { icon: Sparkles, text: 'Built from your zyBook' },
           ].map(({ icon: Icon, text }, i) => (
@@ -205,7 +205,7 @@ export function HomeScreen(p: HomeScreenProps) {
           </div>
         </motion.form>
 
-        <ul data-tour="home-lessons" className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="Pick up a lesson">
+        <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="Pick up a lesson">
           <motion.li {...rise(0)} className="sm:col-span-2">
             <button
               data-tour="home-continue"
@@ -227,7 +227,7 @@ export function HomeScreen(p: HomeScreenProps) {
             const Icon = ICONS[c.id] ?? BookOpen;
             const names = p.subskills[c.id] ?? [];
             return (
-              <motion.li key={c.id} {...rise(i + 1)}>
+              <motion.li key={c.id} {...rise(i + 1)} data-tour={i === 0 ? 'home-lessons' : undefined}>
                 <button
                   onClick={() => p.onStart(c.id)}
                   className="lift press ht-host group flex h-full w-full flex-col gap-4 rounded-2xl border border-line bg-surface p-5 text-left hover:border-line-strong"
@@ -251,7 +251,7 @@ export function HomeScreen(p: HomeScreenProps) {
               </motion.li>
             );
           })}
-          <motion.li {...rise(p.concepts.length + 1)}>
+          <motion.li {...rise(p.concepts.length + 1)} data-tour="home-drill">
             <button
               onClick={p.onDrill}
               disabled={!p.onDrill}
@@ -264,7 +264,7 @@ export function HomeScreen(p: HomeScreenProps) {
                 </span>
                 <span className="text-md font-semibold tracking-[-0.02em]">Practice exam</span>
               </span>
-              <span className="text-[0.9375rem] text-ink-2">18 questions, timed. No tutor, no hints. Just like the real thing.</span>
+              <span className="text-[0.9375rem] text-ink-2">18 timed questions like the final. No tutor and no hints; you see each answer after you lock it in.</span>
               <span className="flex items-center gap-2 text-[0.9375rem] font-medium">
                 Start it
                 <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} aria-hidden="true" />

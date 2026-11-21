@@ -215,6 +215,7 @@ export function VisualizeScreen({
                   {res.stopped && ` (stopped after ${res.maxSteps} steps: a loop may never end)`}
                 </p>
                 <p className="mt-1 min-h-[2.75rem] text-[0.9375rem] leading-snug text-ink">{describeStep(step, i)}</p>
+                {step.event === 'error' && res?.error?.friendly && <p className="mt-1 text-sm text-ink-2">{res.error.friendly}</p>}
                 <p className="mt-1 flex gap-4 text-xs text-ink-3">
                   <span><span className="text-ok/80">➜</span> line that just ran</span>
                   <span><span className="text-accent">➜</span> next line to run</span>
@@ -222,7 +223,7 @@ export function VisualizeScreen({
               </div>
               <div className="border-t border-line bg-paper px-4 py-3">
                 <p className="mb-1 text-xs font-medium tracking-wide text-ink-3 uppercase">Printed output</p>
-                <pre className="max-h-40 min-h-[2.5rem] overflow-auto font-code text-[0.8125rem] whitespace-pre-wrap text-ink">{step.out || <span className="text-ink-3">Nothing printed yet.</span>}</pre>
+                <pre className="max-h-40 min-h-[2.5rem] overflow-auto font-code text-[0.8125rem] whitespace-pre-wrap text-ink">{step.out || <span className="text-ink-3">{step.event === 'done' || step.event === 'error' ? 'Nothing was printed.' : 'Nothing printed yet.'}</span>}</pre>
               </div>
             </>
           ) : (

@@ -10,6 +10,7 @@
 // (grounds, holds, drift) is CSS keyframes on the compositor; entrances and exits are Motion, which hands
 // transform/opacity to WAAPI. No animated blur, letter-spacing, width, or backdrop-filter anywhere.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
 import { C, INTRO_SCENES, exitMs, sceneText, type Ground, type IntroScene } from '../intro/slides';
@@ -463,7 +464,8 @@ const wipes = (s: IntroScene) => s.kind === 'wheel' || (s.kind === 'statement' &
 
 /* ---------- the player ---------- */
 
-export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
+/** signedIn: replayed from the profile menu, so the end offers one button instead of the sign-up choices. */
+export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) => void; signedIn?: boolean }) {
   const reduce = useReducedMotion() ?? false;
   const [cur, setCur] = useState(0);
   const [prev, setPrev] = useState<number | null>(null);
@@ -543,16 +545,38 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
     if (last) ctaRef.current?.focus({ preventScroll: true });
   }, [last]);
 
+  // A real modal: focus moves in, the app behind it can't be reached, and focus goes back when it closes.
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    const app = document.getElementById('root');
+    app?.setAttribute('inert', '');
+    rootRef.current?.focus({ preventScroll: true });
+    // a menu that opened it (the profile menu) hands focus back to its button as it closes; take it again after
+    const again = setTimeout(() => {
+      if (!rootRef.current?.contains(document.activeElement)) rootRef.current?.focus({ preventScroll: true });
+    }, 120);
+    return () => {
+      clearTimeout(again);
+      app?.removeAttribute('inert');
+      try {
+        prev?.focus?.({ preventScroll: true });
+      } catch {
+        /* gone */
+      }
+    };
+  }, []);
+
   const layers = prev !== null && prev !== cur ? [prev, cur] : [cur];
 
-  return (
+  return createPortal(
     <motion.div
       ref={rootRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label="What py-tutor is"
       data-intro=""
-      className="fixed inset-0 z-[110] cursor-pointer select-none overflow-hidden"
+      className="fixed inset-0 z-[110] cursor-pointer select-none overflow-hidden outline-none"
       style={{ background: GROUNDS[scene.ground].base }}
       animate={fading ? { opacity: 0, scale: 1.03 } : { opacity: 1, scale: 1 }}
       transition={{ duration: reduce ? 0 : 0.38, ease: EASE }}
@@ -621,18 +645,21 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
             className="press inline-flex h-12 min-w-[12rem] items-center justify-center gap-2 rounded-full px-6 text-base font-semibold focus-visible:outline-current"
             style={{ background: scene.ink, color: C.lilac }}
           >
-            Get started
+            {signedIn ? 'Let’s go' : 'Get started'}
             <ArrowRight className="size-4" strokeWidth={2} aria-hidden="true" />
           </button>
-          <button
-            type="button"
-            onClick={() => void finish('signin')}
-            className="press h-12 rounded-full px-5 text-[0.9375rem] font-medium underline-offset-4 hover:underline focus-visible:outline-current"
-          >
-            I already have an account
-          </button>
+          {!signedIn && (
+            <button
+              type="button"
+              onClick={() => void finish('signin')}
+              className="press h-12 rounded-full px-5 text-[0.9375rem] font-medium underline-offset-4 hover:underline focus-visible:outline-current"
+            >
+              I already have an account
+            </button>
+          )}
         </motion.div>
       )}
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

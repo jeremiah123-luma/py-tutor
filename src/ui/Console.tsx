@@ -1,3 +1,4 @@
+import { FilePreview } from './FilePreview';
 import { useState } from 'react';
 import { CircleCheck, CircleX, EyeOff } from 'lucide-react';
 import type { GradeResult, RunResult } from '../types';
@@ -58,20 +59,22 @@ export function TestResults({ grade }: { grade: GradeResult }) {
               <div className="mt-2 grid grid-cols-2 gap-2 pl-6">
                 {(
                   [
-                    ['Expected', r.expected ?? ''],
-                    ['Your output', r.got ?? ''],
+                    [r.file ? `${r.file} should contain` : 'Expected', r.expected ?? ''],
+                    [r.file ? `${r.file} contains` : 'Your output', r.got ?? ''],
                   ] as const
                 ).map(([label, text]) => (
                   <div key={label} className="min-w-0">
                     <p className="mb-1 text-xs text-ink-3">{label}</p>
                     <pre className="overflow-x-auto rounded-md bg-surface-2 px-2.5 py-2 font-code text-[13px] leading-relaxed whitespace-pre">
-                      {text ? <Visible text={text} /> : <span className="font-ui text-ink-3">{label === 'Your output' ? 'Nothing printed' : '—'}</span>}
+                      {text ? <Visible text={text} /> : <span className="font-ui text-ink-3">{label === 'Your output' ? 'Nothing printed' : r.file && label.endsWith('contains') ? 'Empty' : '—'}</span>}
                     </pre>
                   </div>
                 ))}
               </div>
             )}
-            {r.error && <p className="mt-1.5 pl-6 font-code text-[13px] break-words text-err">{r.error}</p>}
+            {r.error && (
+              <p className={`mt-1.5 pl-6 text-[13px] break-words ${r.checkFailed ? 'font-ui text-fix' : 'font-code text-err'}`}>{r.error}</p>
+            )}
           </li>
         ))}
       </ul>
@@ -138,12 +141,17 @@ export function Console({ run, grade, programInput, onProgramInputChange, runnin
                 </span>
               )}
               {run.error?.friendly && !run.timedOut && <span className="block pt-2 font-ui text-sm text-ink">{run.error.friendly}</span>}
-              {!run.stdout && !run.error && !run.timedOut && <span className="font-ui text-sm text-ink-3">The program ran but printed nothing.</span>}
+              {!run.stdout && !run.error && !run.timedOut && !run.changedFiles && <span className="font-ui text-sm text-ink-3">The program ran but printed nothing.</span>}
             </pre>
           ) : (
             <p className="max-w-[40ch] text-sm text-ink-3">
               Press Run to see what your program prints. Anything it prints shows up here.
             </p>
+          )}
+          {activeTab !== 'tests' && run && !running && run.changedFiles && (
+            <div className="mt-3">
+              <FilePreview files={run.changedFiles} caption="Files your program wrote:" />
+            </div>
           )}
         </div>
         {showInput && (

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { TOUR_STEPS } from '../src/tour/steps';
 
-const SOURCES = ['src/screens/HomeScreen.tsx', 'src/screens/LessonScreen.tsx', 'src/ui/LessonStage.tsx', 'src/ui/TopBar.tsx'];
+const SOURCES = ['src/screens/HomeScreen.tsx', 'src/screens/LessonScreen.tsx', 'src/ui/LessonStage.tsx', 'src/ui/TopBar.tsx', 'src/ui/Conversation.tsx'];
 const source = SOURCES.map((f) => readFileSync(resolve(__dirname, '..', f), 'utf8')).join('\n');
 
 describe('tour steps', () => {
@@ -15,7 +15,7 @@ describe('tour steps', () => {
   it('every target exists as a data-tour attribute in the UI source', () => {
     for (const s of TOUR_STEPS) {
       if (!s.target) continue;
-      expect(source.includes(`data-tour="${s.target}"`), `missing data-tour="${s.target}" for step ${s.id}`).toBe(true);
+      expect(source.includes(`data-tour="${s.target}"`) || new RegExp(`data-tour=\\{[^}]*'${s.target}'`).test(source), `missing data-tour="${s.target}" for step ${s.id}`).toBe(true);
     }
   });
 

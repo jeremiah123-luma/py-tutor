@@ -130,7 +130,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
                   <input id="name" name="name" autoComplete="name" value={f.name} onChange={set('name')} aria-invalid={!!err('name')} className={inputCls} />
                 </Field>
               )}
-              <Field id="username" label="Username" error={err('username')} hint={tab === 'signup' ? '3 to 24 letters or numbers. You’ll sign in with this.' : undefined}>
+              <Field id="username" label="Username" error={err('username')} hint={tab === 'signup' ? '3 to 24 letters, numbers, dots, dashes, or underscores. You’ll sign in with this.' : undefined}>
                 <input
                   id="username"
                   name="username"

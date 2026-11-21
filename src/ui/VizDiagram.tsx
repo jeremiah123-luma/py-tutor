@@ -127,7 +127,7 @@ function FrameCard({ f, active, changed, objLabel }: { f: VizFrame; active: bool
       className={`rounded-lg border p-2.5 transition-colors ${active ? 'border-accent/70 bg-accent/[0.06]' : 'border-line bg-surface/60 opacity-70'}`}
       aria-label={`${f.name}${active ? ', running now' : ''}`}
     >
-      <p className={`mb-1.5 text-sm font-medium ${active ? 'text-ink' : 'text-ink-2'}`}>{f.name === 'Global frame' ? f.name : `${f.name}()`}</p>
+      <p className={`mb-1.5 text-sm font-medium ${active ? 'text-ink' : 'text-ink-2'}`}>{f.name === 'Global frame' || f.name.startsWith('Defining class ') ? f.name : `${f.name}()`}</p>
       {f.vars.length === 0 && !f.returnValue ? (
         <p className="text-sm text-ink-3">No variables yet.</p>
       ) : (
@@ -280,18 +280,27 @@ export function VizDiagram({ step, prev }: { step: VizStep; prev?: VizStep }) {
 
 export function describeStep(step: VizStep, i: number): ReactNode {
   const fname = step.frames.at(-1)?.name;
+  if ((step as VizStep & { classBody?: boolean }).classBody && step.event === 'line') {
+    return <>Defining class <code className="font-code">{fname?.replace(/^Defining class /, '')}</code>: line {step.line} sets up what every instance will share.</>;
+  }
   switch (step.event) {
     case 'call':
       return <>Calling <code className="font-code">{fname}()</code>. Python makes a new frame for its variables.</>;
     case 'return':
       return <><code className="font-code">{fname}()</code> is about to return. Its return value is shown in its frame.</>;
     case 'exception':
-      return <span className="text-err">{step.exception} on line {step.line}.</span>;
+      return (
+        <>
+          Line {step.line} raised <code className="font-code">{step.exception}</code>. Python looks for an <code className="font-code">except</code> that handles it; with none, the program stops.
+        </>
+      );
     case 'error':
       return <span className="text-err">The program stopped with an error: {step.exception}</span>;
     case 'done':
       return <>The program finished. This is how everything ended up.</>;
     default:
-      return i === 0 || step.prevLine == null ? <>Ready to run line {step.line}.</> : <>Line {step.prevLine} just ran. Next up: line {step.line}.</>;
+      if (i === 0 || step.prevLine == null) return <>Ready to run line {step.line}.</>;
+      if (step.frames.length > 1 && fname && !fname.startsWith('Defining class ')) return <>Inside <code className="font-code">{fname}()</code>: running line {step.line}.</>;
+      return <>Line {step.prevLine} just ran. Next up: line {step.line}.</>;
   }
 }

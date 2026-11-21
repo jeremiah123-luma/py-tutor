@@ -113,13 +113,23 @@ export class PyRunner {
         error: { type: 'Timeout', message: 'Stopped: the program ran too long to show step by step.', friendly: 'Usually that means a loop never ends. Check that its condition can become False.' },
       };
     }
-    return r as VizResult;
+    const v = r as VizResult & { outDelta?: boolean };
+    if (v.outDelta) {
+      // each step arrives with only what it printed; rebuild the running output the screen shows
+      let acc = '';
+      for (const st of v.steps) {
+        acc += st.out;
+        st.out = acc;
+      }
+    }
+    return v;
   }
 
   /** One request per test, so one runaway loop fails only its own test. */
   async grade(code: string, tests: TestCase[], extraAllowed?: string[]): Promise<GradeResult> {
     const results: GradeResult['results'] = [];
     let bannedUsed: string[] | null = null;
+    let notes: string[] | undefined;
     for (const t of tests) {
       const r = await this.send({ kind: 'grade', code, tests: [t], extraAllowed }, this.limitMs);
       if (r === 'timeout') {
@@ -129,9 +139,10 @@ export class PyRunner {
       const g = r as GradeResult;
       results.push(g.results[0]);
       bannedUsed ??= g.bannedUsed;
+      notes ??= g.notes;
     }
     const banned = bannedUsed ?? [];
-    return { passed: results.every((x) => x.passed) && banned.length === 0, results, bannedUsed: banned };
+    return { passed: results.every((x) => x.passed) && banned.length === 0, results, bannedUsed: banned, notes };
   }
 
   dispose() {

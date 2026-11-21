@@ -20,7 +20,7 @@ export function phaseIndex(step: LoopStep): number {
 export type JumpTarget = 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit';
 const TARGET: Record<string, JumpTarget> = { learn: 'define', example: 'example', walk: 'walkthrough', talk: 'talkthrough', try: 'doit' };
 
-export function StepTrack({ step, compact, onJump }: { step: LoopStep; compact?: boolean; onJump?: (t: JumpTarget) => void }) {
+export function StepTrack({ step, compact, onJump, seen }: { step: LoopStep; compact?: boolean; onJump?: (t: JumpTarget) => void; seen?: LoopStep[] }) {
   const current = phaseIndex(step);
   const listRef = useRef<HTMLOListElement>(null);
   // On a phone the five steps don't fit; slide the row so the current one is always in view.
@@ -47,7 +47,8 @@ export function StepTrack({ step, compact, onJump }: { step: LoopStep; compact?:
       ) : (
         <ol ref={listRef} className="flex items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none]">
           {PHASES.map((p, i) => {
-            const done = i < current;
+            // ticked only if he was actually on it (jumping ahead doesn't count earlier steps as done)
+            const done = i < current && (!seen || (p.steps as readonly string[]).some((s) => seen.includes(s as LoopStep)));
             const now = i === current;
             return (
               <li key={p.id} className="relative shrink-0">

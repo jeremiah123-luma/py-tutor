@@ -39,7 +39,7 @@ export const classes: Concept = {
       talkthrough: {
         id: 'cls-ci-talk',
         subskill: 'class-init',
-        prompt: 'Define a class Song whose __init__ starts every new instance with title "" and plays 0. Then how would you create an instance of Song called Hello with 12 plays?',
+        prompt: 'Define a class Song whose __init__ starts every new instance with title "" and plays 0. Then how would you make a Song, and set its title to "Hello" and its plays to 12?',
         starter: '',
         tests: [],
         rubric: ['class Song: with def __init__(self):', 'sets self.title = "" and self.plays = 0 inside __init__', 'makes the instance with s = Song()', 'sets s.title = "Hello" and s.plays = 12 with dot notation'],
@@ -58,7 +58,13 @@ export const classes: Concept = {
           {
             name: 'a new Book starts empty',
             stdin: ['Dune', '412'],
-            check: 'b = Book()\nassert b.title == "", f"Book().title should start as \\"\\", got {b.title!r}"\nassert b.pages == 0, f"Book().pages should start as 0, got {b.pages!r}"\nassert my_book.pages == 412, "my_book.pages should be the number 412. Turn the input into an int."',
+            check: 'b = Book()\nassert hasattr(b, "title") and hasattr(b, "pages"), "__init__ should set self.title and self.pages."\nassert b.title == "", f"Book().title should start as \\"\\", got {b.title!r}"\nassert b.pages == 0, f"Book().pages should start as 0, got {b.pages!r}"',
+            hidden: true,
+          },
+          {
+            name: 'pages is a number',
+            stdin: ['Dune', '412'],
+            check: 'assert my_book.pages == 412, "my_book.pages should be the number 412. Turn the input into an int."',
             hidden: true,
           },
         ],
@@ -209,7 +215,7 @@ export const classes: Concept = {
           {
             name: 'price is a class attribute',
             stdin: ['A4', '3'],
-            check: 'assert Ticket.price == 12, "Ticket.price should be 12. Write price = 12 inside the class, outside any method."\nassert "price" not in vars(Ticket()), "price should be a class attribute, not self.price inside __init__."\nassert Ticket().seat == "", "A new Ticket\'s seat should start as \\"\\"."',
+            check: 'assert hasattr(Ticket, "price"), "Ticket.price should be 12. Write price = 12 inside the class, outside any method."\nassert Ticket.price == 12, "Ticket.price should be 12. Write price = 12 inside the class, outside any method."\nassert "price" not in vars(Ticket()), "price should be a class attribute, not self.price inside __init__."\nassert Ticket().seat == "", "A new Ticket\'s seat should start as \\"\\"."',
             hidden: true,
           },
           {

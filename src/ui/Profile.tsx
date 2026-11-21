@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import * as Menu from '@radix-ui/react-dropdown-menu';
 import { LogOut, Keyboard, Mic, Trophy, CalendarClock, Fingerprint, Gauge, Users, Compass } from 'lucide-react';
 import type { Usage } from '../loop/api';
-import { daysToFinal } from './TopBar';
+import { finalIn } from './TopBar';
 
 export interface ProfileInfo {
   name: string;
@@ -17,6 +17,8 @@ export interface ProfileInfo {
   onAdmin?: () => void;
   onReplayTour?: () => void;
   onSignOut: () => void;
+  /** Refresh the AI-help numbers when the menu opens, so they're never stale. */
+  onOpen?: () => void;
 }
 
 const item =
@@ -30,7 +32,7 @@ export function ProfileMenu() {
   const initial = p.name.charAt(0).toUpperCase();
   const pct = p.total ? Math.round((p.mastered / p.total) * 100) : 0;
   return (
-    <Menu.Root>
+    <Menu.Root onOpenChange={(open) => open && p.onOpen?.()}>
       <Menu.Trigger
         aria-label={`Account: ${p.name}`}
         className="press grid size-9 place-items-center rounded-full text-sm font-bold text-[#111] ring-1 ring-white/20 outline-none hover:ring-white/50 focus-visible:ring-2 focus-visible:ring-accent"
@@ -69,13 +71,13 @@ export function ProfileMenu() {
             </div>
             <div className="mt-3 flex items-center gap-2 text-sm text-ink-2">
               <CalendarClock className="size-4" strokeWidth={1.75} aria-hidden="true" />
-              <span className="tnum">Final in {daysToFinal()} days · Sat, Dec 19, 9:00 AM</span>
+              <span className="tnum">{finalIn()} · Sat, Dec 19, 9:00 AM</span>
             </div>
             {p.usage && !p.admin && (
               <div className="mt-1.5 flex items-center gap-2 text-sm text-ink-2">
                 <Gauge className="size-4" strokeWidth={1.75} aria-hidden="true" />
                 <span className="tnum">
-                  AI today: ${p.usage.spentToday.toFixed(2)} of ${(p.usage.allowance + p.usage.bonus).toFixed(2)}
+                  AI help today: ${p.usage.spentToday.toFixed(2)} of ${(p.usage.allowance + p.usage.bonus).toFixed(2)}
                 </span>
               </div>
             )}

@@ -52,7 +52,7 @@ export const files: Concept = {
         starter: 'name = input()\n# open the file, read it, close it, print it in capitals\n',
         tests: [
           { name: 'note.txt', stdin: ['note.txt'], files: { 'note.txt': 'hello there\nsee you soon\n' }, expectStdout: 'HELLO THERE\nSEE YOU SOON' },
-          { name: 'a different file', stdin: ['todo.txt'], files: { 'note.txt': 'hello\n', 'todo.txt': 'buy milk\n' }, expectStdout: 'BUY MILK', hidden: true },
+          { name: 'a different file', stdin: ['todo.txt'], files: { 'note.txt': 'hello\n', 'todo.txt': 'buy milk\n' }, expectStdout: 'BUY MILK', hidden: true, why: 'this test types a different file name. Open the name input() gave you, open(name), not a fixed name like "note.txt".' },
         ],
         rubric: [],
         hints: [
@@ -71,7 +71,7 @@ export const files: Concept = {
       subskill: 'lines',
       title: 'Going through a file one line at a time',
       define:
-        'file.readline() returns a single line. file.readlines() returns a list of strings, one per line. for line in f: goes through the file one line per pass until the end-of-file (EOF). Every line keeps its newline "\\n", and .strip() cuts it off.',
+        'file.readline() returns a single line. file.readlines() returns a list of strings, one per line. for line in f: goes through the file one line per pass until the end-of-file (EOF). Every line keeps its newline "\\n" (except a last line with nothing after it), and .strip() cuts it off.',
       example: 'f = open("pets.txt")\nfirst = f.readline()\nprint(len(first))\nfor line in f:\n    print(line.strip())\nf.close()',
       exampleFiles: { 'pets.txt': 'cat\ndog\nfish\n' },
       walkthrough: [
@@ -176,6 +176,7 @@ export const files: Concept = {
       title: 'Writing a new file',
       define:
         'The mode is the second argument of open(). "w" opens the file for writing: if the file does not exist, it is created, and the contents of an existing file are overwritten. file.write() only accepts string arguments and does not add a newline, so you write "\\n" yourself.',
+      exampleFiles: {},
       example: 'f = open("log.txt", "w")\nf.write("first line\\n")\nf.write(str(42) + "\\n")\nf.close()\nf = open("log.txt")\nprint(f.read())\nf.close()',
       walkthrough: [
         { line: 1, text: 'The mode "w" opens for writing. If log.txt does not exist, it is created. If it does exist, its contents are overwritten, erased right now.', spoken: 'f equals open, log dot t x t, comma w' },
@@ -240,7 +241,7 @@ export const files: Concept = {
         { line: 2, text: 'The write is added to the end of the existing contents, so eggs goes on a new line after milk.', spoken: 'f dot write, eggs backslash n' },
         { line: 3, text: 'Close it so the write is saved.', spoken: 'f dot close' },
         { line: 4, text: 'Open it again, this time to read.', spoken: 'f equals open, list dot t x t' },
-        { line: 5, text: 'Prints milk, then eggs. If line 1 had used "w", the contents would be overwritten: milk gone, only eggs.', spoken: 'print f dot read' },
+        { line: 5, text: 'Prints milk, then eggs, then one blank line: the file ends with "\\n" and print adds its own. If line 1 had used "w", the contents would be overwritten: milk gone, only eggs.', spoken: 'print f dot read' },
         { line: 6, text: 'Close it again.', spoken: 'f dot close' },
       ],
       talkthrough: {
@@ -321,6 +322,14 @@ export const files: Concept = {
             expectFiles: { 'summary.txt': 'Ana: 6\n' },
             hidden: true,
           },
+          {
+            name: 'names out of alphabetical order',
+            files: { 'scores.txt': 'Zed,3\nAmy,4\nZed,1\n' },
+            expectStdout: '2',
+            expectFiles: { 'summary.txt': 'Zed: 4\nAmy: 4\n' },
+            hidden: true,
+            why: 'summary.txt has to list people in the order they first appear in scores.txt (here Zed, then Amy), not sorted.',
+          },
         ],
         rubric: [],
         hints: [
@@ -334,6 +343,7 @@ export const files: Concept = {
           'totals = {}\nf = open("scores.txt")\nfor line in f:\n    name, points = line.strip().split(",")\n    totals[name] = int(points)\nf.close()\nout = open("summary.txt", "w")\nfor name, total in totals.items():\n    out.write(f"{name}: {total}\\n")\nout.close()\nprint(len(totals))',
           'totals = {}\nf = open("scores.txt")\nfor line in f:\n    name, points = line.strip().split(",")\n    if name in totals:\n        totals[name] += points\n    else:\n        totals[name] = points\nf.close()\nout = open("summary.txt", "w")\nfor name, total in totals.items():\n    out.write(f"{name}: {total}\\n")\nout.close()\nprint(len(totals))',
           'totals = {}\nf = open("scores.txt")\nfor line in f:\n    name, points = line.strip().split(",")\n    if name in totals:\n        totals[name] += int(points)\n    else:\n        totals[name] = int(points)\nf.close()\nout = open("summary.txt", "w")\nfor name, total in totals.items():\n    out.write(f"{name}: {total}")\nout.close()\nprint(len(totals))',
+          'totals = {}\nf = open("scores.txt")\nfor line in f:\n    name, points = line.strip().split(",")\n    if name in totals:\n        totals[name] += int(points)\n    else:\n        totals[name] = int(points)\nf.close()\nout = open("summary.txt", "w")\nfor name in sorted(totals):\n    out.write(f"{name}: {totals[name]}\\n")\nout.close()\nprint(len(totals))',
           'totals = {}\nf = open("scores.txt")\nfor line in f:\n    name, points = line.strip().split(",")\n    if name in totals:\n        totals[name] += int(points)\n    else:\n        totals[name] = int(points)\nf.close()\nout = open("summary.txt", "a")\nfor name, total in totals.items():\n    out.write(f"{name}: {total}\\n")\nout.close()\nprint(len(totals))',
         ],
       },

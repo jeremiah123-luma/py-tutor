@@ -58,7 +58,7 @@ function readMode(): Mode {
   }
 }
 
-/** Where "Continue" goes: the lesson in progress, then review, then the first unmastered lesson. */
+/** Where "Continue" goes: the lesson in progress, then the first lesson not tried yet, then review of tried-but-unmastered ones. */
 function nextLesson(p: Progress): { concept: ConceptId; index: number } {
   const idx = (c: ConceptId, s: string) => conceptMap[c]!.lessons.findIndex((l) => l.subskill === s);
   if (p.last && !sub(p, p.last.concept, p.last.subskill).mastered) {
@@ -276,6 +276,7 @@ export default function App() {
       }
     },
     onAdmin: () => setScreen('admin'),
+    onOpen: () => void me().then((m) => m && setUsage(m.usage)),
     onReplayTour: () => {
       if (!account) return;
       resetTour(account.id);
@@ -315,7 +316,7 @@ export default function App() {
             void s.say(text);
           }}
           onTalkNow={() => {
-            setMode('talk');
+            // a one-off talk session: the saved Type/Talk choice stays as it was
             unlockAudio();
             void primeMic().catch(() => {});
             void loadTalk();
@@ -360,7 +361,7 @@ export default function App() {
           onBack={goHome}
           onJump={(t) => session.goTo(t)}
           onTrace={() => session.traceExample()}
-          onVisualize={(code, files) => openViz('lesson', { code, files, from: session.lesson.title })}
+          onVisualize={(code, files) => openViz('lesson', { code, files, stdin: programInput, from: session.lesson.title })}
         />
         </div>
       )}
@@ -368,6 +369,7 @@ export default function App() {
       {screen === 'talk' && session && state && (
         <TalkScreen
           state={talk?.ring ?? 'idle'}
+          error={!!talk?.error}
           caption={talk?.error || talk?.caption || (state.turns.length ? '' : 'I’ll explain it out loud, then you answer out loud. No reading needed.')}
           context={`${session.concept.title} · ${phaseIndex(state.step) < PHASES.length ? PHASES[phaseIndex(state.step)].label : 'Mastered'}`}
           onTap={() => {
@@ -423,6 +425,7 @@ export default function App() {
 
       {introOpen && (
         <Intro
+          signedIn
           onDone={() => {
             markIntroSeen();
             setIntroOpen(false);

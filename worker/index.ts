@@ -17,8 +17,7 @@ import { tutorParams, type TutorRequest } from './prompt';
 type Env = {
   ANTHROPIC_API_KEY: string;
   OPENAI_API_KEY: string;
-  /** Code that classmates enter to make an account. */
-  /** Code that makes an admin account (the old passcode). */
+  /** Code that makes an admin account (the old passcode). Sign-up itself is open. */
   ADMIN_CODE: string;
   /** Monthly AI budget for the class, USD. */
   MONTHLY_BUDGET_USD?: string;

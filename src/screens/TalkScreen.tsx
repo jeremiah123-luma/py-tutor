@@ -13,6 +13,8 @@ export interface TalkScreenProps {
   /** Tap anywhere: start, interrupt, or hand the turn over. */
   onTap: () => void;
   onExit: () => void;
+  /** The caption is an error (mic blocked, network); the button says how to recover. */
+  error?: boolean;
 }
 
 const LABEL: Record<TalkState, string> = {
@@ -29,7 +31,8 @@ const RING: Record<TalkState, string> = {
   speaking: 'var(--talk-speak)',
 };
 
-export function TalkScreen({ state, caption, context, level = 0, onTap, onExit }: TalkScreenProps) {
+export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, error }: TalkScreenProps) {
+  const label = error && state === 'idle' ? 'Tap to try again' : LABEL[state];
   const scale = state === 'listening' ? 1 + Math.min(level, 1) * 0.08 : 1;
   return (
     <div
@@ -48,10 +51,10 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit }
 
       <button
         onClick={onTap}
-        aria-label={LABEL[state]}
-        className="flex flex-1 flex-col items-center justify-center gap-10 px-6 pb-6 outline-offset-[-8px]"
+        aria-label={label}
+        className="flex flex-1 flex-col items-center justify-center gap-[min(2.5rem,4svh)] px-6 pb-4 outline-offset-[-8px]"
       >
-        <div className="relative grid size-[min(64vw,17rem)] place-items-center" aria-hidden="true">
+        <div className="relative grid size-[min(64vw,17rem,30svh)] place-items-center" aria-hidden="true">
           <div className="halftone halftone-ring" />
           <div
             className={`absolute -inset-12 animate-[spin_14s_linear_infinite] rounded-full blur-3xl transition-opacity duration-500 ${state === 'idle' ? 'opacity-30' : 'opacity-60'}`}
@@ -97,15 +100,15 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit }
 
         <div className="flex flex-col items-center gap-5 text-center">
           <p className="text-lg font-medium" style={{ color: RING[state] === 'var(--talk-sub)' ? 'var(--talk-ink)' : RING[state] }}>
-            {LABEL[state]}
+            {label}
           </p>
-          <p aria-live="polite" className="line-clamp-4 max-w-[22ch] font-voice text-[1.875rem] leading-[1.3] tracking-[-0.01em] text-[var(--talk-ink)] sm:max-w-[28ch]">
+          <p aria-live="polite" className="line-clamp-4 max-w-[22ch] font-voice text-[clamp(1.75rem,4.5svh,1.875rem)] leading-[1.3] tracking-[-0.01em] text-[var(--talk-ink)] sm:max-w-[28ch]">
             {caption}
           </p>
         </div>
       </button>
 
-      <footer className="px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center text-[0.9375rem] text-[var(--talk-sub)]">
+      <footer className="px-6 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-sm text-[var(--talk-sub)] [@media(max-height:600px)]:hidden">
         Keep the screen on and the phone in a mount. Eyes on the road. Tap anywhere to interrupt.
       </footer>
     </div>

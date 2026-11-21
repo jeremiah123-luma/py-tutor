@@ -52,7 +52,7 @@ test('sign up, passkey, tour, sign out, passkey sign-in', async ({ page, context
   await page.waitForTimeout(400);
   await page.screenshot({ path: shot('4-tour-welcome') });
   await tour.getByRole('button', { name: 'Next' }).click();
-  await expect(tour.getByText('Pick up where you left off')).toBeVisible();
+  await expect(tour.getByText('Your profile')).toBeVisible();
   await page.waitForTimeout(400);
   await page.screenshot({ path: shot('5-tour-spotlight') });
   await tour.getByRole('button', { name: /Skip/ }).click();

@@ -15,15 +15,24 @@ export function isWriting(step: SessionState['step']) {
  * The one source of truth for which code is on screen. The editor shows it and Run runs it,
  * so what he sees is always exactly what runs.
  */
-/** Files a run starts with: the example's own files over the do-it sample files. */
-export function runFilesFor(lesson: Lesson) {
+/**
+ * Files a run starts with. His own code (Try it) gets the do-it sample files. The example gets its own files
+ * when the lesson lists them (even none, for an example that creates its file), otherwise the do-it samples.
+ */
+export function runFilesFor(lesson: Lesson, step?: SessionState['step']) {
   const tests = lesson.doit.tests;
   const sample = (tests.find((t) => t.files && !t.hidden) ?? tests.find((t) => t.files))?.files;
-  return lesson.exampleFiles ? { ...sample, ...lesson.exampleFiles } : sample;
+  if (step && showsOwnCode(step)) return sample;
+  return lesson.exampleFiles ?? sample;
+}
+
+/** His own code stays on screen while writing, after a pass, and once the skill is mastered. */
+export function showsOwnCode(step: SessionState['step']) {
+  return isWriting(step) || step === 'mastered';
 }
 
 export function codeOnScreen(lesson: Lesson, state: Pick<SessionState, 'step' | 'code'>) {
-  return isWriting(state.step) ? state.code : lesson.example;
+  return showsOwnCode(state.step) ? state.code : lesson.example;
 }
 
 export interface EngineDeps {
@@ -48,6 +57,8 @@ export class Session {
   private talkHints = 0;
   private doHints = 0;
   private checks = 0;
+  /** A pass finished the current round; the next visit to Try it starts a fresh one (starter code, counters reset). */
+  private roundDone = false;
   readonly lesson: Lesson;
 
   readonly concept: Concept;
@@ -65,6 +76,7 @@ export class Session {
       concept: concept.id,
       lessonIndex,
       step: 'define',
+      seen: ['define'],
       walkLine: 0,
       turns: [],
       code: this.lesson.doit.starter,
@@ -78,6 +90,7 @@ export class Session {
     return () => this.listeners.delete(fn);
   }
   private set(patch: Partial<SessionState>) {
+    if (patch.step && !(this.state.seen ?? []).includes(patch.step)) patch = { ...patch, seen: [...(this.state.seen ?? []), patch.step] };
     this.state = { ...this.state, ...patch };
     this.listeners.forEach((f) => f());
   }
@@ -135,14 +148,12 @@ export class Session {
         break;
       }
       case 'talkthrough':
-        // Skip ahead (for example when the tutor can't be reached). Not a clean round.
+        // Skip ahead (for example when the tutor can't be reached).
         this.talkHints++;
-        this.set({ step: 'feedback' });
+        this.set({ step: 'feedback', skippedTalk: true });
         break;
       case 'feedback':
-        this.set({ step: 'doit', code: this.lesson.doit.starter, lastRun: undefined, lastGrade: undefined, gradeExplained: false, freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
-        this.checks = 0;
-        this.doHints = 0;
+        this.enterDoit();
         this.scripted(
           this.mode === 'talk'
             ? `Now let's build it. ${this.lesson.doit.prompt} Say the code you'd write, line by line.`
@@ -155,10 +166,27 @@ export class Session {
     this.saveLast();
   }
 
+  /**
+   * Enter Try it. Mid-round (he jumped to another tab and came back) everything is kept: his code, his checks,
+   * and the hints he used, so a tab jump can't wipe a hint or hand him a free "clean" pass. After a pass, the
+   * next visit is a new round: starter code and fresh counters, so a clean pass means writing it again.
+   */
+  private enterDoit() {
+    if (this.roundDone) {
+      this.roundDone = false;
+      this.checks = 0;
+      this.doHints = 0;
+      this.set({ code: this.lesson.doit.starter, freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
+    }
+    this.set({ step: 'doit', walkLine: 0, lastRun: undefined, lastGrade: undefined, gradeExplained: false });
+  }
+
   /** Jump straight to any step (the step tabs). Nothing is graded or recorded by jumping. */
   goTo(step: 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit') {
     if (this.state.step === step && step !== 'walkthrough') return;
     this.interrupt();
+    // Leaving Try it: his run output and test results belong to his code, not to the example.
+    if (step !== 'doit') this.set({ lastRun: undefined, lastGrade: undefined, gradeExplained: false });
     switch (step) {
       case 'define':
         this.set({ step, walkLine: 0 });
@@ -172,16 +200,11 @@ export class Session {
         this.speakWalkLine(1);
         break;
       case 'talkthrough':
-        this.set({ step, walkLine: 0 });
+        this.set({ step, walkLine: 0, skippedTalk: false });
         this.scripted(`Your turn, no typing yet. ${this.lesson.talkthrough.prompt} Just tell me how you'd do it.`);
         break;
       case 'doit':
-        if (!isWriting(this.state.step)) {
-          this.checks = 0;
-            this.doHints = 0;
-          this.set({ freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
-        }
-        this.set({ step, walkLine: 0, lastRun: undefined, lastGrade: undefined, gradeExplained: false });
+        this.enterDoit();
         this.scripted(
           this.mode === 'talk'
             ? `Now let's build it. ${this.lesson.doit.prompt} Say the code you'd write, line by line.`
@@ -295,7 +318,7 @@ export class Session {
             typed: false,
           }),
         );
-        this.set({ step: 'feedback' });
+        this.set({ step: 'feedback', skippedTalk: false });
       } else {
         this.talkHints++;
       }
@@ -347,12 +370,12 @@ export class Session {
 
   /** Files a run starts with: the example's own files over the do-it sample files. */
   private runFiles() {
-    return runFilesFor(this.lesson);
+    return runFilesFor(this.lesson, this.state.step);
   }
 
   /** Run the example with a line-by-line trace, for the step-through player. Null if it can't be played. */
   async traceExample() {
-    const r = await this.deps.run(this.lesson.example, [], this.runFiles(), true);
+    const r = await this.deps.run(this.lesson.example, [], runFilesFor(this.lesson), true);
     if (r.error || r.timedOut || !r.steps || r.steps.length < 2) return null;
     return r.steps;
   }
@@ -363,7 +386,9 @@ export class Session {
     this.set({ busy: 'running' });
     const stdin = stdinText === '' ? [] : stdinText.split('\n');
     const files = this.runFiles();
-    const lastRun = await this.deps.run(codeOnScreen(this.lesson, this.state), stdin, files);
+    const result = await this.deps.run(codeOnScreen(this.lesson, this.state), stdin, files);
+    const changed = Object.fromEntries(Object.entries(result.files ?? {}).filter(([name, text]) => files?.[name] !== text));
+    const lastRun = Object.keys(changed).length ? { ...result, changedFiles: changed } : result;
     this.set({ lastRun, busy: 'idle' });
     return lastRun;
   }
@@ -396,9 +421,14 @@ export class Session {
     const clean = passed && this.checks === 1 && this.doHints === 0;
     const p = record(this.deps.getProgress(), this.concept.id, this.lesson.subskill, { passed, clean, typed });
     this.deps.setProgress(p);
-    if (!passed) return; // loop: stay on doit until it passes
+    if (!passed) {
+      // loop: back on Try it until it passes (a failing re-check after a pass must not leave "All tests pass" up)
+      if (this.state.step === 'check') this.set({ step: 'doit' });
+      return;
+    }
+    this.roundDone = true;
     const mastered = sub(p, this.concept.id, this.lesson.subskill).mastered;
-    this.set({ step: mastered ? 'mastered' : 'check' });
+    this.set({ step: mastered ? 'mastered' : 'check', lastClean: clean });
     this.saveLast();
   }
 }

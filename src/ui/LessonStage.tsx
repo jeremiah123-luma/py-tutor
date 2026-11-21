@@ -11,6 +11,10 @@ export interface LessonStageProps {
   onHint?: () => void;
   /** Written hints already used on this step; label shows 'Hint 2 of 3', then 'Ask the tutor for help'. */
   hintsUsed?: number;
+  /** He skipped Talk it through this round. */
+  skippedTalk?: boolean;
+  /** The pass that brought him here was clean (first check, no hints). */
+  lastClean?: boolean;
 }
 
 function Voice({ children }: { children: React.ReactNode }) {
@@ -21,7 +25,7 @@ function Meta({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-ink-2">{children}</p>;
 }
 
-export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed = 0 }: LessonStageProps) {
+export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed = 0, skippedTalk, lastClean }: LessonStageProps) {
   const hintList = step === 'talkthrough' ? lesson.talkthrough.hints : lesson.doit.hints;
   const hintLabel = hintsUsed < hintList.length ? `Hint ${hintsUsed + 1} of ${hintList.length}` : 'Ask the tutor for help';
   const total = lesson.walkthrough.length;
@@ -51,7 +55,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
       body = (
         <>
           <Voice>Here’s a short example. Read it once top to bottom, then we’ll go through it line by line.</Voice>
-          <Meta>It’s on the right. Press Play step by step to watch it run one line at a time, or Run to see what it prints.</Meta>
+          <Meta>The code is <span className="md:hidden">below</span><span className="max-md:hidden">on the right</span>. Press Play step by step to watch it run one line at a time, or Run to see what it prints.</Meta>
         </>
       );
       actions = (
@@ -85,7 +89,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
     case 'feedback':
       body = (
         <>
-          <Meta>You explained it. Now the real thing.</Meta>
+          <Meta>{skippedTalk ? 'Talk it through skipped.' : 'You explained it. Now the real thing.'}</Meta>
           <Voice>Next you’ll write the code yourself, and the tests will check it.</Voice>
         </>
       );
@@ -122,7 +126,13 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
       body = (
         <>
           <Meta>All tests pass.</Meta>
-          <Voice>That works. It wasn’t a clean round yet (a hint, a retry, or a miss when you talked it through), so it comes back later for one more.</Voice>
+          <Voice>
+            {!lastClean
+              ? 'That works. It took a hint or more than one check, so it needs a clean round (first check, no hints) before it counts as mastered.'
+              : skippedTalk
+                ? 'Clean pass. You skipped Talk it through, so do one more clean round (explain it, then write it) and it’s mastered.'
+                : 'Clean pass. Talk it through needed a hint or a second try, so one more clean round and it’s mastered.'}
+          </Voice>
         </>
       );
       actions = (
@@ -134,8 +144,9 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
     case 'doit':
       body = (
         <>
-          <Meta>Now write it. Press Check my code when you think it works.</Meta>
+          <Meta>Now write it. Press Check when you think it works.</Meta>
           <Voice>{lesson.doit.prompt}</Voice>
+          {lesson.doit.prompt.includes('input()') && <Meta>Use input() with no prompt text inside the brackets, just like zyBooks, or the tests won’t match.</Meta>}
         </>
       );
       actions = onHint ? (
@@ -148,7 +159,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
       body = (
         <>
           <Voice>You’ve got this one. That’s two clean passes in a row.</Voice>
-          <Meta>It goes in your mastered list. If it slips, it comes back for review.</Meta>
+          <Meta>It’s in your mastered list. The practice exam will keep checking it.</Meta>
         </>
       );
       actions = (

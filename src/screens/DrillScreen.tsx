@@ -1,6 +1,6 @@
-// Exam Drill: exam conditions. No tutor, no hints. 16 short questions, then 2 coding problems, then a score.
+// Exam Drill: exam conditions. No tutor, no hints; each answer is shown once locked in. 16 short questions, then 2 coding problems, then a score.
 import { ArrowLeft, ArrowRight, Check, ListChecks, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ConceptId, DrillQuestion, GradeResult, Problem } from '../types';
 import type { Drill } from '../loop/drill';
 import { checkShort } from '../loop/drill';
@@ -20,13 +20,22 @@ export interface DrillScreenProps {
 
 type ShortAnswer = { given: string | number; correct: boolean };
 
-function useClock(minutes: number) {
+/** Time left, from a fixed end time (so a locked phone or a background tab can't pause or drift it). */
+function useClock(minutes: number, running: boolean) {
+  const end = useRef(Date.now() + minutes * 60_000);
   const [left, setLeft] = useState(minutes * 60);
   useEffect(() => {
-    const t = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+    if (!running) return;
+    const tick = () => setLeft(Math.max(0, Math.round((end.current - Date.now()) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [running]);
+  return { left, text: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` };
 }
 
 export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenProps) {
@@ -37,7 +46,34 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
   const [grades, setGrades] = useState<(GradeResult | null)[]>(() => drill.coding.map(() => null));
   const [checking, setChecking] = useState(false);
   const [done, setDone] = useState(false);
-  const clock = useClock(drill.minutes);
+  const [timeUp, setTimeUp] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const { left, text: clock } = useClock(drill.minutes, !done);
+
+  // Score it: any coding problem he didn't check (or changed since checking) is graded now, as it stands.
+  const finish = async () => {
+    setFinishing(true);
+    const final = await Promise.all(drill.coding.map((c, k) => grades[k] ?? grade(codes[k], c.problem)));
+    setGrades(final);
+    setFinishing(false);
+    setDone(true);
+    window.scrollTo(0, 0);
+  };
+  const finishRef = useRef(finish);
+  finishRef.current = finish;
+  useEffect(() => {
+    if (left === 0 && !done && !finishing) {
+      setTimeUp(true);
+      void finishRef.current();
+    }
+  }, [left, done, finishing]);
+
+  // Leaving mid-exam throws the attempt away, so ask once anything is answered.
+  const started = Object.keys(answers).length > 0 || codes.some((c, k) => c !== drill.coding[k].problem.starter);
+  const leave = () => {
+    if (!done && started && !window.confirm('Leave the practice exam? Your answers will be lost.')) return;
+    onExit();
+  };
 
   const isShort = i < drill.short.length;
   const q = isShort ? drill.short[i] : null;
@@ -56,6 +92,7 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
     const weakest = Object.entries(missedBy).sort((a, b) => b[1] - a[1])[0]?.[0] as ConceptId | undefined;
     return (
       <Shell clock={null} label="Results" onExit={onExit}>
+        {timeUp && <p className="mb-3 text-sm font-medium text-fix">Time’s up. Here’s how you did.</p>}
         <h1 className="font-voice text-2xl font-medium md:text-3xl">
           {shortRight + codingRight} of {total}
         </h1>
@@ -76,7 +113,22 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
                   <span className="tnum text-ink-3">{k + 1}. </span>
                   {x.prompt}
                 </p>
-                {!answers[x.id]?.correct && <p className="mt-1 text-sm text-ink-2">{x.explain}</p>}
+                {!answers[x.id]?.correct && (
+                  <>
+                    {x.code && <pre className="mt-2 overflow-x-auto rounded-md bg-code-bg px-3 py-2 font-code text-[13px] leading-relaxed">{x.code}</pre>}
+                    <div className="mt-2 text-sm text-ink-2">
+                      Answer:{' '}
+                      {x.kind === 'predict' ? (
+                        <pre className="mt-1 inline-block rounded-md bg-surface-2 px-2 py-1 align-top font-code text-[13px] whitespace-pre-wrap text-ink">{String(x.answer)}</pre>
+                      ) : (
+                        <span className="text-ink">{x.choices?.[Number(x.answer)]}</span>
+                      )}
+                      {answers[x.id] && x.kind !== 'predict' && <span className="block text-ink-3">You picked: {x.choices?.[Number(answers[x.id]!.given)]}</span>}
+                      {!answers[x.id] && <span className="block text-ink-3">Not answered.</span>}
+                    </div>
+                    <p className="mt-1 text-sm text-ink-2">{x.explain}</p>
+                  </>
+                )}
               </div>
             </li>
           ))}
@@ -91,7 +143,7 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
   }
 
   return (
-    <Shell clock={clock} label={`${i + 1} of ${total}`} onExit={onExit}>
+    <Shell clock={clock} label={`${i + 1} of ${total}`} onExit={leave}>
       {q ? (
         <ShortQuestion
           key={q.id}
@@ -105,11 +157,15 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
             Coding problem {ci + 1} of {drill.coding.length} · {conceptTitle(drill.coding[ci].concept)}
           </p>
           <p className="font-voice text-lg leading-snug">{drill.coding[ci].problem.prompt}</p>
+          {drill.coding[ci].problem.prompt.includes('input()') && <p className="mt-2 text-sm text-ink-2">Use input() with no prompt text inside the brackets.</p>}
           <FilePreview files={sampleFiles(drill.coding[ci].problem.tests)} caption="Sample file (the tests use other files like it):" />
           <div className="overflow-hidden rounded-xl border border-line bg-code-bg">
             <CodeEditor
               value={codes[ci]}
-              onChange={(v) => setCodes((c) => c.map((x, k) => (k === ci ? v : x)))}
+              onChange={(v) => {
+                setCodes((c) => c.map((x, k) => (k === ci ? v : x)));
+                setGrades((gs) => gs.map((x, k) => (k === ci ? null : x))); // a changed answer needs a fresh check
+              }}
               label="Your code"
               minHeight="16rem"
             />
@@ -144,11 +200,12 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
         ) : (
           <Button
             variant="primary"
+            loading={finishing}
             onClick={async (e) => {
               // Handing in the exam gets the wave, then the score.
               const page = e.currentTarget.closest('main') ?? e.currentTarget.parentElement?.parentElement;
               await distortionWave(page as HTMLElement | null, { origin: { x: e.clientX, y: e.clientY }, tone: 'iridescent' });
-              setDone(true);
+              await finish();
             }}
           >
             Finish and score
@@ -255,8 +312,11 @@ function ShortQuestion({ q, answered, onAnswer }: { q: DrillQuestion; answered?:
       {answered && (
         <div className={`rounded-lg px-4 py-3 ${answered.correct ? 'bg-nail-bg' : 'bg-fix-bg'}`} role="status">
           <p className="text-[0.9375rem] font-medium">
-            {answered.correct ? 'Right.' : q.kind === 'predict' ? `Not quite. It prints: ${String(q.answer)}` : 'Not quite.'}
+            {answered.correct ? 'Right.' : q.kind === 'predict' ? 'Not quite. It prints:' : 'Not quite.'}
           </p>
+          {!answered.correct && q.kind === 'predict' && (
+            <pre className="mt-1.5 rounded-md bg-code-bg px-3 py-2 font-code text-[13px] leading-relaxed whitespace-pre-wrap">{String(q.answer)}</pre>
+          )}
           <p className="mt-1 text-[0.9375rem] text-ink-2">{q.explain}</p>
         </div>
       )}
