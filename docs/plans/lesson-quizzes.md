@@ -3,7 +3,7 @@
 Status: planned, not started. Decided Nov 21: the quiz comes after Try it, and a perfect score shows on Home.
 
 ## Goal
-A short set of exam-style questions on each of the 20 lessons (7 Dictionaries, 6 Files, 7 Classes), so a student can check they understand the idea before writing code and drill it again later. The final's short questions are this format, so the practice should be too.
+A short set of exam-style questions on each of the 20 lessons (7 Dictionaries, 6 Files, 7 Classes), so a student can check the idea from other angles after writing the code, and drill it again later. The final's short questions are this format, so the practice should be too.
 
 ## What a quiz looks like
 - 4 to 6 questions per lesson, about 100 in total.
@@ -39,7 +39,7 @@ Also:
 4. **Engine.** A `quiz` step in `src/loop/engine.ts` after `check`/`mastered`, with `goTo('quiz')` for the step tabs (open any time, not only after a pass). Skippable.
 5. **UI.** Pull the question view out of `DrillScreen.tsx` into a shared `QuestionCard` component, then use it in the lesson stage and in a topic practice screen. Phone first: choices are full-width tap targets.
 6. **Progress.** Save the best score per lesson in `Progress` (local and KV sync, like the rest). Home's topic cards show a check per perfect quiz and the count.
-7. **Tour.** One tutorial step for Quick check, and update "Five steps per lesson".
+7. **Tour.** One tutorial step for Quick check, and change "Five steps per lesson" to six.
 8. **Tests and checks.** Unit tests for the engine step and score saving; an e2e test that answers a quiz on a phone viewport; the same iPhone frame-by-frame check used for the intro.
 
 ## Size
