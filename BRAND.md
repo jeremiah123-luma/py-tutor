@@ -112,7 +112,7 @@ The statement grammar (from Raison):
 
 Smoothness rules: only `transform` and `opacity` ever animate. Grounds, holds, the wheel spin, and the window float are CSS keyframes on the compositor; entrances and exits are Motion (WAAPI). No animated blur, letter-spacing, width, or backdrop-filter. The progress bars fill by `scaleX`.
 
-Sound is opt-in (browsers only allow it after a tap): a Sound button next to Skip intro starts a soft synth loop at 96 BPM (pad chords, sub bass, shaker, a plucked arpeggio) synthesized live with Web Audio, plus effects on each beat of the story: a swell and shimmer as the >_ unfolds, key clicks as the wordmark types, ticks on the topic cards, whooshes for slabs, thumps for cuts, swishes when lines split, and a rising chime under the wave on Get started. Pausing holds the music.
+Sound is on by default: the browser lets it start on the first tap, so the first tap (or key) anywhere starts it without pausing, and where autoplay is allowed it starts on load. The Sound button mutes (remembered). It a soft synth loop at 96 BPM (pad chords, sub bass, shaker, a plucked arpeggio) synthesized live with Web Audio, plus effects on each beat of the story: a swell and shimmer as the >_ unfolds, key clicks as the wordmark types, ticks on the topic cards, whooshes for slabs, thumps for cuts, swishes when lines split, and a rising chime under the wave on Get started. Pausing holds the music.
 
 Each scene moves on by itself. Tap (or Space) pauses and resumes, and everything freezes in place; swipe left or the right arrow skips ahead, swipe right or the left arrow goes back. Plays on first visit, once for existing accounts, and from Replay tour.
 

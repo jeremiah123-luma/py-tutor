@@ -139,6 +139,26 @@ export class IntroSound {
     return this.clock ?? this.ctx!.currentTime;
   }
 
+  /**
+   * Try to start without a tap. Browsers allow this only sometimes (desktop Chrome on a site you've used); iPhones
+   * never do. Resolves true if the music is playing; otherwise it stays quiet until enable() runs inside a tap.
+   */
+  async tryAutostart(): Promise<boolean> {
+    try {
+      const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC || this.on) return this.on;
+      const probe = new AC();
+      if (probe.state !== 'running') {
+        await Promise.race([probe.resume(), new Promise((r) => setTimeout(r, 150))]);
+      }
+      const ok = probe.state === 'running';
+      void probe.close().catch(() => {});
+      return ok ? this.enable() : false;
+    } catch {
+      return false;
+    }
+  }
+
   /** Must be called inside a tap. Returns false if the browser has no Web Audio. */
   enable(): boolean {
     try {
@@ -459,9 +479,9 @@ export class IntroSound {
 const KEY = 'py-tutor.intro.sound';
 export function soundWanted(): boolean {
   try {
-    return localStorage.getItem(KEY) === '1';
+    return localStorage.getItem(KEY) !== '0'; // on unless they turned it off
   } catch {
-    return false;
+    return true;
   }
 }
 export function rememberSound(on: boolean) {

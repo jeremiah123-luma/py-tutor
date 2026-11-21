@@ -509,16 +509,47 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
   const soundRef = useRef<IntroSound | null>(null);
   soundRef.current ??= new IntroSound();
   const sound = soundRef.current;
-  const [soundOn, setSoundOn] = useState(false);
+  // Sound is on by default. Browsers only let it start after the first tap (or key), so whatever the first touch
+  // is, it starts the sound; that first tap only does that (it doesn't also pause).
+  const [soundOn, setSoundOn] = useState(soundWanted);
+  const [live, setLive] = useState(false);
+  const firstTap = useRef(false);
+  const pausedNow = useRef(paused);
+  pausedNow.current = paused;
+  const startSound = useCallback(() => {
+    if (!sound.enable()) return false;
+    setLive(true);
+    if (pausedNow.current) sound.pause();
+    return true;
+  }, [sound]);
+  useEffect(() => {
+    if (!soundOn) return;
+    void sound.tryAutostart().then((ok) => ok && setLive(true));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!soundOn || live) return;
+    const onGesture = (e: Event) => {
+      if ((e.target as HTMLElement | null)?.closest?.('[data-sound-toggle]')) return; // the button handles itself
+      if (startSound() && e.type !== 'keydown') firstTap.current = true;
+    };
+    const opts = { capture: true } as const;
+    for (const t of ['pointerup', 'touchend', 'keydown']) window.addEventListener(t, onGesture, opts);
+    return () => {
+      for (const t of ['pointerup', 'touchend', 'keydown']) window.removeEventListener(t, onGesture, opts);
+    };
+  }, [soundOn, live, startSound]);
   const toggleSound = () => {
-    if (soundOn) {
+    if (soundOn && live) {
       sound.disable();
+      setLive(false);
       setSoundOn(false);
       rememberSound(false);
-    } else if (sound.enable()) {
-      setSoundOn(true);
-      rememberSound(true);
-      if (paused) sound.pause();
+    } else {
+      // on but not started yet (no tap so far), or off: start it now
+      if (startSound()) {
+        setSoundOn(true);
+        rememberSound(true);
+      }
     }
   };
   const swipe = useRef<{ x: number; y: number; at: number } | null>(null);
@@ -671,6 +702,10 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
         const dx = s ? e.clientX - s.x : 0;
         const dy = s ? e.clientY - s.y : 0;
         if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) return dx < 0 ? next() : back();
+        if (firstTap.current) {
+          firstTap.current = false; // that tap just turned the sound on
+          return;
+        }
         if (!last) setPaused((v) => !v);
       }}
     >
@@ -723,14 +758,15 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
         </div>
         <button
           type="button"
+          data-sound-toggle=""
           onClick={toggleSound}
-          aria-pressed={soundOn}
-          aria-label={soundOn ? 'Sound on. Tap to mute.' : 'Turn sound on'}
-          className={`press -mr-1 inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-sm font-medium focus-visible:outline-current ${soundOn ? '' : 'intro-sound-hint'}`}
+          aria-pressed={soundOn && live}
+          aria-label={soundOn && live ? 'Sound on. Tap to mute.' : 'Turn sound on'}
+          className={`press -mr-1 inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-sm font-medium focus-visible:outline-current ${soundOn && !live ? 'intro-sound-hint' : ''}`}
           style={{ background: 'color-mix(in oklab, currentColor 14%, transparent)' }}
         >
           {soundOn ? <Volume2 className="size-4" strokeWidth={2} aria-hidden="true" /> : <VolumeX className="size-4" strokeWidth={2} aria-hidden="true" />}
-          <span>{soundOn ? 'Sound' : soundWanted() ? 'Tap for sound' : 'Sound'}</span>
+          <span>{soundOn && !live ? 'Tap for sound' : 'Sound'}</span>
         </button>
         {!last && (
           <button
