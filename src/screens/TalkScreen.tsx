@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+import { sfx } from '../ui/sfx';
 import { X } from 'lucide-react';
 
 export type TalkState = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -33,6 +35,15 @@ const RING: Record<TalkState, string> = {
 
 export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, error }: TalkScreenProps) {
   const label = error && state === 'idle' ? 'Tap to try again' : LABEL[state];
+  // Earcons like a voice assistant: rising when the mic opens, falling when your turn is sent.
+  const prevState = useRef(state);
+  useEffect(() => {
+    const was = prevState.current;
+    prevState.current = state;
+    if (was === state) return;
+    if (state === 'listening') sfx.listen();
+    else if (was === 'listening' && state === 'thinking') sfx.heard();
+  }, [state]);
   const scale = state === 'listening' ? 1 + Math.min(level, 1) * 0.08 : 1;
   return (
     <div
@@ -50,7 +61,10 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, 
       </header>
 
       <button
-        onClick={onTap}
+        onClick={() => {
+          if (state === 'speaking' || state === 'thinking') sfx.interrupt();
+          onTap();
+        }}
         aria-label={label}
         className="flex flex-1 flex-col items-center justify-center gap-[min(2.5rem,4svh)] px-6 pb-4 outline-offset-[-8px]"
       >

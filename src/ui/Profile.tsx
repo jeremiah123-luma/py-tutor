@@ -1,6 +1,8 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
+import { rememberSound, soundWanted } from '../intro/sound';
+import { sfx } from './sfx';
 import * as Menu from '@radix-ui/react-dropdown-menu';
-import { LogOut, Keyboard, Mic, Trophy, CalendarClock, Fingerprint, Gauge, Users, Compass } from 'lucide-react';
+import { LogOut, Keyboard, Mic, Trophy, CalendarClock, Fingerprint, Gauge, Users, Compass, Volume2, VolumeX } from 'lucide-react';
 import type { Usage } from '../loop/api';
 import { finalIn } from './TopBar';
 
@@ -96,6 +98,7 @@ export function ProfileMenu() {
               <Fingerprint className="size-4" strokeWidth={1.75} aria-hidden="true" /> Add a passkey (Face ID)
             </Menu.Item>
           )}
+          <SoundItem />
           {p.onReplayTour && (
             <Menu.Item onSelect={p.onReplayTour} className={item}>
               <Compass className="size-4" strokeWidth={1.75} aria-hidden="true" /> Show the tutorial again
@@ -107,5 +110,26 @@ export function ProfileMenu() {
         </Menu.Content>
       </Menu.Portal>
     </Menu.Root>
+  );
+}
+
+/** One switch for every sound: the intro's music and effects, the tutorial, and the tutor's sounds. */
+function SoundItem() {
+  const [on, setOn] = useState(soundWanted);
+  return (
+    <Menu.Item
+      onSelect={(e) => {
+        e.preventDefault(); // keep the menu open so the change is visible
+        const next = !on;
+        rememberSound(next);
+        setOn(next);
+        if (next) sfx.tourStep();
+      }}
+      className={item}
+      aria-label={on ? 'Sounds on. Turn off' : 'Sounds off. Turn on'}
+    >
+      {on ? <Volume2 className="size-4" strokeWidth={1.75} aria-hidden="true" /> : <VolumeX className="size-4" strokeWidth={1.75} aria-hidden="true" />}
+      Sounds: {on ? 'on' : 'off'}
+    </Menu.Item>
   );
 }

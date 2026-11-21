@@ -5,6 +5,7 @@ import type { Concept, ConceptId, Mode, Progress } from '../types';
 import { ModeToggle } from '../ui/primitives';
 import { FinalPill, TopBar, daysToFinal } from '../ui/TopBar';
 import { Aurora } from '../ui/Aurora';
+import { sfx } from '../ui/sfx';
 
 export interface HomeScreenProps {
   concepts: Concept[];
@@ -83,6 +84,7 @@ export function HomeScreen(p: HomeScreenProps) {
   const submit = () => {
     const t = ask.trim();
     if (!t || !p.onAsk) return;
+    sfx.send();
     p.onAsk(t);
     setAsk('');
   };

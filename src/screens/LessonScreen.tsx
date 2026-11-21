@@ -2,6 +2,7 @@ import { ArrowLeft, Play, ListChecks, Footprints, X, Eye, MessageCircleQuestion 
 import { SlideDeck } from '../ui/SlideDeck';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { distortionWave, recentTap } from '../ui/wave';
+import { sfx } from '../ui/sfx';
 import type { TraceStep } from '../types';
 import { StepPlayer } from '../ui/StepPlayer';
 import type { Concept, Mode, SessionState } from '../types';
@@ -57,6 +58,22 @@ export function LessonScreen(p: LessonScreenProps) {
   const ownCode = showsOwnCode(session.step);
   const onPlayerLine = useCallback((l: number) => setPlayerLine(l), []);
   const [askOpen, setAskOpen] = useState(false);
+  // Escape closes the Ask the tutor panel
+  useEffect(() => {
+    if (!askOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setAskOpen(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [askOpen]);
+  // a soft pop when the tutor's answer lands
+  const wasThinking = useRef(false);
+  useEffect(() => {
+    if (session.busy === 'thinking') wasThinking.current = true;
+    else if (wasThinking.current && session.busy === 'idle') {
+      wasThinking.current = false;
+      if (session.turns.at(-1)?.role === 'tutor') sfx.reply();
+    }
+  }, [session.busy, session.turns]);
   // A passing check sends a green wave through the code from the button you pressed; mastering the skill
   // makes it the iridescent one.
   const codeRef = useRef<HTMLDivElement>(null);

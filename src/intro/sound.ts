@@ -80,6 +80,13 @@ function releaseMediaAudioSession() {
   } catch {
     /* ignore */
   }
+  try {
+    // hand the session back, so the microphone works in Talk mode (a 'playback' session can't record)
+    const nav = navigator as Navigator & { audioSession?: { type: string } };
+    if (nav.audioSession && nav.audioSession.type === 'playback') nav.audioSession.type = 'auto';
+  } catch {
+    /* not supported */
+  }
 }
 
 let noiseBuf: AudioBuffer | null = null;

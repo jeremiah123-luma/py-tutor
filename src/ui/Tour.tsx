@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { Button } from './primitives';
+import { sfx } from './sfx';
 import type { TourScreen, TourStep } from '../tour/types';
 
 /* ---------- Pure layout math ---------- */
@@ -182,9 +183,26 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
   const [glide, setGlide] = useState(false);
 
   const go = useCallback((to: number) => setPos({ screen, i: to }), [screen]);
-  const next = useCallback(() => (last ? onDone('finished') : go(i + 1)), [last, onDone, go, i]);
-  const back = useCallback(() => i > 0 && go(i - 1), [i, go]);
-  const skip = useCallback(() => onDone('skipped'), [onDone]);
+  const next = useCallback(() => {
+    if (last) {
+      sfx.tourDone();
+      onDone('finished');
+    } else {
+      sfx.tourStep();
+      go(i + 1);
+    }
+  }, [last, onDone, go, i]);
+  const back = useCallback(() => {
+    if (i > 0) {
+      sfx.tourBack();
+      go(i - 1);
+    }
+  }, [i, go]);
+  const skip = useCallback(() => {
+    sfx.tourSkip();
+    onDone('skipped');
+  }, [onDone]);
+  useEffect(() => sfx.tourOpen(), []);
 
   // Measure viewport, safe-area insets and the target; track with ResizeObserver, scroll, resize and DOM changes.
   useLayoutEffect(() => {

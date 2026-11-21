@@ -116,6 +116,13 @@ Sound is on by default: the browser lets it start on the first tap, so the first
 
 Each scene moves on by itself. Tap (or Space) pauses and resumes, and everything freezes in place; swipe left or the right arrow skips ahead, swipe right or the left arrow goes back. Plays on first visit, once for existing accounts, and from Replay tour.
 
+### Interface sounds
+One Sound setting (on by default; the intro's button or "Sounds" in the profile menu) covers everything. Synthesized with Web Audio (`src/ui/sfx.ts`), soft and short:
+- Tutorial: a two-note chime when it opens, a light tick per step (lower going back), a rising chord on Done, a falling pair on Skip.
+- The tutor: a soft rising blip when you send a question, a gentle pop when the answer lands.
+- Talk mode, like a voice assistant: a rising two-tone when the mic opens, a falling two-tone when your turn is sent, a short tap when you interrupt.
+They follow the iPhone silent switch, like the phone's own UI sounds (only the intro's music plays through it).
+
 ### Supporting motion
 - The highlighter sweep: the active code line fills left to right (420 ms).
 - Headlines rise in word by word with a blur clearing.

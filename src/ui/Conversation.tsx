@@ -1,3 +1,4 @@
+import { sfx } from './sfx';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Check, CornerDownRight } from 'lucide-react';
 import type { TutorTurn } from '../types';
@@ -58,6 +59,7 @@ export function Conversation({ turns, thinking, onSend, placeholder = 'Ask anyth
   const send = () => {
     const t = draft.trim();
     if (!t) return;
+    sfx.send();
     onSend(t);
     setDraft('');
   };
