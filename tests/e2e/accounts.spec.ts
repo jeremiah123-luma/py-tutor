@@ -15,7 +15,7 @@ test('sign up, passkey, tour, sign out, passkey sign-in', async ({ page, context
     options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true },
   });
 
-  const username = `e2e-${info.project.name.slice(0, 2)}${Date.now().toString(36)}`;
+  const username = `e2e-${info.project.name.slice(0, 2)}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
   await page.goto('/');
   // First visit: the intro plays before anything else, and moves on with taps or arrow keys.
   const intro = page.getByRole('dialog', { name: 'What py-tutor is' });

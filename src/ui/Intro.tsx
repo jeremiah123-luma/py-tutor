@@ -12,7 +12,8 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, Play } from 'lucide-react';
+import { ArrowRight, Play, Volume2, VolumeX } from 'lucide-react';
+import { IntroSound, rememberSound, soundWanted } from '../intro/sound';
 import { C, INTRO_SCENES, exitMs, sceneText, type Ground, type IntroScene } from '../intro/slides';
 import { distortionWave, recentTap } from './wave';
 
@@ -107,6 +108,18 @@ function MarkSvg({ ink, outline, phase, reduce }: { ink: string; outline: boolea
 
 /** Paused state of the whole intro (tap to pause). Scene timelines and CSS motion stop while it's true. */
 const PausedCtx = createContext(false);
+/** The intro's sound engine, so scenes can fire their own effects at their own moments. */
+const SoundCtx = createContext<IntroSound | null>(null);
+
+/** Run an effect when a value changes (not on first render). */
+function useOnChange<T>(value: T, fn: (v: T) => void) {
+  const prev = useRef(value);
+  useEffect(() => {
+    if (prev.current === value) return;
+    prev.current = value;
+    fn(value);
+  }, [value, fn]);
+}
 
 /** Milliseconds this scene has been playing, not counting time spent paused. Re-renders every frame while running. */
 function useSceneTime(run: boolean) {
@@ -118,8 +131,9 @@ function useSceneTime(run: boolean) {
     let raf = 0;
     let last = performance.now();
     const tick = (now: number) => {
-      acc.current += now - last;
-      last = now;
+      // a frame's timestamp can be a hair earlier than when the loop started; never let the clock run backwards
+      acc.current += Math.max(0, now - last);
+      last = Math.max(last, now);
       setT(acc.current);
       raf = requestAnimationFrame(tick);
     };
@@ -138,6 +152,13 @@ function MarkScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'mark
   const typed = reduce ? WORD.length : phase < 4 ? 0 : Math.max(0, Math.min(WORD.length, Math.floor((since - 380) / 45) + 1));
   const selK = Math.floor((since - typeEnd - 60) / 80);
   const sel = reduce || phase < 4 || selK < 0 || selK >= SELECTIONS.length ? -1 : selK;
+  const sound = useContext(SoundCtx);
+  const onPhase = useCallback((p: number) => (p === 1 ? sound?.shimmer() : p === 2 ? sound?.pop() : undefined), [sound]);
+  const onTyped = useCallback((n: number) => n > 0 && sound?.key(), [sound]);
+  const onSel = useCallback((k: number) => k >= 0 && sound?.blip(k), [sound]);
+  useOnChange(phase, onPhase);
+  useOnChange(typed, onTyped);
+  useOnChange(sel, onSel);
 
   const outline = phase === 2;
   const ink = outline ? C.black : scene.ink;
@@ -218,7 +239,10 @@ const BAR_FILLS = [
 function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'wheel' }>; reduce: boolean }) {
   const t = useSceneTime(!reduce);
   const step = Math.floor((scene.ms - 300) / scene.cards.length);
-  const k = reduce ? 0 : Math.min(scene.cards.length - 1, Math.floor(t / step));
+  const k = reduce ? 0 : Math.max(0, Math.min(scene.cards.length - 1, Math.floor(t / step)));
+  const sound = useContext(SoundCtx);
+  const onCard = useCallback((i: number) => sound?.tick(i), [sound]);
+  useOnChange(k, onCard);
   const card = scene.cards[k];
   const N = 18;
   return (
@@ -482,33 +506,54 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
   const rootRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLButtonElement>(null);
   const [paused, setPaused] = useState(false);
+  const soundRef = useRef<IntroSound | null>(null);
+  soundRef.current ??= new IntroSound();
+  const sound = soundRef.current;
+  const [soundOn, setSoundOn] = useState(false);
+  const toggleSound = () => {
+    if (soundOn) {
+      sound.disable();
+      setSoundOn(false);
+      rememberSound(false);
+    } else if (sound.enable()) {
+      setSoundOn(true);
+      rememberSound(true);
+      if (paused) sound.pause();
+    }
+  };
   const swipe = useRef<{ x: number; y: number; at: number } | null>(null);
   const scene = INTRO_SCENES[cur];
   const last = cur === INTRO_SCENES.length - 1;
 
+  // The scene index as of the last move, so quick repeated presses each count (state lags a render behind).
+  const curRef = useRef(cur);
   const go = useCallback(
     (to: number) => {
       if (to < 0 || to >= INTRO_SCENES.length || leaving) return;
+      const from = curRef.current;
+      curRef.current = to;
       setPrevLeft(leavingRef.current);
       setSceneLeaving(false);
       setPaused(false); // moving on always plays
-      setPrev(wipes(INTRO_SCENES[to]) ? cur : null); // a wipe slides over the last scene; a cut replaces it
+      setPrev(wipes(INTRO_SCENES[to]) ? from : null); // a wipe slides over the scene it came from; a cut replaces it
       setCur(to);
     },
-    [cur, leaving],
+    [leaving],
   );
-  const next = useCallback(() => go(cur + 1), [go, cur]);
-  const back = useCallback(() => go(cur - 1), [go, cur]);
+  const next = useCallback(() => go(curRef.current + 1), [go]);
+  const back = useCallback(() => go(curRef.current - 1), [go]);
 
   const finish = useCallback(
     async (how: IntroExit) => {
       if (leaving) return;
       setLeaving(true);
+      if (how === 'start') sound.chime();
+      sound.end(how === 'start' ? 1.6 : 0.5);
       if (how === 'start') await distortionWave(rootRef.current, { origin: recentTap(1000), tone: 'iridescent', tilt: false, duration: 1100, blend: 'normal' });
       setFading(true);
       setTimeout(() => onDone(how), reduce ? 0 : 380);
     },
-    [leaving, onDone, reduce],
+    [leaving, onDone, reduce, sound],
   );
 
   // Hold, play the exit, then move on. Pausing stops the clock; resuming picks up where it left off.
@@ -527,6 +572,27 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       if (played.current.scene === cur) played.current.ms = done + (performance.now() - start);
     };
   }, [cur, last, leaving, next, scene, reduce, paused]);
+
+  // Each scene arrives with its own sound: a whoosh for a slab wiping up, a thump for a hard cut.
+  useEffect(() => {
+    if (cur === 0) {
+      sound.swell();
+      return;
+    }
+    if (scene.kind === 'drift') sound.scatter();
+    else if (wipes(scene)) sound.whoosh();
+    else sound.thump();
+  }, [cur, scene, sound]);
+  // Lines splitting away get a swish.
+  useEffect(() => {
+    if (sceneLeaving && scene.kind === 'statement' && scene.exit === 'split') sound.swish();
+  }, [sceneLeaving, scene, sound]);
+  // Tap-to-pause holds the music too.
+  useEffect(() => {
+    if (paused) sound.pause();
+    else sound.resume();
+  }, [paused, sound]);
+  useEffect(() => () => sound.end(0.3), [sound]);
 
   useEffect(() => {
     if (prev === null) return;
@@ -609,6 +675,7 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       }}
     >
       <PausedCtx.Provider value={paused}>
+      <SoundCtx.Provider value={sound}>
       {layers.map((i) => {
         const entering = i === cur && prev !== null;
         return (
@@ -619,6 +686,7 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
         );
       })}
 
+      </SoundCtx.Provider>
       </PausedCtx.Provider>
 
       <p className="sr-only" aria-live="polite">
@@ -653,6 +721,17 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
             </span>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={toggleSound}
+          aria-pressed={soundOn}
+          aria-label={soundOn ? 'Sound on. Tap to mute.' : 'Turn sound on'}
+          className={`press -mr-1 inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-sm font-medium focus-visible:outline-current ${soundOn ? '' : 'intro-sound-hint'}`}
+          style={{ background: 'color-mix(in oklab, currentColor 14%, transparent)' }}
+        >
+          {soundOn ? <Volume2 className="size-4" strokeWidth={2} aria-hidden="true" /> : <VolumeX className="size-4" strokeWidth={2} aria-hidden="true" />}
+          <span>{soundOn ? 'Sound' : soundWanted() ? 'Tap for sound' : 'Sound'}</span>
+        </button>
         {!last && (
           <button
             type="button"

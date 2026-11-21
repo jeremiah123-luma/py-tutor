@@ -261,6 +261,9 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
 .intro-detail { font-size: clamp(0.8125rem, 2.1svmin, 1.125rem); opacity: 0.7; letter-spacing: -0.01em; }
 /* Tap-to-pause: every CSS motion in the intro (holds, drifting grounds, wheel, progress, caret) stops in place. */
 .intro-paused, .intro-paused * { animation-play-state: paused !important; }
+/* The sound button breathes gently until it's on, so people notice it. */
+.intro-sound-hint { animation: sound-hint 2.4s ease-in-out infinite; }
+@keyframes sound-hint { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
 @keyframes intro-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .intro-small {
   font-family: var(--font-ui);
