@@ -100,6 +100,8 @@ Scenes:
 3. **The old way drifts apart.** App windows float out to the corners behind "No more three tabs and two apps just to learn Python.", then gather to the centre and vanish.
 4. **Statements.** One screen. / the lesson, editor, tests, and tutor side by side / It coaches. You code. / chatbots hand you the answer / Check your code. Free. / Watch your code think. / Study in the car. / Built for Dec 19.
 
+Every headline carries one short plain line under it that names the problem or says what it means (the mark: "The Python tutor for CS 100."; the tabs: "zyBooks in one tab, the slides in another..."; each topic card shows what it covers). The line fades up after the headline lands and drops away before the headline exits.
+
 The statement grammar (from Raison):
 - **Enter:** hard cuts alternate with slabs wiping up. Lines rise out of masks, top first on a cut and bottom first on a wipe.
 - **Hold:** nothing holds still. Big statements slowly grow (0.97 to 1.05) or settle (1.06 to 1); small paragraphs breathe, their leading opening up.

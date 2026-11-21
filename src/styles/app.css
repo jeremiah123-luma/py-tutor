@@ -248,6 +248,7 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
 .intro-caret { position: absolute; top: 0.08em; bottom: 0.02em; width: 0.07em; margin-left: 0.04em; animation: caret 900ms steps(1) infinite; }
 @keyframes caret { 50% { opacity: 0; } }
 .intro-label { font-family: var(--font-ui); font-weight: 700; font-size: clamp(1.75rem, 6vmin, 4rem); letter-spacing: -0.05em; line-height: 1; }
+.intro-detail { font-size: clamp(0.8125rem, 2.1vmin, 1.125rem); opacity: 0.7; letter-spacing: -0.01em; }
 @keyframes intro-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .intro-small {
   font-family: var(--font-ui);
@@ -277,7 +278,7 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
 @keyframes hold-grow { from { transform: scale(0.97); } to { transform: scale(1.05); } }
 @keyframes hold-settle { from { transform: scale(1.06); } to { transform: scale(1); } }
 @keyframes hold-breathe { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, calc(var(--i, 0) * 0.14em), 0); } }
-@keyframes wheel-spin { from { transform: rotate(40deg) scale(1.45); } to { transform: rotate(-55deg) scale(0.92); } }
+@keyframes wheel-spin { from { transform: rotate(40deg) scale(1.4); } to { transform: rotate(-55deg) scale(0.8); } }
 @keyframes drift-0 { from { transform: translate3d(0, 0, 0) rotate(0deg); } to { transform: translate3d(2vmin, -2.5vmin, 0) rotate(2deg); } }
 @keyframes drift-1 { from { transform: translate3d(0, 0, 0) rotate(0deg); } to { transform: translate3d(-2.5vmin, 2vmin, 0) rotate(-2deg); } }
 @keyframes drift-2 { from { transform: translate3d(0, 0, 0) rotate(0deg); } to { transform: translate3d(1.5vmin, 2.5vmin, 0) rotate(1.5deg); } }

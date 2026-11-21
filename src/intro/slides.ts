@@ -30,23 +30,25 @@ export type Hold = 'grow' | 'settle' | 'breathe';
 export type Exit = 'split' | 'lines' | 'none';
 
 export type IntroScene =
-  | (Base & { kind: 'mark' })
-  | (Base & { kind: 'wheel'; cards: { code: string; label: string; bg: string }[] })
-  | (Base & { kind: 'drift'; lines: string[]; windows: string[] })
+  | (Base & { kind: 'mark'; sub: string })
+  | (Base & { kind: 'wheel'; sub: string; cards: { code: string; label: string; detail: string; bg: string }[] })
+  | (Base & { kind: 'drift'; lines: string[]; sub: string; windows: string[] })
   | (Base & { kind: 'statement'; lines: string[]; size: 'big' | 'small'; enter: Enter; hold: Hold; exit: Exit; sub?: string });
 
+// Every headline carries a short line under it that names the problem or says plainly what it means.
 export const INTRO_SCENES: IntroScene[] = [
-  { id: 'mark', kind: 'mark', ground: 'night', ink: C.white, ms: 2800 },
+  { id: 'mark', kind: 'mark', ground: 'night', ink: C.white, ms: 3400, sub: 'The Python tutor for CS 100.' },
   {
     id: 'topics',
     kind: 'wheel',
     ground: 'aurora',
     ink: C.black,
-    ms: 2300,
+    ms: 3000,
+    sub: 'Everything on the final, in the order our zyBook teaches it.',
     cards: [
-      { code: '{ }', label: 'Dictionaries', bg: C.violet },
-      { code: 'open()', label: 'Files', bg: C.pink },
-      { code: 'class', label: 'Classes', bg: C.sky },
+      { code: '{ }', label: 'Dictionaries', detail: 'keys, values, get, pop, update', bg: C.violet },
+      { code: 'open()', label: 'Files', detail: 'open, read, write, close', bg: C.pink },
+      { code: 'class', label: 'Classes', detail: '__init__, self, attributes', bg: C.sky },
     ],
   },
   {
@@ -54,39 +56,100 @@ export const INTRO_SCENES: IntroScene[] = [
     kind: 'drift',
     ground: 'aurora',
     ink: C.black,
-    ms: 3000,
+    ms: 3800,
     lines: ['No more three tabs', 'and two apps just', 'to learn Python.'],
+    sub: 'zyBooks in one tab, the slides in another, a chatbot in a third, and an editor on the side.',
     windows: ['zyBooks · Ch 11', 'lecture-11.pdf', 'Chatbot', 'Editor', 'Canvas', 'Notes'],
   },
-  { id: 'one', kind: 'statement', ground: 'violet', ink: C.black, ms: 1900, size: 'big', enter: 'cut', hold: 'grow', exit: 'split', lines: ['One', 'screen.'] },
+  {
+    id: 'one',
+    kind: 'statement',
+    ground: 'violet',
+    ink: C.black,
+    ms: 2600,
+    size: 'big',
+    enter: 'cut',
+    hold: 'grow',
+    exit: 'split',
+    lines: ['One', 'screen.'],
+    sub: 'The lesson, the editor, the tests, and the tutor, side by side.',
+  },
   {
     id: 'one-sub',
     kind: 'statement',
     ground: 'lilac',
     ink: '#2E1065',
-    ms: 2200,
+    ms: 2600,
     size: 'small',
     enter: 'cut',
     hold: 'breathe',
     exit: 'none',
-    lines: ['The lesson, the editor,', 'the tests, and the tutor,', 'side by side.'],
+    lines: ['Every switch between tabs', 'costs you your place and', 'the idea you were holding.', 'Here, it all stays put.'],
   },
-  { id: 'coach', kind: 'statement', ground: 'night', ink: C.lilac, ms: 2300, size: 'big', enter: 'wipe', hold: 'settle', exit: 'none', lines: ['It coaches.', 'You code.'] },
+  {
+    id: 'coach',
+    kind: 'statement',
+    ground: 'night',
+    ink: C.lilac,
+    ms: 2700,
+    size: 'big',
+    enter: 'wipe',
+    hold: 'settle',
+    exit: 'none',
+    lines: ['It coaches.', 'You code.'],
+    sub: 'A tutor that asks the right question instead of writing your code.',
+  },
   {
     id: 'chatbots',
     kind: 'statement',
     ground: 'sky',
     ink: '#172554',
-    ms: 2900,
+    ms: 3100,
     size: 'small',
     enter: 'cut',
     hold: 'breathe',
     exit: 'lines',
-    lines: ['Chatbots hand you the answer.', 'py-tutor points at the line', 'to fix, then lets you write it.', 'Your homework stays yours.'],
+    lines: ['Chatbots hand you the answer.', 'You learn nothing, and the', 'course counts it as cheating.', 'py-tutor makes you write it.'],
   },
-  { id: 'check', kind: 'statement', ground: 'pink', ink: C.black, ms: 1900, size: 'big', enter: 'wipe', hold: 'grow', exit: 'split', lines: ['Check your', 'code. Free.'] },
-  { id: 'see', kind: 'statement', ground: 'aurora', ink: C.black, ms: 1900, size: 'big', enter: 'cut', hold: 'settle', exit: 'none', lines: ['Watch your', 'code think.'] },
-  { id: 'talk', kind: 'statement', ground: 'night', ink: C.pink, ms: 1900, size: 'big', enter: 'wipe', hold: 'grow', exit: 'split', lines: ['Study in', 'the car.'] },
+  {
+    id: 'check',
+    kind: 'statement',
+    ground: 'pink',
+    ink: C.black,
+    ms: 2700,
+    size: 'big',
+    enter: 'wipe',
+    hold: 'grow',
+    exit: 'split',
+    lines: ['Check your', 'code. Free.'],
+    sub: 'Real tests run in your browser and show what you printed next to what was expected.',
+  },
+  {
+    id: 'see',
+    kind: 'statement',
+    ground: 'aurora',
+    ink: C.black,
+    ms: 2600,
+    size: 'big',
+    enter: 'cut',
+    hold: 'settle',
+    exit: 'none',
+    lines: ['Watch your', 'code think.'],
+    sub: 'Step through any program and see every variable, list, and object change.',
+  },
+  {
+    id: 'talk',
+    kind: 'statement',
+    ground: 'night',
+    ink: C.pink,
+    ms: 2600,
+    size: 'big',
+    enter: 'wipe',
+    hold: 'grow',
+    exit: 'split',
+    lines: ['Study in', 'the car.'],
+    sub: 'Talk mode explains out loud and listens to your answer. No screen needed.',
+  },
   {
     id: 'final',
     kind: 'statement',
@@ -98,7 +161,7 @@ export const INTRO_SCENES: IntroScene[] = [
     hold: 'settle',
     exit: 'none',
     lines: ['Built for', 'Dec 19.'],
-    sub: 'Matched to our zyBook, with a timed practice exam.',
+    sub: 'Matched to our zyBook chapter by chapter, with a timed 18-question practice exam.',
   },
 ];
 
@@ -106,11 +169,11 @@ export const INTRO_SCENES: IntroScene[] = [
 export function sceneText(s: IntroScene): string {
   switch (s.kind) {
     case 'mark':
-      return 'py-tutor';
+      return `py-tutor. ${s.sub}`;
     case 'wheel':
-      return `Three topics: ${s.cards.map((c) => c.label).join(', ')}.`;
+      return `Three topics: ${s.cards.map((c) => c.label).join(', ')}. ${s.sub}`;
     case 'drift':
-      return s.lines.join(' ');
+      return `${s.lines.join(' ')} ${s.sub}`;
     case 'statement':
       return `${s.lines.join(' ')}${s.sub ? ` ${s.sub}` : ''}`;
   }

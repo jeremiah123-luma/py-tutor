@@ -44,6 +44,20 @@ function GroundLayer({ ground }: { ground: Ground }) {
   );
 }
 
+/** The short line under every headline. Fades up after the headline lands; on an exit it drops away first. */
+function Sub({ text, delay, leaving, reduce, className = '' }: { text: string; delay: number; leaving?: boolean; reduce: boolean; className?: string }) {
+  return (
+    <motion.p
+      className={`intro-sub mx-auto max-w-[34ch] ${className}`}
+      initial={reduce ? false : { opacity: 0, y: 12 }}
+      animate={leaving ? { opacity: 0, y: 10 } : { opacity: 1, y: 0 }}
+      transition={leaving ? tr(reduce, 0.22) : tr(reduce, 0.6, delay)}
+    >
+      {text}
+    </motion.p>
+  );
+}
+
 /* ---------- mark: >_ from a single bar, then the typed wordmark ---------- */
 
 const WORD = 'py-tutor';
@@ -90,7 +104,7 @@ function MarkSvg({ ink, outline, phase, reduce }: { ink: string; outline: boolea
   );
 }
 
-function MarkScene({ scene, reduce }: { scene: IntroScene; reduce: boolean }) {
+function MarkScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'mark' }>; reduce: boolean }) {
   // 0 bar, 1 unfold, 2 outline flash, 3 solid, 4 wordmark
   const [phase, setPhase] = useState(reduce ? 4 : 0);
   const [typed, setTyped] = useState(reduce ? WORD.length : 0);
@@ -146,6 +160,7 @@ function MarkScene({ scene, reduce }: { scene: IntroScene; reduce: boolean }) {
   return (
     <div className="absolute inset-0 flex items-center justify-center" style={{ color: ink }}>
       <GroundLayer ground={outline ? 'lilac' : scene.ground} />
+      <div className="relative">
       <motion.div
         ref={rowRef}
         className="relative flex items-center gap-[0.3em] text-[clamp(3rem,11vw,7.5rem)] leading-none"
@@ -174,6 +189,10 @@ function MarkScene({ scene, reduce }: { scene: IntroScene; reduce: boolean }) {
           {word && typed > 0 && <span className="intro-caret" style={{ left: `${(typed / WORD.length) * 100}%`, background: s ? s[2] : C.violet }} aria-hidden="true" />}
         </p>
       </motion.div>
+      <div className="absolute top-full left-1/2 mt-[min(3.5vh,1.75rem)] w-[min(88vw,36rem)] -translate-x-1/2 text-center">
+        {(word || reduce) && <Sub text={scene.sub} delay={reduce ? 0 : 0.8} reduce={reduce} />}
+      </div>
+      </div>
     </div>
   );
 }
@@ -239,18 +258,22 @@ function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'whe
         </div>
         <div className="relative grid overflow-hidden pb-[0.1em]">
           <AnimatePresence initial={false}>
-            <motion.p
+            <motion.div
               key={card.label}
-              className="intro-label col-start-1 row-start-1 text-center"
+              className="col-start-1 row-start-1 text-center"
               initial={reduce ? false : { y: '110%' }}
               animate={{ y: 0 }}
               exit={{ y: '-110%', transition: tr(reduce, 0.22, 0, EASE_IO) }}
               transition={tr(reduce, 0.5, 0.18)}
             >
-              {card.label}
-            </motion.p>
+              <p className="intro-label">{card.label}</p>
+              <p className="intro-detail mx-auto mt-[0.6vmin] max-w-[34vmin] font-code text-balance">{card.detail}</p>
+            </motion.div>
           </AnimatePresence>
         </div>
+      </div>
+      <div className="absolute inset-x-0 bottom-[max(6vh,calc(env(safe-area-inset-bottom)+1.5rem))] px-6 text-center">
+        <Sub text={scene.sub} delay={0.7} reduce={reduce} />
       </div>
     </div>
   );
@@ -330,7 +353,8 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
           animate={{ opacity: leaving ? 0 : 1 }}
           transition={tr(reduce, 0.5)}
         />
-        <p className="intro-display relative" style={{ fontSize: fit(scene.lines, true, 62) }}>
+        <div className="relative">
+        <p className="intro-display" style={{ fontSize: fit(scene.lines, true, 62) }}>
           {scene.lines.map((line, i) => (
             <span key={i} className="block overflow-hidden pb-[0.08em]">
               <motion.span
@@ -344,6 +368,8 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
             </span>
           ))}
         </p>
+        <Sub text={scene.sub} delay={0.85} leaving={leaving} reduce={reduce} className="mt-[min(3vh,1.5rem)]" />
+        </div>
       </div>
     </div>
   );
@@ -398,16 +424,7 @@ function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene,
             </span>
           ))}
         </p>
-        {scene.sub && (
-          <motion.p
-            className="intro-sub mx-auto mt-[min(4vh,2rem)] max-w-[34ch]"
-            initial={reduce ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={tr(reduce, 0.6, 0.2 + n * 0.08)}
-          >
-            {scene.sub}
-          </motion.p>
-        )}
+        {scene.sub && <Sub text={scene.sub} delay={0.25 + n * 0.08} leaving={exiting} reduce={reduce} className="mt-[min(4vh,2rem)]" />}
       </div>
     </div>
   );
