@@ -58,6 +58,8 @@ test('talk mode: tutor speaks, hears a spoken question, answers', async ({ page 
   await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
 
   await expect(page.getByText('Tap anywhere to start').first()).toBeVisible();
+  // let the page transition finish (the new screen only takes taps inside its opening circle until then)
+  await page.waitForFunction(() => document.querySelectorAll('[data-screen]').length === 1);
   await page.mouse.click(400, 400);
   await expect(page.getByText(/Speaking/)).toBeVisible({ timeout: 20_000 });
   // The definition is spoken with real TTS, then the mic opens and VAD hears the recorded question.

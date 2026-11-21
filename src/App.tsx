@@ -1,6 +1,7 @@
 // App shell: sign in -> home -> lesson (type) | talk | drill. Wires the UI to the loop engine.
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Toaster, toast } from 'sonner';
+import { AnimatePresence } from 'motion/react';
 import type { Concept, ConceptId, Mode, Progress } from './types';
 import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
@@ -24,7 +25,7 @@ import { AuthScreen } from './screens/AuthScreen';
 import { AdminScreen } from './screens/AdminScreen';
 import { CapDialog } from './ui/CapDialog';
 import { Tour } from './ui/Tour';
-import { pageTransition } from './ui/pageTransition';
+import { Reveal } from './ui/Reveal';
 import { Intro } from './ui/Intro';
 import { introSeen, markIntroSeen } from './intro/state';
 import { TOUR_STEPS } from './tour/steps';
@@ -108,9 +109,7 @@ export default function App() {
   const [introOpen, setIntroOpen] = useState(false);
   const [progress, setProgressState] = useState<Progress>(emptyProgress);
   const progressRef = useRef(progress);
-  const [screen, setScreenNow] = useState<Screen>('home');
-  // every screen change opens out of the point that was tapped
-  const setScreen = useCallback((s: Screen) => void pageTransition(() => setScreenNow(s)), []);
+  const [screen, setScreen] = useState<Screen>('home');
   const [mode, setModeState] = useState<Mode>(readMode);
   const [session, setSession] = useState<Session | null>(null);
   const [talk, setTalk] = useState<TalkController | null>(null);
@@ -294,17 +293,16 @@ export default function App() {
       void signOut();
       setAccount(null);
       setProgressUser('');
-      void pageTransition(() => {
-        setScreenNow('home');
-        setUnlocked(false);
-      });
+      setScreen('home');
+      setUnlocked(false);
     },
   };
 
   return (
     <ProfileContext.Provider value={profile}>
+      <AnimatePresence initial={false}>
       {screen === 'home' && (
-        <div key="home" className="animate-[screen-in_450ms_var(--ease-out)]">
+        <Reveal key="home">
         <HomeScreen
           concepts={CONCEPTS}
           progress={progress}
@@ -340,11 +338,11 @@ export default function App() {
           onVisualize={() => openViz('home')}
           continueLabel={`${progress.updatedAt ? 'Continue' : 'Start'}: ${contLesson.title.charAt(0).toLowerCase()}${contLesson.title.slice(1)}`}
         />
-        </div>
+        </Reveal>
       )}
 
       {screen === 'lesson' && session && state && (
-        <div key="lesson" className="animate-[screen-in_450ms_var(--ease-out)]">
+        <Reveal key="lesson">
         <LessonScreen
           session={state}
           concept={session.concept}
@@ -368,10 +366,11 @@ export default function App() {
           onTrace={() => session.traceExample()}
           onVisualize={(code, files) => openViz('lesson', { code, files, stdin: programInput, from: session.lesson.title })}
         />
-        </div>
+        </Reveal>
       )}
 
       {screen === 'talk' && session && state && (
+        <Reveal key="talk">
         <TalkScreen
           state={talk?.ring ?? 'idle'}
           error={!!talk?.error}
@@ -385,21 +384,22 @@ export default function App() {
           }}
           onExit={goHome}
         />
+        </Reveal>
       )}
 
       {screen === 'drill' && drill && (
-        <div key="drill" className="animate-[screen-in_450ms_var(--ease-out)]">
+        <Reveal key="drill">
         <DrillScreen
           drill={drill}
           grade={(code, problem) => runner().grade(code, problem.tests, [])}
           onExit={goHome}
           conceptTitle={(id) => conceptMap[id]?.title ?? id}
         />
-        </div>
+        </Reveal>
       )}
 
       {screen === 'viz' && viz && (
-        <div key="viz" className="animate-[screen-in_450ms_var(--ease-out)]">
+        <Reveal key="viz">
           <VisualizeScreen
             init={viz.init}
             concepts={CONCEPTS}
@@ -407,14 +407,15 @@ export default function App() {
             backLabel={viz.from === 'lesson' ? 'Lesson' : 'Home'}
             onBack={() => setScreen(viz.from === 'lesson' && session ? 'lesson' : 'home')}
           />
-        </div>
+        </Reveal>
       )}
 
       {screen === 'admin' && account?.admin && (
-        <div key="admin" className="animate-[screen-in_450ms_var(--ease-out)]">
+        <Reveal key="admin">
           <AdminScreen onBack={() => setScreen('home')} />
-        </div>
+        </Reveal>
       )}
+      </AnimatePresence>
 
       {tourScreen && account && (
         <Tour

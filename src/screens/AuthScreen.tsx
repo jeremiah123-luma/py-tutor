@@ -8,7 +8,7 @@ import { Aurora } from '../ui/Aurora';
 import { Intro } from '../ui/Intro';
 import { introSeen, markIntroSeen } from '../intro/state';
 import { distortionWave, recentTap } from '../ui/wave';
-import { pageTransition } from '../ui/pageTransition';
+import { useScreenReveal } from '../ui/pageTransition';
 import { addPasskey, passkeysSupported, signIn, signInWithPasskey, signUp, type Account } from '../loop/api';
 
 type Tab = 'signin' | 'signup';
@@ -47,8 +47,11 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
   const canPasskey = passkeysSupported();
   const [intro, setIntro] = useState(() => !introSeen());
   const cardRef = useRef<HTMLDivElement>(null);
-  // Signing in opens the app out of the button that was tapped (the page transition carries the wave).
-  const welcome = (u: Account) => pageTransition(() => onSignedIn(u));
+  const revealRef = useScreenReveal<HTMLElement>();
+  // Signing in opens the app out of the button that was tapped (Home's page transition).
+  const welcome = async (u: Account) => {
+    await onSignedIn(u);
+  };
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setF({ ...f, [k]: e.target.value });
@@ -87,7 +90,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
   }
 
   return (
-    <main className="flex min-h-dvh flex-col">
+    <main ref={revealRef} className="flex min-h-dvh flex-col">
       <div className="flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center border-b border-line pt-[env(safe-area-inset-top)] pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))]">
         <Logo />
       </div>
