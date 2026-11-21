@@ -24,6 +24,8 @@ import { AuthScreen } from './screens/AuthScreen';
 import { AdminScreen } from './screens/AdminScreen';
 import { CapDialog } from './ui/CapDialog';
 import { Tour } from './ui/Tour';
+import { Intro } from './ui/Intro';
+import { introSeen, markIntroSeen } from './intro/state';
 import { TOUR_STEPS } from './tour/steps';
 import { markTourSeen, resetTour, tourSeen } from './tour/state';
 import type { TourScreen } from './tour/types';
@@ -102,6 +104,7 @@ export default function App() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [cap, setCap] = useState<{ open: boolean; usage?: Usage }>({ open: false });
   const [tourTick, setTourTick] = useState(0);
+  const [introOpen, setIntroOpen] = useState(false);
   const [progress, setProgressState] = useState<Progress>(emptyProgress);
   const progressRef = useRef(progress);
   const [screen, setScreen] = useState<Screen>('home');
@@ -154,6 +157,11 @@ export default function App() {
       void enter(m.user);
     });
   }, [enter]);
+
+  // Classmates who signed up before the intro existed see it once, on their next visit.
+  useEffect(() => {
+    if (account && !introSeen()) setIntroOpen(true);
+  }, [account]);
 
   // Any AI call that hits the daily cap opens the pop-up.
   useEffect(
@@ -241,7 +249,7 @@ export default function App() {
   // First-run tour: home right after signing in; the lesson tour the first time they reach "Try it",
   // when every part it points at is on screen.
   const tourScreen: TourScreen | null = (() => {
-    if (!account || tourOff() || cap.open) return null;
+    if (!account || tourOff() || cap.open || introOpen) return null;
     void tourTick;
     if (screen === 'home' && !tourSeen(account.id, 'home')) return 'home';
     if (screen === 'lesson' && state?.step === 'doit' && !tourSeen(account.id, 'lesson')) return 'lesson';
@@ -272,6 +280,7 @@ export default function App() {
       if (!account) return;
       resetTour(account.id);
       setScreen('home');
+      setIntroOpen(true); // the intro first, then the spotlight tour picks up on Home
       setTourTick((n) => n + 1);
     },
     onSignOut: () => {
@@ -408,6 +417,15 @@ export default function App() {
           onDone={() => {
             markTourSeen(account.id, tourScreen);
             setTourTick((n) => n + 1);
+          }}
+        />
+      )}
+
+      {introOpen && (
+        <Intro
+          onDone={() => {
+            markIntroSeen();
+            setIntroOpen(false);
           }}
         />
       )}

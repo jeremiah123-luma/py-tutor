@@ -8,6 +8,8 @@ Two modes:
 
 The tutor never hands over a full solution. It gives hints and points at the line to fix, and it flags anything beyond what the course covered.
 
+New visitors get a short kinetic-type intro (what it is, the problem it fixes, why it beats juggling tabs), and real wins, like a passing check, send a WebGL distortion wave through the screen. The colours, type, voice, and motion are written down in [BRAND.md](BRAND.md).
+
 Built with Claude Code as a pair programmer.
 
 ## How it works
@@ -17,6 +19,7 @@ Built with Claude Code as a pair programmer.
 | Grader | Each test gets fresh globals and a fresh file system. Checks stdout, files written, and asserts on objects. An AST check flags constructs outside CS 100. |
 | Tutor | Claude (Opus 5.5) streamed through a Cloudflare Worker. Spoken text streams first, then a small JSON block for the on-screen "what you nailed / what to fix" cards. |
 | Voice | Silero VAD on device, OpenAI transcription with a Python vocabulary hint, OpenAI TTS spoken sentence by sentence as the reply streams. The mic pauses while the tutor talks, so car speakers can't trigger it. |
+| Look and feel | React, Tailwind, Motion. The intro is kinetic type in Instrument Serif; the success wave is a fragment shader on a canvas over the panel, with a CSS fallback and nothing at all under reduced motion. |
 | Progress | IndexedDB, synced to Workers KV. A skill counts as mastered after two clean passes in a row, at least one of them typed. |
 
 ## Run locally

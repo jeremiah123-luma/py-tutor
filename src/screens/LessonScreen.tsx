@@ -1,6 +1,7 @@
 import { ArrowLeft, Play, ListChecks, Footprints, X, Eye, MessageCircleQuestion } from 'lucide-react';
 import { SlideDeck } from '../ui/SlideDeck';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { distortionWave, recentTap } from '../ui/wave';
 import type { TraceStep } from '../types';
 import { StepPlayer } from '../ui/StepPlayer';
 import type { Concept, Mode, SessionState } from '../types';
@@ -55,6 +56,24 @@ export function LessonScreen(p: LessonScreenProps) {
   }, [canPlay, session.lessonIndex]);
   const onPlayerLine = useCallback((l: number) => setPlayerLine(l), []);
   const [askOpen, setAskOpen] = useState(false);
+  // A passing check sends a green wave through the code from the button you pressed; mastering the skill
+  // makes it the iridescent one.
+  const codeRef = useRef<HTMLDivElement>(null);
+  const seenGrade = useRef(session.lastGrade);
+  const stepNow = useRef(session.step);
+  stepNow.current = session.step;
+  useEffect(() => {
+    const g = session.lastGrade;
+    if (g === seenGrade.current) return;
+    seenGrade.current = g;
+    if (!g?.passed) return;
+    const origin = recentTap();
+    // a frame later, so a check that also masters the skill has already moved the step on
+    const id = requestAnimationFrame(() =>
+      void distortionWave(codeRef.current, { origin, tone: stepNow.current === 'mastered' ? 'iridescent' : 'success' }),
+    );
+    return () => cancelAnimationFrame(id);
+  }, [session.lastGrade]);
   // The output panel only appears once there is something to show (or while he is writing code).
   const showConsole = writing || !!player || !!session.lastRun;
   const startPlayer = async () => {
@@ -125,7 +144,7 @@ export function LessonScreen(p: LessonScreenProps) {
           />
         </div>
 
-        <div className="flex min-h-0 flex-col border-b border-line bg-surface [grid-area:code] md:border-b-0">
+        <div ref={codeRef} className="flex min-h-0 flex-col border-b border-line bg-surface [grid-area:code] md:border-b-0">
           <div className="flex items-center gap-2 border-b border-line px-4 py-2">
             <p className="text-sm font-medium text-ink-2">{writing ? 'Your code' : 'Example'}</p>
             <div className={`ml-auto flex items-center gap-2 ${defining ? 'invisible' : ''}`}>

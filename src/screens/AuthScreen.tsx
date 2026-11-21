@@ -1,10 +1,13 @@
 // Sign in / create account. Real <form>s with the right autocomplete fields so iPhone and Chrome
 // offer to save the username and password, plus passkeys (Face ID / Touch ID).
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Fingerprint, KeyRound, ShieldCheck } from 'lucide-react';
 import { Button } from '../ui/primitives';
 import { Logo } from '../ui/TopBar';
 import { Aurora } from '../ui/Aurora';
+import { Intro } from '../ui/Intro';
+import { introSeen, markIntroSeen } from '../intro/state';
+import { distortionWave, recentTap } from '../ui/wave';
 import { addPasskey, passkeysSupported, signIn, signInWithPasskey, signUp, type Account } from '../loop/api';
 
 type Tab = 'signin' | 'signup';
@@ -41,6 +44,13 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
   const [offer, setOffer] = useState<Account | null>(null); // just signed up: offer a passkey
   const [f, setF] = useState({ name: '', username: '', password: '', code: '' });
   const canPasskey = passkeysSupported();
+  const [intro, setIntro] = useState(() => !introSeen());
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Signing in is the "it worked" moment: the wave goes through the card, then the app opens.
+  const welcome = async (u: Account) => {
+    await distortionWave(cardRef.current, { origin: recentTap(), tone: 'iridescent' });
+    onSignedIn(u);
+  };
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setF({ ...f, [k]: e.target.value });
@@ -53,11 +63,13 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
     setBusy('form');
     setError(null);
     try {
-      if (tab === 'signin') onSignedIn((await signIn({ username: f.username, password: f.password })).user);
+      if (tab === 'signin') await welcome((await signIn({ username: f.username, password: f.password })).user);
       else {
         const { user } = await signUp(f);
-        if (canPasskey) setOffer(user);
-        else onSignedIn(user);
+        if (canPasskey) {
+          void distortionWave(cardRef.current, { origin: recentTap(), tone: 'success' });
+          setOffer(user);
+        } else await welcome(user);
       }
     } catch (x) {
       setError({ text: (x as Error).message, field: (x as { field?: string }).field });
@@ -69,7 +81,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
     setBusy('passkey');
     setError(null);
     try {
-      onSignedIn(await signInWithPasskey());
+      await welcome(await signInWithPasskey());
     } catch (x) {
       if (!passkeyCancelled(x)) setError({ text: (x as Error).message || 'That passkey didn’t work. Sign in with your password.' });
     }
@@ -82,13 +94,16 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
         <Logo />
       </div>
       <Aurora className="px-5 pt-16 pb-32 text-center md:pt-24">
-        <h1 className="font-voice text-[2.5rem] leading-[1.02] md:text-[4rem]">Ace the final.</h1>
+        <h1 className="font-display text-[3.25rem] leading-[0.95] font-normal tracking-[-0.02em] md:text-[5.5rem]">Ace the final.</h1>
         <p className="mx-auto mt-3 max-w-[40ch] text-base text-[#3a3340]">A Python tutor for CS 100: dictionaries, files, and classes. It coaches you, it never writes your code.</p>
+        <button type="button" onClick={() => setIntro(true)} className="mt-4 text-sm font-medium text-[#111] underline underline-offset-4 hover:text-[#5b21b6]">
+          What is py-tutor?
+        </button>
       </Aurora>
 
-      <div className="glow-ring relative z-10 mx-auto -mt-20 mb-12 w-[calc(100%-2rem)] max-w-md rounded-2xl bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.6)] animate-[rise-in_700ms_var(--ease-out)_both]">
+      <div ref={cardRef} className="glow-ring relative z-10 mx-auto -mt-20 mb-12 w-[calc(100%-2rem)] max-w-md rounded-2xl bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.6)] animate-[rise-in_700ms_var(--ease-out)_both]">
         {offer ? (
-          <PasskeyOffer user={offer} onDone={onSignedIn} />
+          <PasskeyOffer user={offer} onDone={(u) => void welcome(u)} />
         ) : (
           <>
             <div role="tablist" aria-label="Account" className="mb-5 grid grid-cols-2 rounded-lg bg-surface-2 p-1">
@@ -197,6 +212,19 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void })
           </>
         )}
       </div>
+
+      {intro && (
+        <Intro
+          onDone={(how) => {
+            markIntroSeen();
+            setIntro(false);
+            if (how !== 'skip') {
+              setTab(how === 'signin' ? 'signin' : 'signup');
+              setError(null);
+            }
+          }}
+        />
+      )}
     </main>
   );
 }

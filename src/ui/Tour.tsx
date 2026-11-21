@@ -1,7 +1,7 @@
 // First-run tour overlay: dims the page, cuts a rounded hole around the current step's
 // [data-tour] element, and shows a card next to it (docked to the bottom on narrow screens).
 // The positioning math is pure and exported (placeCard, spotlightRect, cardWidth) so it can be tested.
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
@@ -423,8 +423,15 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <h2 id={titleId} className="font-voice text-md font-semibold tracking-[-0.01em] text-ink">
-              {step.title}
+            <h2 id={titleId} aria-label={step.title} className="font-display text-[1.75rem] leading-[1.05] font-normal tracking-[-0.01em] text-ink">
+              {step.title.split(' ').map((w, k, all) => (
+                <Fragment key={k}>
+                  <span aria-hidden="true" className={reduce ? '' : 'tour-word'} style={{ animationDelay: `${60 + k * 55}ms` }}>
+                    {w}
+                  </span>
+                  {k < all.length - 1 ? ' ' : ''}
+                </Fragment>
+              ))}
             </h2>
             <p id={bodyId} className="text-[0.9375rem] leading-relaxed text-ink-2">
               {step.body}

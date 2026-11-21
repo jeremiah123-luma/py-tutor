@@ -45,6 +45,7 @@
   --font-voice: 'Geist Variable', system-ui, sans-serif;
   --font-ui: 'Geist Variable', system-ui, sans-serif;
   --font-code: 'Geist Mono Variable', ui-monospace, monospace;
+  --font-display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-ui: 160ms;

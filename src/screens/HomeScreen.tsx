@@ -134,7 +134,7 @@ export function HomeScreen(p: HomeScreenProps) {
             </motion.li>
           ))}
         </ul>
-        <h1 className="font-voice text-[2.75rem] leading-[1.02] md:text-[4.5rem]" aria-label={headline}>
+        <h1 className="font-display text-[3.25rem] leading-[0.95] font-normal tracking-[-0.02em] md:text-[5.5rem]" aria-label={headline}>
           {headline.split(' ').map((w, i) => (
             <motion.span
               key={`${w}-${i}`}

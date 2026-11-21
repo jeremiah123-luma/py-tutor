@@ -17,7 +17,22 @@ test('sign up, passkey, tour, sign out, passkey sign-in', async ({ page, context
 
   const username = `e2e-${Date.now().toString(36)}`;
   await page.goto('/');
+  // First visit: the intro plays before anything else, and moves on with taps or arrow keys.
+  const intro = page.getByRole('dialog', { name: 'What py-tutor is' });
+  await expect(intro).toBeVisible();
+  await expect(intro.getByText('No more three tabs', { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: shot('0-intro') });
+  await page.keyboard.press('ArrowRight');
+  await expect(intro.getByText('No more three tabs', { exact: true })).toBeVisible();
+  for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowRight');
+  await intro.getByRole('button', { name: 'Get started' }).click();
+  await expect(intro).toHaveCount(0, { timeout: 5000 });
+  // Get started lands on Create account; it doesn't play again on this device.
+  await expect(page.getByRole('tab', { name: 'Create account' })).toHaveAttribute('aria-selected', 'true');
   await page.screenshot({ path: shot('1-sign-in') });
+  await page.reload();
+  await expect(page.getByRole('tab', { name: 'Sign in' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'What py-tutor is' })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Create account' }).click();
   await page.getByLabel('Your name').fill('Jordan Test');
   await page.getByLabel('Username').fill(username);

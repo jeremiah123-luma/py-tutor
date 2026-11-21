@@ -9,6 +9,7 @@ import { TestResults } from '../ui/Console';
 import { Button } from '../ui/primitives';
 import { FilePreview, sampleFiles } from '../ui/FilePreview';
 import { TopBar } from '../ui/TopBar';
+import { distortionWave } from '../ui/wave';
 
 export interface DrillScreenProps {
   drill: Drill;
@@ -55,7 +56,7 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
     const weakest = Object.entries(missedBy).sort((a, b) => b[1] - a[1])[0]?.[0] as ConceptId | undefined;
     return (
       <Shell clock={null} label="Results" onExit={onExit}>
-        <h1 className="font-voice text-2xl font-medium md:text-3xl">
+        <h1 className="font-display text-[3.5rem] leading-none font-normal tracking-[-0.02em] md:text-[4.5rem]">
           {shortRight + codingRight} of {total}
         </h1>
         <p className="mt-3 text-md text-ink-2">
@@ -141,7 +142,15 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
             Next
           </Button>
         ) : (
-          <Button variant="primary" onClick={() => setDone(true)}>
+          <Button
+            variant="primary"
+            onClick={async (e) => {
+              // Handing in the exam gets the wave, then the score.
+              const page = e.currentTarget.closest('main') ?? e.currentTarget.parentElement?.parentElement;
+              await distortionWave(page as HTMLElement | null, { origin: { x: e.clientX, y: e.clientY }, tone: 'iridescent' });
+              setDone(true);
+            }}
+          >
             Finish and score
           </Button>
         )}

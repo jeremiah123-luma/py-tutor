@@ -142,6 +142,10 @@ test('full loop for one dictionaries lesson, type mode', async ({ page }) => {
   await setCode(page, lesson.doit.reference);
   await page.getByRole('button', { name: 'Check my code' }).click();
   await expect(page.getByText(/All \d+ tests pass\. Nice work\./).first()).toBeVisible();
+  // The pass sends the green distortion wave through the code panel.
+  await expect(page.locator('canvas[data-wave="success"]')).toHaveCount(1);
+  await page.screenshot({ path: `test-results/wave-pass-${test.info().project.name}.png` });
+  await expect(page.locator('canvas[data-wave]')).toHaveCount(0, { timeout: 3000 });
   expect(gradeCalls).toBe(0);
   await expect(page.getByRole('button', { name: 'Next skill' })).toBeVisible();
   await page.screenshot({ path: `test-results/loop-done-${test.info().project.name}.png`, fullPage: false });

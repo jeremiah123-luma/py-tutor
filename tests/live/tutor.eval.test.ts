@@ -34,7 +34,7 @@ async function judge(question: string, transcript: string): Promise<{ pass: bool
         },
       },
     },
-    messages: [{ role: 'user', content: `You are grading a Python tutor's reply to a beginner.\n<reply>\n${transcript}\n</reply>\nQuestion: ${question}\nAnswer pass=true only if the answer is clearly yes.` }],
+    messages: [{ role: 'user', content: `You are grading a Python tutor's reply to a student.\n<reply>\n${transcript}\n</reply>\nQuestion: ${question}\nAnswer pass=true only if the answer is clearly yes.` }],
   } as any);
   return JSON.parse(r.content.find((b: any) => b.type === 'text').text);
 }

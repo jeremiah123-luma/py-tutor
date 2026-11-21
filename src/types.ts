@@ -47,7 +47,7 @@ export interface Problem {
   hints: string[]; // escalating
   /** Reference solution. NEVER sent to the client UI or shown to the learner; used for grader self-tests and Claude's grading context only. */
   reference: string;
-  /** Plausible beginner mistakes that MUST fail at least one test (grader self-test). */
+  /** Plausible student mistakes that MUST fail at least one test (grader self-test). */
   wrong: string[];
 }
 
