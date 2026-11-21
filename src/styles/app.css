@@ -259,6 +259,8 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
 @keyframes caret { 50% { opacity: 0; } }
 .intro-label { font-family: var(--font-ui); font-weight: 700; font-size: clamp(1.75rem, 6svmin, 4rem); letter-spacing: -0.05em; line-height: 1; }
 .intro-detail { font-size: clamp(0.8125rem, 2.1svmin, 1.125rem); opacity: 0.7; letter-spacing: -0.01em; }
+/* Tap-to-pause: every CSS motion in the intro (holds, drifting grounds, wheel, progress, caret) stops in place. */
+.intro-paused, .intro-paused * { animation-play-state: paused !important; }
 @keyframes intro-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .intro-small {
   font-family: var(--font-ui);

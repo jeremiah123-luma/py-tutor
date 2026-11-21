@@ -9,10 +9,10 @@
 // Smoothness rules (from the animation-performance skill): only transform and opacity move. Continuous motion
 // (grounds, holds, drift) is CSS keyframes on the compositor; entrances and exits are Motion, which hands
 // transform/opacity to WAAPI. No animated blur, letter-spacing, width, or backdrop-filter anywhere.
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Play } from 'lucide-react';
 import { C, INTRO_SCENES, exitMs, sceneText, type Ground, type IntroScene } from '../intro/slides';
 import { distortionWave, recentTap } from './wave';
 
@@ -105,31 +105,39 @@ function MarkSvg({ ink, outline, phase, reduce }: { ink: string; outline: boolea
   );
 }
 
+/** Paused state of the whole intro (tap to pause). Scene timelines and CSS motion stop while it's true. */
+const PausedCtx = createContext(false);
+
+/** Milliseconds this scene has been playing, not counting time spent paused. Re-renders every frame while running. */
+function useSceneTime(run: boolean) {
+  const paused = useContext(PausedCtx);
+  const [t, setT] = useState(0);
+  const acc = useRef(0);
+  useEffect(() => {
+    if (!run || paused) return;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      acc.current += now - last;
+      last = now;
+      setT(acc.current);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [run, paused]);
+  return t;
+}
+
 function MarkScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'mark' }>; reduce: boolean }) {
-  // 0 bar, 1 unfold, 2 outline flash, 3 solid, 4 wordmark
-  const [phase, setPhase] = useState(reduce ? 4 : 0);
-  const [typed, setTyped] = useState(reduce ? WORD.length : 0);
-  const [sel, setSel] = useState(-1);
-  useEffect(() => {
-    if (reduce) return;
-    const at: [number, number][] = [
-      [450, 1],
-      [1150, 2],
-      [1450, 3],
-      [1650, 4],
-    ];
-    const ids = at.map(([ms, p]) => setTimeout(() => setPhase(p), ms));
-    return () => ids.forEach(clearTimeout);
-  }, [reduce]);
-  useEffect(() => {
-    if (phase < 4 || reduce) return;
-    const ids: ReturnType<typeof setTimeout>[] = [];
-    const typeEnd = 380 + WORD.length * 45;
-    for (let i = 1; i <= WORD.length; i++) ids.push(setTimeout(() => setTyped(i), 380 + i * 45));
-    SELECTIONS.forEach((_, k) => ids.push(setTimeout(() => setSel(k), typeEnd + 60 + k * 80)));
-    ids.push(setTimeout(() => setSel(-1), typeEnd + 60 + SELECTIONS.length * 80));
-    return () => ids.forEach(clearTimeout);
-  }, [phase, reduce]);
+  // 0 bar, 1 unfold, 2 outline flash, 3 solid, 4 wordmark; all read off one pausable clock
+  const t = useSceneTime(!reduce);
+  const phase = reduce ? 4 : t >= 1650 ? 4 : t >= 1450 ? 3 : t >= 1150 ? 2 : t >= 450 ? 1 : 0;
+  const since = t - 1650; // time since the wordmark phase began
+  const typeEnd = 380 + WORD.length * 45;
+  const typed = reduce ? WORD.length : phase < 4 ? 0 : Math.max(0, Math.min(WORD.length, Math.floor((since - 380) / 45) + 1));
+  const selK = Math.floor((since - typeEnd - 60) / 80);
+  const sel = reduce || phase < 4 || selK < 0 || selK >= SELECTIONS.length ? -1 : selK;
 
   const outline = phase === 2;
   const ink = outline ? C.black : scene.ink;
@@ -208,13 +216,9 @@ const BAR_FILLS = [
 ];
 
 function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'wheel' }>; reduce: boolean }) {
-  const [k, setK] = useState(0);
-  useEffect(() => {
-    if (reduce) return;
-    const step = Math.floor((scene.ms - 300) / scene.cards.length);
-    const ids = scene.cards.slice(1).map((_, i) => setTimeout(() => setK(i + 1), step * (i + 1)));
-    return () => ids.forEach(clearTimeout);
-  }, [reduce, scene]);
+  const t = useSceneTime(!reduce);
+  const step = Math.floor((scene.ms - 300) / scene.cards.length);
+  const k = reduce ? 0 : Math.min(scene.cards.length - 1, Math.floor(t / step));
   const card = scene.cards[k];
   const N = 18;
   return (
@@ -477,6 +481,8 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
   const [fading, setFading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLButtonElement>(null);
+  const [paused, setPaused] = useState(false);
+  const swipe = useRef<{ x: number; y: number; at: number } | null>(null);
   const scene = INTRO_SCENES[cur];
   const last = cur === INTRO_SCENES.length - 1;
 
@@ -485,6 +491,7 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       if (to < 0 || to >= INTRO_SCENES.length || leaving) return;
       setPrevLeft(leavingRef.current);
       setSceneLeaving(false);
+      setPaused(false); // moving on always plays
       setPrev(wipes(INTRO_SCENES[to]) ? cur : null); // a wipe slides over the last scene; a cut replaces it
       setCur(to);
     },
@@ -504,17 +511,22 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
     [leaving, onDone, reduce],
   );
 
-  // Hold, play the exit, then move on.
+  // Hold, play the exit, then move on. Pausing stops the clock; resuming picks up where it left off.
+  const played = useRef({ scene: -1, ms: 0 });
+  if (played.current.scene !== cur) played.current = { scene: cur, ms: 0 };
   useEffect(() => {
-    if (last || leaving) return;
+    if (last || leaving || paused) return;
     const ex = reduce ? 0 : exitMs(scene);
-    const a = ex ? setTimeout(() => setSceneLeaving(true), scene.ms - ex) : undefined;
-    const b = setTimeout(next, scene.ms);
+    const start = performance.now();
+    const done = played.current.ms;
+    const a = ex && !leavingRef.current ? setTimeout(() => setSceneLeaving(true), Math.max(0, scene.ms - ex - done)) : undefined;
+    const b = setTimeout(next, Math.max(0, scene.ms - done));
     return () => {
       clearTimeout(a);
       clearTimeout(b);
+      if (played.current.scene === cur) played.current.ms = done + (performance.now() - start);
     };
-  }, [cur, last, leaving, next, scene, reduce]);
+  }, [cur, last, leaving, next, scene, reduce, paused]);
 
   useEffect(() => {
     if (prev === null) return;
@@ -529,7 +541,10 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       if (e.key === 'Escape') {
         e.preventDefault();
         void finish('skip');
-      } else if (e.key === 'ArrowRight' || ((e.key === ' ' || e.key === 'Enter') && !onButton)) {
+      } else if ((e.key === ' ' || e.key === 'k') && !onButton) {
+        e.preventDefault();
+        if (!last) setPaused((v) => !v);
+      } else if (e.key === 'ArrowRight' || (e.key === 'Enter' && !onButton)) {
         e.preventDefault();
         next();
       } else if (e.key === 'ArrowLeft') {
@@ -539,7 +554,7 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [next, back, finish]);
+  }, [next, back, finish, last]);
 
   useEffect(() => {
     if (last) ctaRef.current?.focus({ preventScroll: true });
@@ -576,15 +591,24 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       aria-modal="true"
       aria-label="What py-tutor is"
       data-intro=""
-      className="fixed inset-0 z-[110] cursor-pointer select-none overflow-hidden outline-none"
+      className={`fixed inset-0 z-[110] cursor-pointer touch-pan-y select-none overflow-hidden outline-none ${paused ? 'intro-paused' : ''}`}
       style={{ background: GROUNDS[scene.ground].base }}
       animate={fading ? { opacity: 0, scale: 1.03 } : { opacity: 1, scale: 1 }}
       transition={{ duration: reduce ? 0 : 0.38, ease: EASE }}
+      // Tap pauses and resumes. Swipe left for the next scene, right for the one before; arrow keys do the same.
+      onPointerDown={(e) => {
+        swipe.current = { x: e.clientX, y: e.clientY, at: performance.now() };
+      }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) return;
-        if (!last) next();
+        const s = swipe.current;
+        const dx = s ? e.clientX - s.x : 0;
+        const dy = s ? e.clientY - s.y : 0;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) return dx < 0 ? next() : back();
+        if (!last) setPaused((v) => !v);
       }}
     >
+      <PausedCtx.Provider value={paused}>
       {layers.map((i) => {
         const entering = i === cur && prev !== null;
         return (
@@ -595,9 +619,19 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
         );
       })}
 
+      </PausedCtx.Provider>
+
       <p className="sr-only" aria-live="polite">
-        {sceneText(scene)}
+        {paused ? 'Paused.' : sceneText(scene)}
       </p>
+
+      {paused && !last && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center pb-[max(1.5rem,calc(env(safe-area-inset-bottom)+1rem))]" aria-hidden="true">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#111111]/80 px-4 py-2 text-sm font-medium text-[#F5F5F5]">
+            <Play className="size-3.5" strokeWidth={2.25} fill="currentColor" /> Paused · tap to keep going
+          </span>
+        </div>
+      )}
 
       {/* Progress and skip, in the scene's own ink. Progress fills by scaleX, never width. */}
       <div

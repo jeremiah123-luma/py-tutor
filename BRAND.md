@@ -110,7 +110,7 @@ The statement grammar (from Raison):
 
 Smoothness rules: only `transform` and `opacity` ever animate. Grounds, holds, the wheel spin, and the window float are CSS keyframes on the compositor; entrances and exits are Motion (WAAPI). No animated blur, letter-spacing, width, or backdrop-filter. The progress bars fill by `scaleX`.
 
-Each scene holds 1.9 to 3 s and moves on by itself; tap, Space, or the arrow keys skip ahead. Plays on first visit, once for existing accounts, and from Replay tour.
+Each scene moves on by itself. Tap (or Space) pauses and resumes, and everything freezes in place; swipe left or the right arrow skips ahead, swipe right or the left arrow goes back. Plays on first visit, once for existing accounts, and from Replay tour.
 
 ### Supporting motion
 - The highlighter sweep: the active code line fills left to right (420 ms).
