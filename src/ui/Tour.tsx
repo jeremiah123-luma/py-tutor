@@ -173,11 +173,17 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
   cardHRef.current = cardH;
   // While the tour runs, add room under the page so even the last item can scroll up above the docked card.
   useEffect(() => {
+    // Room to scroll a low target up above the docked card. html/body/#root are height:100%, so padding alone sits
+    // inside that height and adds nothing: let them grow with the page while the tour runs.
+    const els = [document.documentElement, document.body, document.getElementById('root')].filter(Boolean) as HTMLElement[];
+    const saved = els.map((e) => [e.style.height, e.style.minHeight] as const);
+    for (const e of els) Object.assign(e.style, { height: 'auto', minHeight: '100%' });
     const body = document.body;
     const prev = body.style.paddingBottom;
     body.style.paddingBottom = '70vh';
     return () => {
       body.style.paddingBottom = prev;
+      els.forEach((e, k) => Object.assign(e.style, { height: saved[k][0], minHeight: saved[k][1] }));
     };
   }, []);
   const [glide, setGlide] = useState(false);

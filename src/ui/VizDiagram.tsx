@@ -286,6 +286,8 @@ export function describeStep(step: VizStep, i: number): ReactNode {
   switch (step.event) {
     case 'call':
       return <>Calling <code className="font-code">{fname}()</code>. Python makes a new frame for its variables.</>;
+    case 'unwind':
+      return <><code className="font-code">{fname}()</code> stops here without returning: the error goes back to the code that called it.</>;
     case 'return':
       return <><code className="font-code">{fname}()</code> is about to return. Its return value is shown in its frame.</>;
     case 'exception':

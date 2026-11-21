@@ -45,6 +45,9 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
   const [codes, setCodes] = useState<string[]>(() => drill.coding.map((c) => c.problem.starter));
   const [grades, setGrades] = useState<(GradeResult | null)[]>(() => drill.coding.map(() => null));
   const [checking, setChecking] = useState(false);
+  const gradedFor = useRef<string[]>(drill.coding.map(() => ''));
+  const codesRef = useRef(codes);
+  codesRef.current = codes;
   const [done, setDone] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -53,7 +56,8 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
   // Score it: any coding problem he didn't check (or changed since checking) is graded now, as it stands.
   const finish = async () => {
     setFinishing(true);
-    const final = await Promise.all(drill.coding.map((c, k) => grades[k] ?? grade(codes[k], c.problem)));
+    // a grade only counts for the exact code it graded; anything unchecked or edited since is graded now
+    const final = await Promise.all(drill.coding.map((c, k) => (grades[k] && gradedFor.current[k] === codes[k] ? grades[k]! : grade(codes[k], c.problem))));
     setGrades(final);
     setFinishing(false);
     setDone(true);
@@ -70,10 +74,25 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
 
   // Leaving mid-exam throws the attempt away, so ask once anything is answered.
   const started = Object.keys(answers).length > 0 || codes.some((c, k) => c !== drill.coding[k].problem.starter);
+  // Reloading or closing the tab mid-exam asks first, like the Leave button.
+  useEffect(() => {
+    if (done || !started) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [done, started]);
   const leave = () => {
     if (!done && started && !window.confirm('Leave the practice exam? Your answers will be lost.')) return;
     onExit();
   };
+  // The browser's back button (or an iPhone swipe back) asks the same way.
+  const leaveRef = useRef(leave);
+  leaveRef.current = leave;
+  useEffect(() => {
+    const onBack = () => leaveRef.current();
+    window.addEventListener('py-tutor:back', onBack);
+    return () => window.removeEventListener('py-tutor:back', onBack);
+  }, []);
 
   const isShort = i < drill.short.length;
   const q = isShort ? drill.short[i] : null;
@@ -115,6 +134,12 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
                 </p>
                 {!answers[x.id]?.correct && (
                   <>
+                    {answers[x.id] && x.kind === 'predict' && (
+                      <div className="mt-2 text-sm text-ink-3">
+                        You wrote:{' '}
+                        <pre className="mt-1 inline-block rounded-md bg-surface-2 px-2 py-1 align-top font-code text-[13px] whitespace-pre-wrap text-ink-2">{String(answers[x.id]!.given)}</pre>
+                      </div>
+                    )}
                     {x.code && <pre className="mt-2 overflow-x-auto rounded-md bg-code-bg px-3 py-2 font-code text-[13px] leading-relaxed">{x.code}</pre>}
                     <div className="mt-2 text-sm text-ink-2">
                       Answer:{' '}
@@ -128,6 +153,26 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
                     </div>
                     <p className="mt-1 text-sm text-ink-2">{x.explain}</p>
                   </>
+                )}
+              </div>
+            </li>
+          ))}
+          {drill.coding.map((c, k) => (
+            <li key={`code-${k}`} className="flex items-start gap-3 py-3">
+              {grades[k]?.passed ? (
+                <Check className="mt-0.5 size-4 shrink-0 text-ok" strokeWidth={2.25} aria-label="right" />
+              ) : (
+                <X className="mt-0.5 size-4 shrink-0 text-err" strokeWidth={2.25} aria-label="wrong" />
+              )}
+              <div className="min-w-0">
+                <p className="text-[0.9375rem]">
+                  <span className="tnum text-ink-3">{drill.short.length + k + 1}. </span>
+                  Coding: {c.problem.prompt}
+                </p>
+                {!grades[k]?.passed && grades[k] && (
+                  <p className="mt-1 text-sm text-ink-2">
+                    {grades[k]!.results.filter((r) => r.passed).length} of {grades[k]!.results.length} tests passed.
+                  </p>
                 )}
               </div>
             </li>
@@ -177,8 +222,14 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
               icon={<ListChecks className="size-4" strokeWidth={2} />}
               onClick={async () => {
                 setChecking(true);
-                const g = await grade(codes[ci], drill.coding[ci].problem);
-                setGrades((gs) => gs.map((x, k) => (k === ci ? g : x)));
+                const code = codes[ci];
+                const k0 = ci;
+                const g = await grade(code, drill.coding[k0].problem);
+                // edited while it was grading: this result is for old code, so drop it
+                if (codesRef.current[k0] === code) {
+                  gradedFor.current[k0] = code;
+                  setGrades((gs) => gs.map((x, k) => (k === k0 ? g : x)));
+                }
                 setChecking(false);
               }}
             >
@@ -190,17 +241,18 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
       )}
 
       <nav className="mt-10 flex items-center justify-between border-t border-line pt-5">
-        <Button variant="ghost" onClick={() => setI((n) => Math.max(0, n - 1))} disabled={i === 0} icon={<ArrowLeft className="size-4" strokeWidth={2} />}>
+        <Button variant="ghost" onClick={() => { setI((n) => Math.max(0, n - 1)); window.scrollTo(0, 0); }} disabled={i === 0} icon={<ArrowLeft className="size-4" strokeWidth={2} />}>
           Back
         </Button>
         {i < total - 1 ? (
-          <Button variant="primary" onClick={() => setI((n) => n + 1)} iconEnd={<ArrowRight className="size-4" strokeWidth={2} />}>
+          <Button variant="primary" onClick={() => { setI((n) => n + 1); window.scrollTo(0, 0); }} iconEnd={<ArrowRight className="size-4" strokeWidth={2} />}>
             Next
           </Button>
         ) : (
           <Button
             variant="primary"
             loading={finishing}
+            disabled={checking}
             onClick={async (e) => {
               // Handing in the exam gets the wave, then the score.
               const page = e.currentTarget.closest('main') ?? e.currentTarget.parentElement?.parentElement;

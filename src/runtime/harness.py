@@ -52,7 +52,8 @@ def banned_used(code, extra_allowed=()):
         if name in BANNED_NODES and name not in extra_allowed:
             found.append(BANNED_NODES[name])
         if isinstance(node, ast.ClassDef):
-            if node.bases and "inheritance" not in extra_allowed:
+            real_bases = [b for b in node.bases if not (isinstance(b, ast.Name) and b.id == "object")]
+            if real_bases and "inheritance" not in extra_allowed:
                 found.append("inheritance (class X(Y))")
             if node.decorator_list:
                 found.append("decorators (@...)")
@@ -212,7 +213,7 @@ def run(code, stdin=None, files=None, check=None, trace=False):
         except BaseException as e:  # noqa
             error = _error_info(e, "<student>")
         unclosed = sorted({str(getattr(v, "name", "?")) for v in list(g.values())
-                           if isinstance(v, io.IOBase) and not v.closed and getattr(v, "mode", "r") != "r"})
+                           if isinstance(v, io.IOBase) and not v.closed and any(ch in str(getattr(v, "mode", "r")) for ch in "wax+")})
         before_check = len(out.getvalue())
         if check is not None and error is None:
             try:
@@ -441,10 +442,20 @@ def visualize(code, stdin=None, files=None):
             step["classBody"] = True
         steps.append(step)
 
+    raised = set()  # frames whose last event was an exception: their "return" is the error leaving them
+
     def local(frame, event, arg):
         if event in ("line", "return", "exception"):
             if event == "return" and (frame.f_code.co_name == "<module>" or is_class_body(frame)):
                 return local  # the "done" step shows the end; a class body has no return value worth showing
+            if event == "exception":
+                raised.add(id(frame))
+            elif event == "line":
+                raised.discard(id(frame))  # it was caught inside this frame
+            if event == "return" and id(frame) in raised:
+                raised.discard(id(frame))
+                record(frame, "unwind", arg)
+                return local
             record(frame, event, arg)
             if event == "line":
                 last_line[0] = frame.f_lineno

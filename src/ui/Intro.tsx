@@ -496,7 +496,7 @@ const wipes = (s: IntroScene) => s.kind === 'wheel' || (s.kind === 'statement' &
 export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) => void; signedIn?: boolean }) {
   const reduce = useReducedMotion() ?? false;
   const [cur, setCur] = useState(0);
-  const [prev, setPrev] = useState<number | null>(null);
+  const [prev, setPrev] = useState<{ i: number; visit: number } | null>(null);
   const [sceneLeaving, setSceneLeaving] = useState(false);
   const [prevLeft, setPrevLeft] = useState(false); // did the scene now underneath a wipe already play its exit?
   const leavingRef = useRef(false); // read in go() so starting an exit never re-creates go/next (that reset the timers)
@@ -529,7 +529,8 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
   useEffect(() => {
     if (!soundOn || live) return;
     const onGesture = (e: Event) => {
-      if ((e.target as HTMLElement | null)?.closest?.('[data-sound-toggle]')) return; // the button handles itself
+      // the Sound button handles itself; Skip / Get started close the intro, so starting music there is just a blip
+      if ((e.target as HTMLElement | null)?.closest?.('button')) return;
       if (startSound() && e.type !== 'keydown') firstTap.current = true;
     };
     const opts = { capture: true } as const;
@@ -558,6 +559,8 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
 
   // The scene index as of the last move, so quick repeated presses each count (state lags a render behind).
   const curRef = useRef(cur);
+  const visitRef = useRef(0);
+  const swiped = useRef(false);
   const go = useCallback(
     (to: number) => {
       if (to < 0 || to >= INTRO_SCENES.length || leaving) return;
@@ -566,7 +569,9 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       setPrevLeft(leavingRef.current);
       setSceneLeaving(false);
       setPaused(false); // moving on always plays
-      setPrev(wipes(INTRO_SCENES[to]) ? from : null); // a wipe slides over the scene it came from; a cut replaces it
+      // a wipe slides over the scene it came from; a cut replaces it
+      setPrev(wipes(INTRO_SCENES[to]) ? { i: from, visit: visitRef.current } : null);
+      visitRef.current += 1;
       setCur(to);
     },
     [leaving],
@@ -603,6 +608,13 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       if (played.current.scene === cur) played.current.ms = done + (performance.now() - start);
     };
   }, [cur, last, leaving, next, scene, reduce, paused]);
+  // Pausing mid-exit would freeze on an empty screen (the lines already flew off), so the scene comes back to its
+  // held state and the exit plays again on resume.
+  useEffect(() => {
+    if (!paused || !sceneLeaving || reduce) return;
+    setSceneLeaving(false);
+    played.current = { scene: cur, ms: Math.max(0, scene.ms - exitMs(scene) - 400) };
+  }, [paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Each scene arrives with its own sound: a whoosh for a slab wiping up, a thump for a hard cut.
   useEffect(() => {
@@ -678,7 +690,8 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
     };
   }, []);
 
-  const layers = prev !== null && prev !== cur ? [prev, cur] : [cur];
+  // Each visit to a scene is its own layer, so coming back to a scene (even one still sliding away) replays it fresh.
+  const layers = prev !== null && !(prev.i === cur && prev.visit === visitRef.current) ? [prev, { i: cur, visit: visitRef.current }] : [{ i: cur, visit: visitRef.current }];
 
   return createPortal(
     <motion.div
@@ -695,13 +708,27 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       // Tap pauses and resumes. Swipe left for the next scene, right for the one before; arrow keys do the same.
       onPointerDown={(e) => {
         swipe.current = { x: e.clientX, y: e.clientY, at: performance.now() };
+        swiped.current = false;
+      }}
+      // A finger that moves never produces a click, so swipes are read when it lifts.
+      onPointerUp={(e) => {
+        const s = swipe.current;
+        if (!s || (e.target as HTMLElement).closest('button')) return;
+        const dx = e.clientX - s.x;
+        const dy = e.clientY - s.y;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+          swiped.current = true; // the click a mouse drag fires next is not a tap
+          firstTap.current = false; // a swipe that started the sound doesn't eat the next real tap
+          if (dx < 0) next();
+          else back();
+        }
       }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) return;
-        const s = swipe.current;
-        const dx = s ? e.clientX - s.x : 0;
-        const dy = s ? e.clientY - s.y : 0;
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) return dx < 0 ? next() : back();
+        if (swiped.current) {
+          swiped.current = false;
+          return;
+        }
         if (firstTap.current) {
           firstTap.current = false; // that tap just turned the sound on
           return;
@@ -711,12 +738,13 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
     >
       <PausedCtx.Provider value={paused}>
       <SoundCtx.Provider value={sound}>
-      {layers.map((i) => {
-        const entering = i === cur && prev !== null;
+      {layers.map(({ i, visit }) => {
+        const isCur = visit === visitRef.current;
+        const entering = isCur && prev !== null;
         return (
-          // key is stable, so the scene underneath a wipe keeps its state instead of replaying
-          <Layer key={i} how={reduce ? 'none' : entering ? 'wipe' : i === 0 && prev === null ? 'fade' : 'none'}>
-            <Scene scene={INTRO_SCENES[i]} leaving={i === cur ? sceneLeaving : prevLeft} reduce={reduce} />
+          // keyed by visit: the scene underneath a wipe keeps its state while it's covered, and a new visit starts fresh
+          <Layer key={visit} how={reduce ? 'none' : entering ? 'wipe' : i === 0 && prev === null ? 'fade' : 'none'}>
+            <Scene scene={INTRO_SCENES[i]} leaving={isCur ? sceneLeaving : prevLeft} reduce={reduce} />
           </Layer>
         );
       })}

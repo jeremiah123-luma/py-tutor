@@ -161,6 +161,8 @@ export interface SessionState {
   skippedTalk?: boolean;
   /** The last pass was clean (first check, no hints); drives the copy after a pass. */
   lastClean?: boolean;
+  /** Why a pass didn't master the skill yet. */
+  passReason?: 'notClean' | 'skippedTalk' | 'notTalked' | 'talkHinted' | 'streakReset';
   /** Steps he has actually been on this lesson (the step row only ticks these). */
   seen?: LoopStep[];
 }
@@ -199,7 +201,7 @@ export interface VizStep {
   line: number | null;
   /** Line that just ran. */
   prevLine: number | null;
-  event: 'line' | 'call' | 'return' | 'exception' | 'done' | 'error';
+  event: 'line' | 'call' | 'return' | 'unwind' | 'exception' | 'done' | 'error';
   frames: VizFrame[];
   heap: [number, VizObject][];
   out: string;

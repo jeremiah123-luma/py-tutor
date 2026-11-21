@@ -308,3 +308,6 @@ h1.font-voice, h2.font-voice { font-weight: 680; letter-spacing: -0.045em; }
   0% { text-shadow: -2px 0 rgb(249 168 212 / 0.7), 2px 0 rgb(147 197 253 / 0.7); transform: translate3d(0, 4px, 0); }
   100% { text-shadow: none; transform: none; }
 }
+
+/* screens take focus on arrival (for keyboards and screen readers) without drawing a ring */
+[data-screen] h1[tabindex="-1"]:focus { outline: none; }

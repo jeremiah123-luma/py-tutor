@@ -31,6 +31,12 @@ export function useScreenReveal<T extends HTMLElement>() {
       old.setAttribute('inert', '');
     }
     window.scrollTo(0, 0); // every screen starts at the top
+    // The button he pressed is in the old screen, which just went inert: start keyboard/screen-reader focus on the new one.
+    if (el && (!document.activeElement || document.activeElement === document.body || !el.contains(document.activeElement))) {
+      const h = el.querySelector<HTMLElement>('h1') ?? el;
+      if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1');
+      h.focus({ preventScroll: true });
+    }
     if (!el || reduceMotion()) return;
     const at = recentTap(1500) ?? { x: window.innerWidth / 2, y: window.innerHeight * 0.35 };
     const far = Math.hypot(Math.max(at.x, window.innerWidth - at.x), Math.max(at.y, window.innerHeight - at.y));
@@ -39,10 +45,37 @@ export function useScreenReveal<T extends HTMLElement>() {
       { duration: DURATION, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
     );
     el.classList.add('page-entering');
+    // While the circle grows, the new screen only takes taps inside it. A tap anywhere else (people tap right
+    // away) finishes the reveal and goes straight to what was tapped, still inside the same gesture (so an
+    // iPhone still lets that tap start the microphone).
+    // (A touch that lands outside the clipped circle never becomes a click at all, so this listens for the
+    // finger lifting, which iPhone also counts as the gesture.)
+    let forwardedAt = -1e9;
+    const early = (e: PointerEvent | MouseEvent) => {
+      if (el.contains(e.target as Node)) return;
+      if (e.type === 'click' && performance.now() - forwardedAt < 600) return; // already handled on pointerup
+      anim.finish();
+      const hit = document.elementFromPoint(e.clientX, e.clientY);
+      if (hit && el.contains(hit) && hit instanceof HTMLElement) {
+        forwardedAt = performance.now();
+        e.preventDefault();
+        e.stopPropagation();
+        hit.click();
+      }
+    };
+    document.addEventListener('pointerup', early, true);
+    document.addEventListener('click', early, true);
     const t = window.setTimeout(() => el.classList.remove('page-entering'), DURATION + 120);
+    const stopEarly = () => {
+      document.removeEventListener('pointerup', early, true);
+      document.removeEventListener('click', early, true);
+    };
+    const t2 = window.setTimeout(stopEarly, DURATION + 50);
     return () => {
       anim.cancel();
       window.clearTimeout(t);
+      window.clearTimeout(t2);
+      stopEarly();
     };
   }, []);
   return ref;

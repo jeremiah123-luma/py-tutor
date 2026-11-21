@@ -25,7 +25,7 @@ export function gradeFeedback(grade: GradeResult): { text: string; nailed: strin
   const bad = grade.results.find((r) => !r.passed && !r.hidden) ?? grade.results.find((r) => !r.passed);
   if (!bad) {
     // every test passes; only a banned construct failed it
-  } else if (bad.unclosed?.length) {
+  } else if (bad.file && bad.unclosed?.includes(bad.file)) {
     fix.push(`${bad.unclosed.join(' and ')} was never closed, so what you wrote wasn't saved. Add f.close() after writing.`);
   } else if (bad.checkFailed && bad.error) {
     fix.push(`"${bad.name}" didn't pass: ${bad.error.trim().replace(/\.+$/, '')}.`);
@@ -41,9 +41,20 @@ export function gradeFeedback(grade: GradeResult): { text: string; nailed: strin
     else {
       const d = firstDiff(bad.expected, bad.got);
       if (!d) fix.push(`"${bad.name}": ${bad.file} is off only by spacing or a blank line at the end. Each write needs its own "\\n".`);
-      else if (d.have === undefined) fix.push(`"${bad.name}": ${bad.file} stops early. Line ${d.line} should be ${show(d.want)}.`);
-      else if (d.want === undefined) fix.push(`"${bad.name}": ${bad.file} has an extra line ${d.line}: ${show(d.have)}. Is the file opened with "a" instead of "w"?`);
-      else fix.push(`"${bad.name}": ${bad.file} line ${d.line} should be ${show(d.want)} but it is ${show(d.have)}.`);
+      else {
+        // the two classic mode mix-ups: "a" kept old lines that "w" would have cleared, or "w" erased lines "a" keeps
+        const want = bad.expected.replace(/\n$/, '');
+        const have = bad.got.replace(/\n$/, '');
+        const modeHint =
+          have.endsWith(want) && have.length > want.length
+            ? ' The old contents are still there: open it with "w" to replace them.'
+            : want.endsWith(have) && want.length > have.length
+              ? ' The lines that were already in the file are gone: open it with "a" to add to the end instead.'
+              : '';
+        if (d.have === undefined) fix.push(`"${bad.name}": ${bad.file} stops early. Line ${d.line} should be ${show(d.want)}.${modeHint}`);
+        else if (d.want === undefined) fix.push(`"${bad.name}": ${bad.file} has an extra line ${d.line}: ${show(d.have)}.${modeHint}`);
+        else fix.push(`"${bad.name}": ${bad.file} line ${d.line} should be ${show(d.want)} but it is ${show(d.have)}.${modeHint}`);
+      }
     }
   } else if (bad.expected != null && bad.got != null) {
     const d = firstDiff(bad.expected, bad.got);

@@ -121,7 +121,23 @@ export default function App() {
     setViz({ init, from });
     setScreen('viz');
   };
-  const talkReady = useRef<Promise<TalkController> | null>(null);
+  const talkReady = useRef<Promise<TalkController | null> | null>(null);
+  const talkGen = useRef(0);
+  /** Load Talk mode for this session. If he leaves before it finishes loading, it shuts itself down instead of
+   *  starting to speak (and opening the mic) on whatever screen he's on by then. */
+  const loadTalkFor = (s: Session) => {
+    const gen = ++talkGen.current;
+    talkReady.current = loadTalk().then((TC) => {
+      if (gen !== talkGen.current) return null;
+      const tc = new TC(s);
+      setTalk(tc);
+      return tc;
+    });
+  };
+  const cancelTalk = () => {
+    talkGen.current++;
+    talkReady.current = null;
+  };
   const state = useSession(session);
   usePointerParallax();
   useTalk(talk);
@@ -177,6 +193,7 @@ export default function App() {
 
   const startLesson = useCallback(
     (conceptId: ConceptId, index: number, m: Mode) => {
+      cancelTalk();
       talk?.end();
       setTalk(null);
       const concept = conceptMap[conceptId]!;
@@ -191,8 +208,7 @@ export default function App() {
       setProgramInput('');
       if (m === 'talk') {
         setScreen('talk');
-        talkReady.current = loadTalk().then((TC) => new TC(s)); // starts on the first tap (iOS audio needs a gesture)
-        void talkReady.current.then(setTalk);
+        loadTalkFor(s); // starts on the first tap (iOS audio needs a gesture)
       } else {
         runner(); // warm Python while he reads the definition
         s.start();
@@ -204,6 +220,7 @@ export default function App() {
   );
 
   const goHome = () => {
+    cancelTalk();
     void talk?.end();
     releaseMic();
     setTalk(null);
@@ -230,9 +247,9 @@ export default function App() {
     session.mode = m;
     if (m === 'talk') {
       setScreen('talk');
-      talkReady.current = loadTalk().then((TC) => new TC(session));
-      void talkReady.current.then(setTalk);
+      loadTalkFor(session);
     } else {
+      cancelTalk();
       void talk?.end();
       releaseMic();
       setTalk(null);
@@ -241,6 +258,45 @@ export default function App() {
       setScreen('lesson');
     }
   };
+
+  // Browser back / iPhone swipe back: every screen but Home gets one history entry, so going back lands on Home
+  // (or back in the lesson, from Visualize) instead of leaving the site.
+  const inner = useRef(false);
+  const ignorePop = useRef(false);
+  const backRef = useRef<() => void>(() => {});
+  backRef.current = () => {
+    if (screen === 'drill') {
+      // the exam decides (it asks first if there are answers); keep the entry until it actually leaves
+      window.history.pushState({ pyInner: true }, '');
+      inner.current = true;
+      window.dispatchEvent(new Event('py-tutor:back'));
+    } else if (screen === 'viz') setScreen(viz?.from === 'lesson' && session ? 'lesson' : 'home');
+    else goHome();
+  };
+  useEffect(() => {
+    if (!account) return;
+    if (screen !== 'home' && !inner.current) {
+      window.history.pushState({ pyInner: true }, '');
+      inner.current = true;
+    } else if (screen === 'home' && inner.current) {
+      inner.current = false;
+      ignorePop.current = true;
+      window.history.back(); // drop the entry the in-app back button made unnecessary
+    }
+  }, [screen, account]);
+  useEffect(() => {
+    const onPop = () => {
+      if (ignorePop.current) {
+        ignorePop.current = false;
+        return;
+      }
+      if (!inner.current) return;
+      inner.current = false;
+      backRef.current();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   const cont = useMemo(() => nextLesson(progress), [progress]);
   const contLesson = conceptMap[cont.concept]!.lessons[cont.index];
@@ -281,8 +337,9 @@ export default function App() {
     onOpen: () => void me().then((m) => m && setUsage(m.usage)),
     onReplayTour: () => {
       if (!account) return;
+      if (screen === 'drill' && !window.confirm('Leave the practice exam? Your answers so far will be lost.')) return;
       resetTour(account.id);
-      setScreen('home');
+      goHome();
       setIntroOpen(true); // the intro first, then the spotlight tour picks up on Home
       setTourTick((n) => n + 1);
     },
@@ -342,7 +399,7 @@ export default function App() {
       )}
 
       {screen === 'lesson' && session && state && (
-        <Reveal key="lesson">
+        <Reveal key={`lesson-${session.concept.id}-${session.state.lessonIndex}`}>
         <LessonScreen
           session={state}
           concept={session.concept}
@@ -380,7 +437,7 @@ export default function App() {
             if (state.step === 'check' || state.step === 'mastered') return nextSkill();
             unlockAudio(); // synchronously, inside the gesture
             void primeMic().catch(() => {}); // iPhone: the mic must be asked for inside the tap
-            void talkReady.current?.then((t) => t.tap());
+            void talkReady.current?.then((t) => t?.tap());
           }}
           onExit={goHome}
         />

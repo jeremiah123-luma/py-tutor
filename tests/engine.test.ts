@@ -106,6 +106,31 @@ for (const concept of Object.values(concepts)) {
       expect(s.state.step).toBe('doit'); // a failing re-check never leaves "All tests pass" up
     }, 30_000);
 
+    it('a clean explanation after a clean typed pass shows mastered; a failed re-check keeps new code', async () => {
+      const prog = { p: emptyProgress() };
+      const lesson = concept!.lessons[0];
+      const s = new Session(concept!, 0, 'type', deps(prog, []));
+      s.start(); s.goTo('doit');
+      s.setCode(lesson.doit.reference);
+      await s.check();
+      expect(s.state.step).toBe('check');
+      expect(s.state.passReason).toBe('notTalked');
+      // a failing re-check: back to Try it, and a tab jump must keep this new work
+      s.setCode(lesson.doit.wrong[0]);
+      await s.check();
+      expect(s.state.step).toBe('doit');
+      s.goTo('example'); s.goTo('doit');
+      expect(s.state.code).toBe(lesson.doit.wrong[0]);
+      // explaining cleanly after a clean typed pass masters it, and the screen says so
+      const prog2 = { p: emptyProgress() };
+      const s3 = new Session(concept!, 0, 'type', deps(prog2, []));
+      s3.start(); s3.goTo('doit'); s3.setCode(lesson.doit.reference); await s3.check();
+      s3.goTo('talkthrough');
+      await s3.say('GOOD');
+      expect(s3.state.step).toBe('mastered');
+      expect(sub(prog2.p, concept!.id, lesson.subskill).mastered).toBe(true);
+    }, 30_000);
+
     it('talk mode grades spoken code and never marks typed mastery', async () => {
       const prog = { p: emptyProgress() };
       const lesson = concept!.lessons[0];

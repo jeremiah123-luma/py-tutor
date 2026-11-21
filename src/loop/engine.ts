@@ -59,6 +59,11 @@ export class Session {
   private checks = 0;
   /** A pass finished the current round; the next visit to Try it starts a fresh one (starter code, counters reset). */
   private roundDone = false;
+  /** Talk it through passed cleanly this round (it counts toward mastery, like a clean typed pass). */
+  private talkClean = false;
+  /** He read hints after passing; the next round starts with that hint already counted. */
+  private hintsAfterPass = 0;
+  private wasMastered = false;
   readonly lesson: Lesson;
 
   readonly concept: Concept;
@@ -72,6 +77,7 @@ export class Session {
     this.deps = deps;
     this.events = events;
     this.lesson = concept.lessons[lessonIndex];
+    this.wasMastered = sub(deps.getProgress(), concept.id, this.lesson.subskill).mastered;
     this.state = {
       concept: concept.id,
       lessonIndex,
@@ -150,6 +156,7 @@ export class Session {
       case 'talkthrough':
         // Skip ahead (for example when the tutor can't be reached).
         this.talkHints++;
+        this.talkClean = false;
         this.set({ step: 'feedback', skippedTalk: true });
         break;
       case 'feedback':
@@ -175,7 +182,8 @@ export class Session {
     if (this.roundDone) {
       this.roundDone = false;
       this.checks = 0;
-      this.doHints = 0;
+      this.doHints = this.hintsAfterPass; // hints read after the last pass count against this round
+      this.hintsAfterPass = 0;
       this.set({ code: this.lesson.doit.starter, freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
     }
     this.set({ step: 'doit', walkLine: 0, lastRun: undefined, lastGrade: undefined, gradeExplained: false });
@@ -200,6 +208,8 @@ export class Session {
         this.speakWalkLine(1);
         break;
       case 'talkthrough':
+        this.talkHints = 0; // a fresh explanation; an earlier skip or hint doesn't count against this one
+        this.talkClean = false;
         this.set({ step, walkLine: 0, skippedTalk: false });
         this.scripted(`Your turn, no typing yet. ${this.lesson.talkthrough.prompt} Just tell me how you'd do it.`);
         break;
@@ -311,13 +321,21 @@ export class Session {
       const res = await this.callTutor({ kind: 'assess-talk', learnerText: t, hintsUsed: this.talkHints });
       if (!res) return;
       if (res.meta.verdict === 'pass') {
-        this.deps.setProgress(
-          record(this.deps.getProgress(), this.concept.id, this.lesson.subskill, {
-            passed: true,
-            clean: this.talkHints === 0,
-            typed: false,
-          }),
-        );
+        const p = record(this.deps.getProgress(), this.concept.id, this.lesson.subskill, {
+          passed: true,
+          clean: this.talkHints === 0,
+          typed: false,
+        });
+        this.deps.setProgress(p);
+        this.talkClean = this.talkHints === 0;
+        if (sub(p, this.concept.id, this.lesson.subskill).mastered && !this.wasMastered) {
+          // a clean explanation after a clean typed pass completes mastery: say so
+          this.wasMastered = true;
+          this.roundDone = true;
+          this.set({ step: 'mastered', skippedTalk: false });
+          this.saveLast();
+          return;
+        }
         this.set({ step: 'feedback', skippedTalk: false });
       } else {
         this.talkHints++;
@@ -351,6 +369,7 @@ export class Session {
     const step = this.state.step;
     if (step === 'talkthrough') this.talkHints++;
     else if (step === 'doit') this.doHints++;
+    else if (step === 'check' || step === 'mastered') this.hintsAfterPass++;
     this.push({ role: 'learner', text: 'Can I get a hint?' });
     const { list, used } = this.hintBudget();
     if (used < list.length) {
@@ -422,13 +441,28 @@ export class Session {
     const p = record(this.deps.getProgress(), this.concept.id, this.lesson.subskill, { passed, clean, typed });
     this.deps.setProgress(p);
     if (!passed) {
-      // loop: back on Try it until it passes (a failing re-check after a pass must not leave "All tests pass" up)
-      if (this.state.step === 'check') this.set({ step: 'doit' });
+      // loop: back on Try it until it passes (a failing re-check after a pass must not leave "All tests pass" up).
+      // He's working on new code now, so it's mid-round again: a tab jump must not reset it to the starter.
+      if (this.state.step === 'check' || this.state.step === 'mastered') {
+        this.roundDone = false;
+        this.set({ step: 'doit' });
+      }
       return;
     }
     this.roundDone = true;
     const mastered = sub(p, this.concept.id, this.lesson.subskill).mastered;
-    this.set({ step: mastered ? 'mastered' : 'check', lastClean: clean });
+    if (mastered) this.wasMastered = true;
+    // why it isn't mastered yet, in plain words (shown on the pass screen)
+    const passReason: SessionState['passReason'] = !clean
+      ? 'notClean'
+      : this.state.skippedTalk
+        ? 'skippedTalk'
+        : this.talkClean
+          ? 'streakReset'
+          : (this.state.seen ?? []).includes('feedback')
+            ? 'talkHinted'
+            : 'notTalked';
+    this.set({ step: mastered ? 'mastered' : 'check', lastClean: clean, passReason });
     this.saveLast();
   }
 }

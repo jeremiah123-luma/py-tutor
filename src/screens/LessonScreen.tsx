@@ -51,13 +51,14 @@ export function LessonScreen(p: LessonScreenProps) {
   const [playerLine, setPlayerLine] = useState(0);
   const [tracing, setTracing] = useState(false);
   const canPlay = !showsOwnCode(session.step) && !defining && !!p.onTrace;
+  const [askOpen, setAskOpen] = useState(false);
   // Any step change (or switching lessons) closes the player, so its line never fights the walkthrough's.
   useEffect(() => {
     setPlayer(null);
+    setAskOpen(false); // the Ask the tutor drawer belongs to the step he opened it on
   }, [session.step, session.lessonIndex]);
   const ownCode = showsOwnCode(session.step);
   const onPlayerLine = useCallback((l: number) => setPlayerLine(l), []);
-  const [askOpen, setAskOpen] = useState(false);
   // Escape closes the Ask the tutor panel
   useEffect(() => {
     if (!askOpen) return;
@@ -161,6 +162,7 @@ export function LessonScreen(p: LessonScreenProps) {
             hintsUsed={session.step === 'talkthrough' ? (session.freeHints?.talk ?? 0) : (session.freeHints?.doit ?? 0)}
             skippedTalk={session.skippedTalk}
             lastClean={session.lastClean}
+            passReason={session.passReason}
           />
         </div>
 

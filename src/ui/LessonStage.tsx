@@ -15,7 +15,16 @@ export interface LessonStageProps {
   skippedTalk?: boolean;
   /** The pass that brought him here was clean (first check, no hints). */
   lastClean?: boolean;
+  passReason?: 'notClean' | 'skippedTalk' | 'notTalked' | 'talkHinted' | 'streakReset';
 }
+
+const PASS_REASON = {
+  notClean: 'That works. It took a hint or more than one check, so it needs a clean round (first check, no hints) to count as mastered.',
+  skippedTalk: 'Clean pass. You skipped Talk it through, so explain it there (or write it clean once more) and it’s mastered.',
+  notTalked: 'Clean pass. One more clean pass masters it: explain it in Talk it through, or write it clean again.',
+  talkHinted: 'Clean pass. Talk it through needed a hint or a second try, so one more clean pass masters it.',
+  streakReset: 'Clean pass. An earlier miss reset your streak, so one more clean pass masters it.',
+} as const;
 
 function Voice({ children }: { children: React.ReactNode }) {
   return <p className="max-w-[46ch] font-voice text-lg leading-[1.4] tracking-[-0.01em] text-ink">{children}</p>;
@@ -25,7 +34,7 @@ function Meta({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-ink-2">{children}</p>;
 }
 
-export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed = 0, skippedTalk, lastClean }: LessonStageProps) {
+export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed = 0, skippedTalk, lastClean, passReason }: LessonStageProps) {
   const hintList = step === 'talkthrough' ? lesson.talkthrough.hints : lesson.doit.hints;
   const hintLabel = hintsUsed < hintList.length ? `Hint ${hintsUsed + 1} of ${hintList.length}` : 'Ask the tutor for help';
   const total = lesson.walkthrough.length;
@@ -126,13 +135,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
       body = (
         <>
           <Meta>All tests pass.</Meta>
-          <Voice>
-            {!lastClean
-              ? 'That works. It took a hint or more than one check, so it needs a clean round (first check, no hints) before it counts as mastered.'
-              : skippedTalk
-                ? 'Clean pass. You skipped Talk it through, so do one more clean round (explain it, then write it) and it’s mastered.'
-                : 'Clean pass. Talk it through needed a hint or a second try, so one more clean round and it’s mastered.'}
-          </Voice>
+          <Voice>{PASS_REASON[passReason ?? (lastClean ? 'notTalked' : 'notClean')]}</Voice>
         </>
       );
       actions = (
