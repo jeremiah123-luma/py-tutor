@@ -162,7 +162,7 @@ export function DrillScreen({ drill, grade, onExit, conceptTitle }: DrillScreenP
 function Shell({ clock, label, onExit, children }: { clock: string | null; label: string; onExit: () => void; children: React.ReactNode }) {
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-10 bg-paper/90 backdrop-blur-md">
+      <header className="sticky top-0 z-10 bg-paper [transform:translateZ(0)] md:bg-paper/90 md:backdrop-blur-md">
         <TopBar
           crumbs={['Exam drill', label]}
           onHome={onExit}

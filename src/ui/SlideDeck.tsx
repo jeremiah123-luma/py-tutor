@@ -110,7 +110,7 @@ export function SlideDeck({
           <Button variant="primary" size="lg" onClick={() => go(1)} iconEnd={<ArrowRight className="size-4" strokeWidth={2} />}>
             {last ? 'Show me an example' : 'Next'}
           </Button>
-          <div className="ml-2 flex items-center gap-1.5" aria-label={`Slide ${i + 1} of ${slides.length}`}>
+          <div className="ml-1 flex items-center" aria-label={`Slide ${i + 1} of ${slides.length}`}>
             {slides.map((_, k) => (
               <button
                 key={k}
@@ -119,8 +119,11 @@ export function SlideDeck({
                   setI(k);
                 }}
                 aria-label={`Slide ${k + 1}`}
-                className={`h-1.5 rounded-full transition-all duration-300 ${k === i ? 'w-6 bg-ink' : 'w-1.5 bg-line-strong hover:bg-ink-3'}`}
-              />
+                aria-current={k === i ? 'step' : undefined}
+                className="group grid h-8 place-items-center px-[3px]"
+              >
+                <span className={`block h-1.5 rounded-full transition-all duration-300 ${k === i ? 'w-6 bg-ink' : 'w-1.5 bg-line-strong group-hover:bg-ink-3'}`} />
+              </button>
             ))}
           </div>
           <Button variant="ghost" className="ml-auto" onClick={onAsk} icon={<MessageCircle className="size-4" strokeWidth={1.75} />}>

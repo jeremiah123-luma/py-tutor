@@ -65,8 +65,8 @@ app.use('/api/*', async (c, next) => {
 
 // ---------- sign up / sign in (no session needed) ----------
 
-async function tooManyTries(store: Store, key: string) {
-  return Number((await store.raw().get(`fail:${key}`)) ?? '0') >= 10;
+async function tooManyTries(store: Store, key: string, limit = 10) {
+  return Number((await store.raw().get(`fail:${key}`)) ?? '0') >= limit;
 }
 async function noteFail(store: Store, key: string) {
   const n = Number((await store.raw().get(`fail:${key}`)) ?? '0');
@@ -81,8 +81,9 @@ app.post('/api/auth/signup', async (c) => {
   const password = String(b.password ?? '');
   const code = String(b.code ?? '').trim();
   const ip = c.req.header('cf-connecting-ip') ?? 'local';
-  // Sign-up is open (no class code). At most 10 new accounts per IP every 15 minutes keeps it from being farmed.
-  if (await tooManyTries(store, `signup:${ip}`)) return c.json({ error: 'Too many new accounts from here. Wait 15 minutes and try again.' }, 429);
+  // Sign-up is open (no class code). At most 40 new accounts per IP every 15 minutes: enough for a whole class
+  // on one campus Wi-Fi address, low enough that nobody can farm accounts.
+  if (await tooManyTries(store, `signup:${ip}`, 40)) return c.json({ error: 'Too many new accounts from here. Wait 15 minutes and try again.' }, 429);
   const admin = !!c.env.ADMIN_CODE && code === c.env.ADMIN_CODE; // admin accounts are made through the API only
   if (!name) return c.json({ error: 'Enter your name.', field: 'name' }, 400);
   if (!USERNAME_RE.test(username))

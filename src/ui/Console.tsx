@@ -54,7 +54,7 @@ export function TestResults({ grade }: { grade: GradeResult }) {
                 </span>
               )}
             </div>
-            {!r.passed && (r.expected !== undefined || r.got !== undefined) && (
+            {!r.passed && (r.expected != null || r.got != null) && (
               <div className="mt-2 grid grid-cols-2 gap-2 pl-6">
                 {(
                   [
@@ -65,13 +65,13 @@ export function TestResults({ grade }: { grade: GradeResult }) {
                   <div key={label} className="min-w-0">
                     <p className="mb-1 text-xs text-ink-3">{label}</p>
                     <pre className="overflow-x-auto rounded-md bg-surface-2 px-2.5 py-2 font-code text-[13px] leading-relaxed whitespace-pre">
-                      <Visible text={text} />
+                      {text ? <Visible text={text} /> : <span className="font-ui text-ink-3">{label === 'Your output' ? 'Nothing printed' : '—'}</span>}
                     </pre>
                   </div>
                 ))}
               </div>
             )}
-            {r.error && <p className="mt-1.5 pl-6 font-code text-[13px] text-err">{r.error}</p>}
+            {r.error && <p className="mt-1.5 pl-6 font-code text-[13px] break-words text-err">{r.error}</p>}
           </li>
         ))}
       </ul>
@@ -116,8 +116,8 @@ export function Console({ run, grade, programInput, onProgramInputChange, runnin
         ))}
         {run && !running && <span className="tnum ml-auto text-xs text-ink-3">ran in {run.ms} ms</span>}
       </div>
-      <div className={`grid min-h-0 flex-1 gap-0 ${showInput ? 'md:grid-cols-[minmax(0,1fr)_14rem]' : ''}`}>
-        <div className="min-h-[7rem] overflow-auto p-3" role="tabpanel">
+      <div className={`grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)] gap-0 ${showInput ? 'md:grid-cols-[minmax(0,1fr)_14rem]' : ''}`}>
+        <div className="min-h-[7rem] min-w-0 overflow-auto p-3" role="tabpanel">
           {activeTab === 'tests' && grade ? (
             <TestResults grade={grade} />
           ) : running ? (

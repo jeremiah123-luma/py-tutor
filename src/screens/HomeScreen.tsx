@@ -89,9 +89,9 @@ export function HomeScreen(p: HomeScreenProps) {
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-20 bg-paper/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-20 bg-paper [transform:translateZ(0)] md:bg-paper/80 md:backdrop-blur-xl">
         <TopBar crumbs={['Home']} right={<FinalPill />} />
-        <nav aria-label="Sections" className="flex gap-1 overflow-x-auto border-b border-line px-2 md:px-3">
+        <nav aria-label="Sections" className="flex gap-1 overflow-x-auto overscroll-x-contain border-b border-line px-2 [scrollbar-width:none] md:px-3">
           <span aria-current="page" className="tab flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] font-medium">
             <Home className="size-4" strokeWidth={1.75} aria-hidden="true" /> Home
           </span>

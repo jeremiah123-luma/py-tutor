@@ -204,7 +204,7 @@ export function VisualizeScreen({
                     max={steps.length - 1}
                     value={i}
                     onChange={(e) => setI(Number(e.target.value))}
-                    className="mx-2 h-1 min-w-0 flex-1 accent-[var(--accent)]"
+                    className="mx-2 h-9 min-w-0 flex-1 cursor-pointer accent-[var(--accent)]"
                     aria-label="Step"
                   />
                   <button className={btn} onClick={() => move(1)} disabled={i === steps.length - 1} aria-label="Forward one step"><ChevronRight className="size-4" strokeWidth={2} /></button>
@@ -266,7 +266,7 @@ export function VisualizeScreen({
                   <div className="mb-1 flex items-center">
                     <p className="text-xs font-medium tracking-wide text-ink-3 uppercase">Files your program can open</p>
                     <button
-                      className="press ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink"
+                      className="press ml-auto inline-flex h-10 items-center gap-1 rounded-md px-3 text-sm text-ink-2 hover:bg-surface-2 hover:text-ink"
                       onClick={() => setFiles((f) => [...f, [`file${f.length + 1}.txt`, '']])}
                     >
                       <Plus className="size-3.5" strokeWidth={2} /> Add a file

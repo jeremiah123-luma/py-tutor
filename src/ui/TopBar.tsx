@@ -21,7 +21,7 @@ export function Logo({ onClick }: { onClick?: () => void }) {
     </span>
   );
   return onClick ? (
-    <button onClick={onClick} aria-label="py-tutor home" className="press rounded-md">
+    <button onClick={onClick} aria-label="py-tutor home" className="press -m-2 rounded-md p-2">
       {mark}
     </button>
   ) : (
@@ -54,7 +54,7 @@ export function TopBar({ crumbs = [], right, onHome }: { crumbs?: string[]; righ
 export function FinalPill() {
   const d = daysToFinal();
   return (
-    <span className="glass-dark tnum inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm whitespace-nowrap">
+    <span className="pill-final tnum inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm whitespace-nowrap">
       <span className="size-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" aria-hidden="true" />
       <span className="text-ink-2 max-sm:hidden">Final in</span>
       <span className="font-medium text-accent">

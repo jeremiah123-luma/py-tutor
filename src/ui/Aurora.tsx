@@ -38,7 +38,7 @@ export function Aurora({ children, className = '' }: { children?: ReactNode; cla
               marginLeft: `calc(${b.s} / -2)`,
               marginTop: `calc(${b.s} / -2)`,
               background: `radial-gradient(closest-side, ${b.c}, transparent)`,
-              animation: `${b.a} ${b.d} ease-in-out infinite alternate, blob-hue ${b.h} ease-in-out infinite alternate`,
+              animation: `${b.a} ${b.d} ease-in-out infinite alternate`,
               animationDelay: `${-i * 3}s`,
             }}
           />

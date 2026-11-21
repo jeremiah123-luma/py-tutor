@@ -197,6 +197,9 @@ def grade(code, tests, extra_allowed=()):
             passed = False
             e = r["error"]
             errtxt = e["type"] + ": " + e["message"] + (f" (line {e['line']})" if e.get("line") else "")
+            if t.get("expectStdout") is not None:
+                # still show what it should print next to whatever printed before the crash
+                expected, got = t["expectStdout"], r.get("stdout") or ""
         if passed and t.get("expectStdout") is not None:
             if _norm(r["stdout"]) != _norm(t["expectStdout"]):
                 passed = False

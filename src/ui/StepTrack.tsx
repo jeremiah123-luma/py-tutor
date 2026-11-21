@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Check } from 'lucide-react';
 import { motion } from 'motion/react';
 import type { LoopStep } from '../types';
@@ -21,6 +22,17 @@ const TARGET: Record<string, JumpTarget> = { learn: 'define', example: 'example'
 
 export function StepTrack({ step, compact, onJump }: { step: LoopStep; compact?: boolean; onJump?: (t: JumpTarget) => void }) {
   const current = phaseIndex(step);
+  const listRef = useRef<HTMLOListElement>(null);
+  // On a phone the five steps don't fit; slide the row so the current one is always in view.
+  useEffect(() => {
+    const list = listRef.current;
+    const el = list?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (!list || !el) return;
+    const lr = list.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    const target = list.scrollLeft + (er.left - lr.left) - (lr.width - er.width) / 2;
+    list.scrollTo({ left: Math.max(0, target), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [current]);
   const pct = Math.min(100, ((current + (step === 'mastered' ? 0 : 0.5)) / PHASES.length) * 100);
   return (
     <nav aria-label="Lesson progress" className="w-full">
@@ -33,7 +45,7 @@ export function StepTrack({ step, compact, onJump }: { step: LoopStep; compact?:
           </span>
         </p>
       ) : (
-        <ol className="flex items-center gap-1 overflow-x-auto">
+        <ol ref={listRef} className="flex items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none]">
           {PHASES.map((p, i) => {
             const done = i < current;
             const now = i === current;

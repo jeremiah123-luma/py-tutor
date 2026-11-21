@@ -130,7 +130,7 @@ export function LessonScreen(p: LessonScreenProps) {
         </>
       ) : (
       <main
-        className="grid flex-1 md:min-h-0 md:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)]
+        className="grid flex-1 grid-cols-[minmax(0,1fr)] md:min-h-0 md:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)]
           [grid-template-areas:'stage'_'code'_'convo'] md:[grid-template-areas:'stage_code'_'convo_code']"
       >
         <div className="border-b border-line [grid-area:stage] md:border-r">
@@ -144,10 +144,10 @@ export function LessonScreen(p: LessonScreenProps) {
           />
         </div>
 
-        <div ref={codeRef} className="flex min-h-0 flex-col border-b border-line bg-surface [grid-area:code] md:border-b-0">
+        <div ref={codeRef} className="flex min-h-0 min-w-0 flex-col border-b border-line bg-surface [grid-area:code] md:border-b-0">
           <div className="flex items-center gap-2 border-b border-line px-4 py-2">
-            <p className="text-sm font-medium text-ink-2">{writing ? 'Your code' : 'Example'}</p>
-            <div className={`ml-auto flex items-center gap-2 ${defining ? 'invisible' : ''}`}>
+            <p className="text-sm font-medium whitespace-nowrap text-ink-2">{writing ? 'Your code' : 'Example'}</p>
+            <div className={`ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2 ${defining ? 'invisible' : ''}`}>
               {canPlay && (
                 <Button size="sm" variant="secondary" onClick={() => void startPlayer()} loading={tracing} icon={<Footprints className="size-4" strokeWidth={1.75} />}>
                   Play step by step
@@ -188,8 +188,8 @@ export function LessonScreen(p: LessonScreenProps) {
                 </Button>
               )}
               {writing && (
-                <Button data-tour="lesson-check" size="sm" variant="primary" onClick={p.onCheck} icon={<ListChecks className="size-4" strokeWidth={2} />}>
-                  Check my code
+                <Button data-tour="lesson-check" size="sm" variant="primary" onClick={p.onCheck} aria-label="Check my code" icon={<ListChecks className="size-4" strokeWidth={2} />}>
+                  Check<span className="max-[420px]:hidden">&nbsp;my code</span>
                 </Button>
               )}
             </div>
