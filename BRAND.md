@@ -55,7 +55,7 @@ One theme: a dark studio. Near-black surfaces, white primary actions, a violet a
 
 **Aurora** (heroes only): blobs of #A5B4FC, #C4B5FD, #F9A8D4, #A78BFA, #FBCFE8, #93C5FD that drift and shift hue on a #F4E8F7 to #F7DCEE base, with grain and a halftone ramp into the dark page. Dark text sits on it.
 
-**Intro colours** come only from that palette: studio black #111111, surface #1A1A1A, paper white #F5F5F5, violet #A78BFA, lilac #C4B5FD, pink #F9A8D4, sky #93C5FD. Dark slabs take lilac or pink text; light slabs take #111111. Nothing outside these, ever.
+**Intro grounds** are that same aurora in each of our colours (aurora, night, violet, lilac, pink, sky): a base colour with four soft blobs drifting by transform, plus static grain. Colours come only from the palette: studio black #111111, surface #1A1A1A, paper white #F5F5F5, violet #A78BFA, lilac #C4B5FD, pink #F9A8D4, sky #93C5FD. Dark slabs take lilac or pink text; light slabs take #111111. Nothing outside these, ever.
 
 ## Type
 Geist does everything. One family keeps it ours.
@@ -92,13 +92,23 @@ Tones:
 It plays only on a real success or a deliberate tap. Never on load, never on a timer, never on a failure.
 
 ### Signature 2: the intro
-How py-tutor introduces itself, about 16 seconds. Inspired by Anagram's motion for Raison (all three of its pieces), rebuilt in our own colours and type (`src/ui/Intro.tsx`, scenes in `src/intro/slides.ts`).
-1. **The mark builds.** One bar grows on black, the `>` unfolds out of it like a fan (ghost rays spread and fold away), the `_` slides out, the screen flashes lilac with the mark in outline, then it goes solid, shrinks, and types `py-tutor` beside itself. Coloured selection blocks (violet, pink, sky, lilac) sweep across the letters and a caret blinks at the end.
-2. **The topic wheel.** A ring of black bars spins and zooms out around a card that flips through `{ }` Dictionaries, `open()` Files, `class` Classes.
-3. **The old way flies apart.** App windows (zyBooks, slides, chatbot, editor, Canvas...) and small coloured squares burst out in 3D behind "No more three tabs and two apps just to learn Python.", then collapse into nothing.
-4. **Statements on slabs.** Each one rides up on a full-bleed slab; its lines trail the slab, bottom line first, and the supporting sentence fades up as its letter-spacing tightens. One screen / It coaches. You code. / Check your code. Free. / Watch your code think. / Study in the car. / Built for Dec 19.
+How py-tutor introduces itself, about 23 seconds, every scene on our aurora gradients. Inspired by Anagram's motion for Raison, rebuilt in Geist and our colours (`src/ui/Intro.tsx`, scenes in `src/intro/slides.ts`).
 
-Each scene holds 1.5 to 2.9 s and moves on by itself; tap, Space, or the arrow keys skip ahead. Plays on first visit, once for existing accounts, and from Replay tour.
+Scenes:
+1. **The mark builds.** One bar grows on the night gradient, the `>` unfolds out of it like a fan (ghost rays spread and fold away), the `_` slides out, a lilac flash shows the mark in outline, then it goes solid, shrinks, and types `py-tutor` beside itself. Selection blocks (violet, pink, sky, lilac) sweep the letters; a caret blinks at the end.
+2. **The topic wheel.** A ring of rounded gradient bars spins and zooms out around a card that springs through `{ }` Dictionaries, `open()` Files, `class` Classes.
+3. **The old way drifts apart.** App windows float out to the corners behind "No more three tabs and two apps just to learn Python.", then gather to the centre and vanish.
+4. **Statements.** One screen. / the lesson, editor, tests, and tutor side by side / It coaches. You code. / chatbots hand you the answer / Check your code. Free. / Watch your code think. / Study in the car. / Built for Dec 19.
+
+The statement grammar (from Raison):
+- **Enter:** hard cuts alternate with slabs wiping up. Lines rise out of masks, top first on a cut and bottom first on a wipe.
+- **Hold:** nothing holds still. Big statements slowly grow (0.97 to 1.05) or settle (1.06 to 1); small paragraphs breathe, their leading opening up.
+- **Exit:** big statements split, alternate lines flying out left and right; a paragraph drops its lines one at a time from the top.
+- **Size:** type is sized from its longest line so it fills the width, capped by height.
+
+Smoothness rules: only `transform` and `opacity` ever animate. Grounds, holds, the wheel spin, and the window float are CSS keyframes on the compositor; entrances and exits are Motion (WAAPI). No animated blur, letter-spacing, width, or backdrop-filter. The progress bars fill by `scaleX`.
+
+Each scene holds 1.9 to 3 s and moves on by itself; tap, Space, or the arrow keys skip ahead. Plays on first visit, once for existing accounts, and from Replay tour.
 
 ### Supporting motion
 - The highlighter sweep: the active code line fills left to right (420 ms).

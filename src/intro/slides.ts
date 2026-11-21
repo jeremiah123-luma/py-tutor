@@ -1,6 +1,7 @@
-// The intro, scene by scene. Only the site's own colours: studio black, paper white, violet, lilac, pink, sky.
-// Scenes: the >_ mark builds and types the wordmark; a wheel spins the three topics; app windows fly apart
-// (the old way) and collapse into one; then short statements ride in on full-bleed slabs.
+// The intro, scene by scene. Only the site's own colours, laid as the same soft aurora gradients the heroes use.
+// The statement scenes follow the motion of Anagram's Raison piece: hard cuts alternate with slabs wiping up,
+// nothing holds still (a slow grow, a slow settle, leading that breathes), and every statement leaves on purpose
+// (lines splitting sideways, or a paragraph dropping its lines from the top).
 
 export const C = {
   black: '#111111',
@@ -10,29 +11,38 @@ export const C = {
   lilac: '#C4B5FD',
   pink: '#F9A8D4',
   sky: '#93C5FD',
+  periwinkle: '#A5B4FC',
+  blush: '#FBCFE8',
 } as const;
+
+/** Gradient grounds, all built from the aurora palette. */
+export type Ground = 'aurora' | 'night' | 'violet' | 'pink' | 'sky' | 'lilac';
 
 interface Base {
   id: string;
-  bg: string;
+  ground: Ground;
   ink: string;
-  /** how long the scene holds before moving on by itself */
+  /** how long the scene holds before moving on by itself (its exit plays in the last part of this) */
   ms: number;
 }
+export type Enter = 'cut' | 'wipe';
+export type Hold = 'grow' | 'settle' | 'breathe';
+export type Exit = 'split' | 'lines' | 'none';
+
 export type IntroScene =
   | (Base & { kind: 'mark' })
   | (Base & { kind: 'wheel'; cards: { code: string; label: string; bg: string }[] })
-  | (Base & { kind: 'chaos'; lines: string[]; windows: string[] })
-  | (Base & { kind: 'slab'; lines: string[]; sub: string });
+  | (Base & { kind: 'drift'; lines: string[]; windows: string[] })
+  | (Base & { kind: 'statement'; lines: string[]; size: 'big' | 'small'; enter: Enter; hold: Hold; exit: Exit; sub?: string });
 
 export const INTRO_SCENES: IntroScene[] = [
-  { id: 'mark', kind: 'mark', bg: C.black, ink: C.white, ms: 2800 },
+  { id: 'mark', kind: 'mark', ground: 'night', ink: C.white, ms: 2800 },
   {
     id: 'topics',
     kind: 'wheel',
-    bg: C.white,
+    ground: 'aurora',
     ink: C.black,
-    ms: 2200,
+    ms: 2300,
     cards: [
       { code: '{ }', label: 'Dictionaries', bg: C.violet },
       { code: 'open()', label: 'Files', bg: C.pink },
@@ -41,27 +51,55 @@ export const INTRO_SCENES: IntroScene[] = [
   },
   {
     id: 'tabs',
-    kind: 'chaos',
-    bg: C.white,
+    kind: 'drift',
+    ground: 'aurora',
     ink: C.black,
-    ms: 2900,
+    ms: 3000,
     lines: ['No more three tabs', 'and two apps just', 'to learn Python.'],
-    windows: ['zyBooks · Ch 11', 'lecture-11.pdf', 'Chatbot', 'Editor', 'Canvas', 'Visualizer', 'Notes', 'Group chat'],
+    windows: ['zyBooks · Ch 11', 'lecture-11.pdf', 'Chatbot', 'Editor', 'Canvas', 'Notes'],
   },
-  { id: 'one', kind: 'slab', bg: C.violet, ink: C.black, ms: 1500, lines: ['One screen.'], sub: 'Lesson, editor, tests, and tutor, side by side.' },
+  { id: 'one', kind: 'statement', ground: 'violet', ink: C.black, ms: 1900, size: 'big', enter: 'cut', hold: 'grow', exit: 'split', lines: ['One', 'screen.'] },
   {
-    id: 'coach',
-    kind: 'slab',
-    bg: C.black,
-    ink: C.lilac,
-    ms: 2000,
-    lines: ['It coaches.', 'You code.'],
-    sub: 'Chatbots hand you the answer. This points at the line to fix and lets you write it.',
+    id: 'one-sub',
+    kind: 'statement',
+    ground: 'lilac',
+    ink: '#2E1065',
+    ms: 2200,
+    size: 'small',
+    enter: 'cut',
+    hold: 'breathe',
+    exit: 'none',
+    lines: ['The lesson, the editor,', 'the tests, and the tutor,', 'side by side.'],
   },
-  { id: 'check', kind: 'slab', bg: C.pink, ink: C.black, ms: 1600, lines: ['Check your', 'code. Free.'], sub: 'Real tests in your browser, as often as you want.' },
-  { id: 'see', kind: 'slab', bg: C.sky, ink: C.black, ms: 1600, lines: ['Watch your', 'code think.'], sub: 'Step through any program and see every variable change.' },
-  { id: 'talk', kind: 'slab', bg: C.surface, ink: C.pink, ms: 1500, lines: ['Study in', 'the car.'], sub: 'Talk mode is hands-free.' },
-  { id: 'final', kind: 'slab', bg: C.lilac, ink: C.black, ms: 0, lines: ['Built for', 'Dec 19.'], sub: 'Matched to our zyBook, with a timed practice exam.' },
+  { id: 'coach', kind: 'statement', ground: 'night', ink: C.lilac, ms: 2300, size: 'big', enter: 'wipe', hold: 'settle', exit: 'none', lines: ['It coaches.', 'You code.'] },
+  {
+    id: 'chatbots',
+    kind: 'statement',
+    ground: 'sky',
+    ink: '#172554',
+    ms: 2900,
+    size: 'small',
+    enter: 'cut',
+    hold: 'breathe',
+    exit: 'lines',
+    lines: ['Chatbots hand you the answer.', 'py-tutor points at the line', 'to fix, then lets you write it.', 'Your homework stays yours.'],
+  },
+  { id: 'check', kind: 'statement', ground: 'pink', ink: C.black, ms: 1900, size: 'big', enter: 'wipe', hold: 'grow', exit: 'split', lines: ['Check your', 'code. Free.'] },
+  { id: 'see', kind: 'statement', ground: 'aurora', ink: C.black, ms: 1900, size: 'big', enter: 'cut', hold: 'settle', exit: 'none', lines: ['Watch your', 'code think.'] },
+  { id: 'talk', kind: 'statement', ground: 'night', ink: C.pink, ms: 1900, size: 'big', enter: 'wipe', hold: 'grow', exit: 'split', lines: ['Study in', 'the car.'] },
+  {
+    id: 'final',
+    kind: 'statement',
+    ground: 'lilac',
+    ink: C.black,
+    ms: 0,
+    size: 'big',
+    enter: 'cut',
+    hold: 'settle',
+    exit: 'none',
+    lines: ['Built for', 'Dec 19.'],
+    sub: 'Matched to our zyBook, with a timed practice exam.',
+  },
 ];
 
 /** Text a screen reader hears for a scene. */
@@ -71,9 +109,16 @@ export function sceneText(s: IntroScene): string {
       return 'py-tutor';
     case 'wheel':
       return `Three topics: ${s.cards.map((c) => c.label).join(', ')}.`;
-    case 'chaos':
+    case 'drift':
       return s.lines.join(' ');
-    case 'slab':
-      return `${s.lines.join(' ')} ${s.sub}`;
+    case 'statement':
+      return `${s.lines.join(' ')}${s.sub ? ` ${s.sub}` : ''}`;
   }
+}
+
+/** How long a scene's exit plays before the next scene takes over. */
+export function exitMs(s: IntroScene): number {
+  if (s.kind === 'drift') return 650;
+  if (s.kind !== 'statement') return 0;
+  return s.exit === 'split' ? 520 : s.exit === 'lines' ? 140 * s.lines.length + 200 : 0;
 }

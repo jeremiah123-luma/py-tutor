@@ -1,19 +1,48 @@
-// The intro: kinetic type and motion in the site's own colours and Geist.
-//   mark  - one bar grows, the >_ unfolds out of it like a fan, flashes to an outline, then shrinks beside the
-//           wordmark as it types itself, with selection blocks sweeping the letters and a blinking caret.
-//   wheel - a ring of bars spins around a card that flips through the three topics.
-//   chaos - app windows and confetti squares fly apart in 3D behind "no more three tabs", then collapse into one.
-//   slab  - each statement rides up on a full-bleed slab; its lines trail the slab, bottom line first.
-// Tap, Space, or the arrow keys move it along; it also advances by itself. "Get started" sends the wave through.
-import { useCallback, useEffect, useRef, useState } from 'react';
+// The intro: kinetic type and motion in Geist, on the site's own aurora gradients.
+//   mark      - one bar grows, the >_ unfolds out of it like a fan, flashes to an outline, then shrinks beside the
+//               wordmark as it types itself, with selection blocks sweeping the letters and a blinking caret.
+//   wheel     - a ring of gradient bars spins around a card that flips through the three topics.
+//   drift     - the old way: app windows drift apart behind "no more three tabs", then gather and vanish.
+//   statement - Raison's grammar: hard cuts alternate with slabs wiping up; lines rise out of masks; nothing
+//               holds still (a slow grow, a slow settle, leading that breathes); exits are designed (lines split
+//               sideways, or a paragraph drops its lines from the top).
+// Smoothness rules (from the animation-performance skill): only transform and opacity move. Continuous motion
+// (grounds, holds, drift) is CSS keyframes on the compositor; entrances and exits are Motion, which hands
+// transform/opacity to WAAPI. No animated blur, letter-spacing, width, or backdrop-filter anywhere.
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight } from 'lucide-react';
-import { C, INTRO_SCENES, sceneText, type IntroScene } from '../intro/slides';
+import { C, INTRO_SCENES, exitMs, sceneText, type Ground, type IntroScene } from '../intro/slides';
 import { distortionWave, recentTap } from './wave';
 
-const EASE = [0.16, 1, 0.3, 1] as const;
+const EASE = [0.16, 1, 0.3, 1] as const; // ease-out, entrances
+const EASE_IO = [0.77, 0, 0.175, 1] as const; // ease-in-out, things travelling on screen
 export type IntroExit = 'start' | 'signin' | 'skip';
-const tr = (reduce: boolean, duration: number, delay = 0) => (reduce ? { duration: 0 } : { duration, delay, ease: EASE });
+type Bezier = readonly [number, number, number, number];
+const tr = (reduce: boolean, duration: number, delay = 0, ease: Bezier = EASE) => (reduce ? { duration: 0 } : { duration, delay, ease: [...ease] as [number, number, number, number] });
+
+/* ---------- grounds: the aurora, in every colour of ours ---------- */
+
+const GROUNDS: Record<Ground, { base: string; blobs: string[] }> = {
+  aurora: { base: 'linear-gradient(180deg, #F4E8F7 0%, #F7DCEE 100%)', blobs: [C.periwinkle, C.pink, C.lilac, C.sky] },
+  night: { base: '#111111', blobs: ['rgb(167 139 250 / 0.42)', 'rgb(249 168 212 / 0.26)', 'rgb(147 197 253 / 0.26)', 'rgb(196 181 253 / 0.2)'] },
+  violet: { base: C.violet, blobs: [C.lilac, C.pink, C.periwinkle, C.sky] },
+  pink: { base: C.pink, blobs: [C.blush, C.lilac, C.periwinkle, C.blush] },
+  sky: { base: C.sky, blobs: [C.periwinkle, C.lilac, C.blush, C.sky] },
+  lilac: { base: C.lilac, blobs: [C.pink, C.sky, C.periwinkle, C.blush] },
+};
+
+function GroundLayer({ ground }: { ground: Ground }) {
+  const g = GROUNDS[ground];
+  return (
+    <div className="ig" style={{ background: g.base }} aria-hidden="true">
+      {g.blobs.map((c, i) => (
+        <span key={i} className={`ig-blob ig-blob-${i}`} style={{ background: `radial-gradient(closest-side, ${c}, transparent)` }} />
+      ))}
+      <span className="ig-grain" />
+    </div>
+  );
+}
 
 /* ---------- mark: >_ from a single bar, then the typed wordmark ---------- */
 
@@ -36,9 +65,7 @@ function MarkSvg({ ink, outline, phase, reduce }: { ink: string; outline: boolea
   const common = { fill, stroke, strokeWidth: 1.4, vectorEffect: 'non-scaling-stroke' as const };
   return (
     <svg viewBox="0 0 200 120" className="h-full w-full overflow-visible" aria-hidden="true">
-      {/* the bar grows first; the two arms of > lie flat inside it */}
       <motion.g style={{ originX: 0.5, originY: 0.5 }} initial={reduce ? false : { scaleX: 0, scaleY: 0.35 }} animate={{ scaleX: 1, scaleY: 1 }} transition={tr(reduce, 0.5, 0.05)}>
-        {/* ghost rays fan out between the arms and fold away: the unfold */}
         {!reduce &&
           [-26, -13, 0, 13, 26].map((d, i) => (
             <motion.rect
@@ -47,7 +74,7 @@ function MarkSvg({ ink, outline, phase, reduce }: { ink: string; outline: boolea
               y={58}
               width={84}
               height={4}
-              rx={1}
+              rx={2}
               {...common}
               style={{ originX: 1, originY: 0.5 }}
               initial={{ rotate: 0, opacity: 0 }}
@@ -55,10 +82,10 @@ function MarkSvg({ ink, outline, phase, reduce }: { ink: string; outline: boolea
               transition={{ duration: 0.7, delay: i * 0.02, ease: EASE }}
             />
           ))}
-        <motion.rect x={16} y={52} width={84} height={16} rx={2} {...common} style={{ originX: 1, originY: 0.5 }} initial={false} animate={{ rotate: open ? -32 : 0 }} transition={tr(reduce, 0.6)} />
-        <motion.rect x={16} y={52} width={84} height={16} rx={2} {...common} style={{ originX: 1, originY: 0.5 }} initial={false} animate={{ rotate: open ? 32 : 0 }} transition={tr(reduce, 0.6, 0.03)} />
+        <motion.rect x={16} y={52} width={84} height={16} rx={4} {...common} style={{ originX: 1, originY: 0.5 }} initial={false} animate={{ rotate: open ? -32 : 0 }} transition={tr(reduce, 0.6)} />
+        <motion.rect x={16} y={52} width={84} height={16} rx={4} {...common} style={{ originX: 1, originY: 0.5 }} initial={false} animate={{ rotate: open ? 32 : 0 }} transition={tr(reduce, 0.6, 0.03)} />
       </motion.g>
-      <motion.rect x={116} y={92} height={16} rx={2} {...common} initial={reduce ? false : { width: 0 }} animate={{ width: open ? 72 : 0 }} transition={tr(reduce, 0.5, 0.25)} />
+      <motion.rect x={116} y={92} width={72} height={16} rx={4} {...common} style={{ originX: 0, originY: 0.5 }} initial={reduce ? false : { scaleX: 0 }} animate={{ scaleX: open ? 1 : 0 }} transition={tr(reduce, 0.5, 0.25)} />
     </svg>
   );
 }
@@ -90,14 +117,14 @@ function MarkScene({ scene, reduce }: { scene: IntroScene; reduce: boolean }) {
   }, [phase, reduce]);
 
   const outline = phase === 2;
-  const bg = outline ? C.lilac : scene.bg;
   const ink = outline ? C.black : scene.ink;
   const word = phase >= 4;
   const s = sel >= 0 ? SELECTIONS[sel] : null;
 
   return (
-    <div className="absolute inset-0 flex items-center justify-center" style={{ background: bg, color: ink }}>
-      <div className="flex items-center gap-[0.3em] text-[clamp(3rem,11vw,7.5rem)] leading-none">
+    <div className="absolute inset-0 flex items-center justify-center" style={{ color: ink }}>
+      <GroundLayer ground={outline ? 'lilac' : scene.ground} />
+      <div className="relative flex items-center gap-[0.3em] text-[clamp(3rem,11vw,7.5rem)] leading-none">
         <motion.div layout transition={tr(reduce, 0.6)} style={{ width: word ? '1.1em' : 'min(62vmin, 420px)', aspectRatio: '200 / 120' }}>
           <MarkSvg ink={ink} outline={outline} phase={phase} reduce={reduce} />
         </motion.div>
@@ -119,7 +146,14 @@ function MarkScene({ scene, reduce }: { scene: IntroScene; reduce: boolean }) {
   );
 }
 
-/* ---------- wheel: bars spin around a card that flips through the topics ---------- */
+/* ---------- wheel: gradient bars spin around a card that flips through the topics ---------- */
+
+const BAR_FILLS = [
+  `linear-gradient(180deg, ${C.violet}, ${C.pink})`,
+  `linear-gradient(180deg, ${C.periwinkle}, ${C.violet})`,
+  `linear-gradient(180deg, ${C.pink}, ${C.lilac})`,
+  `linear-gradient(180deg, ${C.sky}, ${C.periwinkle})`,
+];
 
 function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'wheel' }>; reduce: boolean }) {
   const [k, setK] = useState(0);
@@ -132,37 +166,39 @@ function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'whe
   const card = scene.cards[k];
   const N = 18;
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ background: scene.bg, color: scene.ink }}>
-      <motion.div
-        className="absolute top-1/2 left-1/2"
-        style={{ width: 0, height: 0 }}
-        initial={reduce ? false : { rotate: 40, scale: 1.5 }}
-        animate={{ rotate: -50, scale: 0.92 }}
-        transition={reduce ? { duration: 0 } : { duration: scene.ms / 1000, ease: [0.3, 0, 0.2, 1] }}
-      >
+    <div className="absolute inset-0 overflow-hidden" style={{ color: scene.ink }}>
+      <GroundLayer ground={scene.ground} />
+      {/* CSS keyframes, so the spin stays smooth on the compositor */}
+      <div className="absolute top-1/2 left-1/2 size-0" style={{ animation: reduce ? undefined : `wheel-spin ${scene.ms}ms cubic-bezier(0.3, 0, 0.2, 1) both` }}>
         {Array.from({ length: N }, (_, i) => (
           <span
             key={i}
-            className="absolute rounded-[0.6vmin]"
+            className="absolute rounded-full shadow-[0_10px_30px_-12px_rgb(76_29_149/0.45)]"
             style={{
-              width: '7vmin',
-              height: '15vmin',
-              left: '-3.5vmin',
-              top: '-7.5vmin',
-              background: scene.ink,
+              width: '6.5vmin',
+              height: '16vmin',
+              left: '-3.25vmin',
+              top: '-8vmin',
+              background: BAR_FILLS[i % BAR_FILLS.length],
               transform: `rotate(${(i * 360) / N}deg) translateY(-40vmin) rotate(${i % 2 ? 8 : -8}deg)`,
             }}
           />
         ))}
-      </motion.div>
+      </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-[2.5vmin]">
         <motion.div
           key={card.code}
-          className="grid place-items-center rounded-[1.6vmin] font-code font-semibold"
-          style={{ background: card.bg, color: C.black, width: '20vmin', height: '20vmin', fontSize: card.code.length > 3 ? '4.6vmin' : '7vmin' }}
-          initial={reduce ? false : { scale: 0.6, rotate: k % 2 ? 10 : -10, opacity: 0 }}
+          className="grid place-items-center rounded-[2.4vmin] font-code font-semibold shadow-[0_24px_60px_-20px_rgb(76_29_149/0.55)]"
+          style={{
+            background: `radial-gradient(120% 120% at 20% 10%, #FFFFFF99, transparent 55%), ${card.bg}`,
+            color: C.black,
+            width: '20vmin',
+            height: '20vmin',
+            fontSize: card.code.length > 3 ? '4.6vmin' : '7vmin',
+          }}
+          initial={reduce ? false : { scale: 0.85, rotate: k % 2 ? 10 : -10, opacity: 0 }}
           animate={{ scale: 1, rotate: k % 2 ? -4 : 4, opacity: 1 }}
-          transition={tr(reduce, 0.45)}
+          transition={reduce ? { duration: 0 } : { type: 'spring', duration: 0.5, bounce: 0.25 }}
         >
           {card.code}
         </motion.div>
@@ -176,34 +212,31 @@ function WheelScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'whe
   );
 }
 
-/* ---------- chaos: the old way flies apart, then collapses into one ---------- */
+/* ---------- drift: the old way drifts apart, then gathers and vanishes ---------- */
 
-// Fixed layout so it looks designed, not random: [x vw, y vh, z px, rotateY, rotateX, width vmin]
-const WIN_POS: [number, number, number, number, number, number][] = [
-  [-34, -28, -120, 24, -8, 30],
-  [30, -30, 40, -20, 10, 26],
-  [-40, 18, 60, 18, 6, 28],
-  [36, 24, -80, -26, -6, 32],
-  [-8, -40, -260, 6, 18, 22],
-  [6, 40, -200, -8, -16, 24],
-  [-20, -4, -420, 30, 4, 20],
-  [22, 2, -360, -30, -4, 20],
+// Designed, not random: [x vw, y vh, scale (depth), rotate deg, width vmin]
+const WIN_POS: [number, number, number, number, number][] = [
+  [-36, -31, 0.95, -6, 30],
+  [36, -31, 0.8, 5, 28],
+  [-37, 30, 0.85, 4, 30],
+  [37, 30, 1, -4, 32],
+  [-4, -40, 0.6, 2, 24],
+  [4, 40, 0.65, -3, 24],
 ];
-const SQUARES = Array.from({ length: 18 }, (_, i) => {
-  const a = i * 2.39996; // golden angle
-  const r = 22 + ((i * 37) % 26);
-  return { x: Math.cos(a) * r * 1.3, y: Math.sin(a) * r, z: -300 + ((i * 97) % 500), s: 8 + ((i * 13) % 12), c: [C.violet, C.pink, C.sky, C.lilac, C.black][i % 5], r: (i * 47) % 90 };
-});
 
 function Window({ label, i }: { label: string; i: number }) {
-  const dark = i % 3 !== 1;
-  const accent = [C.violet, C.pink, C.sky, C.lilac][i % 4];
+  const dark = i % 2 === 0;
+  const accent = [
+    `linear-gradient(100deg, ${C.violet}, ${C.pink})`,
+    `linear-gradient(100deg, ${C.sky}, ${C.lilac})`,
+    `linear-gradient(100deg, ${C.pink}, ${C.periwinkle})`,
+  ][i % 3];
   return (
     <div
-      className="flex h-full w-full flex-col overflow-hidden rounded-[1.2vmin] border shadow-[0_20px_50px_-20px_rgb(0_0_0/0.45)]"
-      style={{ background: dark ? C.black : '#FFFFFF', borderColor: dark ? '#363636' : '#E5E5E5' }}
+      className="flex h-full w-full flex-col overflow-hidden rounded-[1.6vmin] shadow-[0_30px_60px_-24px_rgb(46_16_101/0.45)]"
+      style={{ background: dark ? 'linear-gradient(180deg, #1F1D24, #111111)' : 'linear-gradient(180deg, #FFFFFF, #F6F1FB)' }}
     >
-      <div className="flex items-center gap-[0.8vmin] px-[1.4vmin] py-[1.1vmin]" style={{ borderBottom: `1px solid ${dark ? '#262626' : '#EEEEEE'}` }}>
+      <div className="flex items-center gap-[0.8vmin] px-[1.4vmin] py-[1.1vmin]">
         {[C.pink, C.lilac, C.sky].map((c) => (
           <span key={c} className="size-[1.1vmin] rounded-full" style={{ background: c }} />
         ))}
@@ -211,120 +244,136 @@ function Window({ label, i }: { label: string; i: number }) {
           {label}
         </span>
       </div>
-      <div className="flex flex-1 flex-col gap-[1vmin] p-[1.6vmin]">
-        <span className="h-[1.2vmin] w-3/4 rounded-full" style={{ background: dark ? '#363636' : '#E5E5E5' }} />
-        <span className="h-[1.2vmin] w-1/2 rounded-full" style={{ background: dark ? '#262626' : '#EEEEEE' }} />
-        <span className="mt-auto h-[5vmin] w-full rounded-[0.8vmin]" style={{ background: accent, opacity: 0.85 }} />
+      <div className="flex flex-1 flex-col gap-[1vmin] px-[1.6vmin] pb-[1.6vmin]">
+        <span className="h-[1.2vmin] w-3/4 rounded-full" style={{ background: dark ? '#2E2B36' : '#ECE6F3' }} />
+        <span className="h-[1.2vmin] w-1/2 rounded-full" style={{ background: dark ? '#26242C' : '#F1ECF6' }} />
+        <span className="mt-auto h-[6vmin] w-full rounded-[1vmin]" style={{ background: accent }} />
       </div>
     </div>
   );
 }
 
-function ChaosScene({ scene, reduce }: { scene: Extract<IntroScene, { kind: 'chaos' }>; reduce: boolean }) {
-  const [collapse, setCollapse] = useState(false);
-  useEffect(() => {
-    if (reduce) return;
-    const id = setTimeout(() => setCollapse(true), scene.ms - 650);
-    return () => clearTimeout(id);
-  }, [reduce, scene.ms]);
+function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { kind: 'drift' }>; leaving: boolean; reduce: boolean }) {
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ background: scene.bg, color: scene.ink, perspective: '900px' }}>
-      <div className="absolute top-1/2 left-1/2" style={{ transformStyle: 'preserve-3d' }}>
+    <div className="absolute inset-0 overflow-hidden" style={{ color: scene.ink }}>
+      <GroundLayer ground={scene.ground} />
+      <div className="absolute top-1/2 left-1/2">
         {scene.windows.map((label, i) => {
-          const [x, y, z, ry, rx, w] = WIN_POS[i % WIN_POS.length];
+          const [x, y, sc, rot, w] = WIN_POS[i % WIN_POS.length];
           return (
             <motion.div
               key={label}
               className="absolute"
-              style={{ width: `${w * 1.3}vmin`, height: `${w * 0.94}vmin`, left: `${-w * 0.65}vmin`, top: `${-w * 0.47}vmin` }}
-              initial={reduce ? false : { x: 0, y: 0, z: -600, rotateY: 0, rotateX: 0, opacity: 0 }}
-              animate={
-                collapse
-                  ? { x: 0, y: 0, z: -200, rotateY: 0, rotateX: 0, opacity: 0, scale: 0.4 }
-                  : { x: `${x}vw`, y: `${y}vh`, z, rotateY: ry, rotateX: rx, opacity: 1, scale: 1 }
-              }
-              transition={collapse ? tr(reduce, 0.55, i * 0.02) : tr(reduce, 1.3, 0.04 * i)}
+              style={{ width: `${w}vmin`, height: `${w * 0.7}vmin`, left: `${-w / 2}vmin`, top: `${-w * 0.35}vmin` }}
+              initial={reduce ? false : { x: 0, y: 0, scale: 0.5, rotate: 0, opacity: 0 }}
+              animate={leaving ? { x: 0, y: 0, scale: 0.4, rotate: 0, opacity: 0 } : { x: `${x}vw`, y: `${y}vh`, scale: sc, rotate: rot, opacity: 1 }}
+              transition={leaving ? tr(reduce, 0.55, i * 0.03, EASE_IO) : tr(reduce, 1.1, 0.05 * i)}
             >
-              <Window label={label} i={i} />
+              {/* the slow float is CSS on an inner layer, so it never fights the entrance */}
+              <div className="h-full w-full" style={{ animation: reduce ? undefined : `drift-${i % 3} ${5 + i}s ease-in-out infinite alternate` }}>
+                <Window label={label} i={i} />
+              </div>
             </motion.div>
           );
         })}
-        {SQUARES.map((q, i) => (
-          <motion.span
-            key={i}
-            className="absolute"
-            style={{ width: q.s, height: q.s, left: -q.s / 2, top: -q.s / 2, background: q.c }}
-            initial={reduce ? false : { x: 0, y: 0, z: -500, rotate: 0, opacity: 0 }}
-            animate={collapse ? { x: 0, y: 0, z: -200, opacity: 0 } : { x: `${q.x}vw`, y: `${q.y}vh`, z: q.z, rotate: q.r, opacity: 1 }}
-            transition={collapse ? tr(reduce, 0.5) : tr(reduce, 1.5, 0.1 + i * 0.015)}
-          />
-        ))}
       </div>
-      {/* the statement sits on top, on a soft scrim so it reads over the windows */}
       <div className="absolute inset-0 flex items-center justify-center px-5 text-center">
-        <motion.p
-          className="intro-display rounded-[2vmin] px-[3vmin] py-[1.5vmin]"
-          style={{ background: 'rgb(245 245 245 / 0.82)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
-          animate={collapse ? { scale: 0.92, opacity: 0 } : { scale: 1, opacity: 1 }}
-          transition={tr(reduce, 0.45)}
-        >
+        {/* a soft pool of light under the words instead of a blurred scrim */}
+        <div className="pointer-events-none absolute h-[70vmin] w-[110vmin] rounded-full" style={{ background: 'radial-gradient(closest-side, #F7EEF9 30%, rgb(247 238 249 / 0))' }} />
+        <p className="intro-display relative" style={{ fontSize: fit(scene.lines, true) }}>
           {scene.lines.map((line, i) => (
-            <span key={i} className="block overflow-hidden pb-[0.06em]">
-              <motion.span className="block" initial={reduce ? false : { y: '105%' }} animate={{ y: 0 }} transition={tr(reduce, 0.8, 0.35 + i * 0.1)}>
+            <span key={i} className="block overflow-hidden pb-[0.08em]">
+              <motion.span
+                className="block"
+                initial={reduce ? false : { y: '105%' }}
+                animate={leaving ? { y: '-105%' } : { y: 0 }}
+                transition={leaving ? tr(reduce, 0.45, i * 0.05, EASE_IO) : tr(reduce, 0.8, 0.3 + i * 0.09)}
+              >
                 {line}
               </motion.span>
             </span>
           ))}
-        </motion.p>
+        </p>
       </div>
     </div>
   );
 }
 
-/* ---------- slab: a statement on full-bleed colour ---------- */
+/** Raison fills the frame: size the type from its longest line so it spans the width, capped by height. */
+function fit(lines: string[], big: boolean): string {
+  const longest = Math.max(...lines.map((l) => l.length));
+  const em = longest * (big ? 0.54 : 0.5); // Geist bold, tight tracking: about half an em per character
+  return big ? `min(${(90 / em).toFixed(2)}vw, ${lines.length > 2 ? 15 : 22}vh, 12rem)` : `clamp(1.25rem, min(${(84 / em).toFixed(2)}vw, 6vh), 3.25rem)`;
+}
 
-function SlabScene({ scene, entering, reduce }: { scene: Extract<IntroScene, { kind: 'slab' }>; entering: boolean; reduce: boolean }) {
+/* ---------- statement: Raison's grammar ---------- */
+
+function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { kind: 'statement' }>; leaving: boolean; reduce: boolean }) {
   const n = scene.lines.length;
-  const lineDelay = (i: number) => 0.08 + (n - 1 - i) * 0.06;
+  const big = scene.size === 'big';
+  // Cut-in scenes rise top line first; wiped-in scenes trail the slab, bottom line first.
+  const order = (i: number) => (scene.enter === 'wipe' ? n - 1 - i : i);
+  const enterDelay = (i: number) => (scene.enter === 'wipe' ? 0.12 : 0.04) + order(i) * 0.08;
+  const holdAnim = reduce
+    ? undefined
+    : scene.hold === 'grow'
+      ? `hold-grow ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both`
+      : scene.hold === 'settle'
+        ? `hold-settle ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both`
+        : undefined;
+  const exiting = leaving && scene.exit !== 'none';
+  const exitTo = (i: number) => (scene.exit === 'split' ? { x: i % 2 === 0 ? '-115vw' : '115vw' } : { opacity: 0 });
+  const exitT = (i: number) =>
+    scene.exit === 'split' ? tr(reduce, 0.5, i * 0.06, EASE_IO) : { duration: reduce ? 0 : 0.12, delay: reduce ? 0 : i * 0.14 };
+
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center" style={{ background: scene.bg, color: scene.ink }}>
-      <p className="intro-display max-w-[14ch]">
-        {scene.lines.map((line, i) => (
-          <motion.span
-            key={i}
-            className="block"
-            initial={entering && !reduce ? { y: '34vh', opacity: 0 } : false}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ y: tr(reduce, 0.75, lineDelay(i)), opacity: tr(reduce, 0.25, lineDelay(i)) }}
+    <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center" style={{ color: scene.ink }}>
+      <GroundLayer ground={scene.ground} />
+      <div className="relative" style={{ animation: holdAnim }}>
+        <p className={big ? 'intro-display' : 'intro-small'} style={{ fontSize: fit(scene.lines, big) }}>
+          {scene.lines.map((line, i) => (
+            <span key={i} className="block overflow-hidden pb-[0.08em]">
+              <motion.span
+                className="block"
+                style={{ ['--i' as string]: i, animation: !reduce && scene.hold === 'breathe' ? `hold-breathe ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both` : undefined } as CSSProperties}
+                initial={reduce ? false : { y: '105%' }}
+                animate={exiting ? exitTo(i) : { y: 0, x: 0, opacity: 1 }}
+                transition={exiting ? exitT(i) : tr(reduce, big ? 0.85 : 0.7, enterDelay(i))}
+              >
+                {line}
+              </motion.span>
+            </span>
+          ))}
+        </p>
+        {scene.sub && (
+          <motion.p
+            className="intro-sub mx-auto mt-[min(4vh,2rem)] max-w-[34ch]"
+            initial={reduce ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={tr(reduce, 0.6, 0.2 + n * 0.08)}
           >
-            {line}
-          </motion.span>
-        ))}
-      </p>
-      <motion.p
-        className="intro-sub mt-[min(4vh,2rem)] max-w-[36ch]"
-        initial={entering && !reduce ? { opacity: 0, y: 12, letterSpacing: '0.03em' } : false}
-        animate={{ opacity: 1, y: 0, letterSpacing: '0em' }}
-        transition={tr(reduce, 0.6, 0.08 + n * 0.06 + 0.12)}
-      >
-        {scene.sub}
-      </motion.p>
+            {scene.sub}
+          </motion.p>
+        )}
+      </div>
     </div>
   );
 }
 
-function Scene({ scene, entering, reduce }: { scene: IntroScene; entering: boolean; reduce: boolean }) {
+function Scene({ scene, leaving, reduce }: { scene: IntroScene; leaving: boolean; reduce: boolean }) {
   switch (scene.kind) {
     case 'mark':
       return <MarkScene scene={scene} reduce={reduce} />;
     case 'wheel':
       return <WheelScene scene={scene} reduce={reduce} />;
-    case 'chaos':
-      return <ChaosScene scene={scene} reduce={reduce} />;
-    case 'slab':
-      return <SlabScene scene={scene} entering={entering} reduce={reduce} />;
+    case 'drift':
+      return <DriftScene scene={scene} leaving={leaving} reduce={reduce} />;
+    case 'statement':
+      return <StatementScene scene={scene} leaving={leaving} reduce={reduce} />;
   }
 }
+
+const wipes = (s: IntroScene) => s.kind === 'wheel' || (s.kind === 'statement' && s.enter === 'wipe');
 
 /* ---------- the player ---------- */
 
@@ -332,6 +381,7 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
   const reduce = useReducedMotion() ?? false;
   const [cur, setCur] = useState(0);
   const [prev, setPrev] = useState<number | null>(null);
+  const [sceneLeaving, setSceneLeaving] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [fading, setFading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -342,7 +392,8 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
   const go = useCallback(
     (to: number) => {
       if (to < 0 || to >= INTRO_SCENES.length || leaving) return;
-      setPrev(cur);
+      setSceneLeaving(false);
+      setPrev(wipes(INTRO_SCENES[to]) ? cur : null); // a wipe slides over the last scene; a cut replaces it
       setCur(to);
     },
     [cur, leaving],
@@ -354,24 +405,28 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
     async (how: IntroExit) => {
       if (leaving) return;
       setLeaving(true);
-      // The wave rolls through the last scene first; the intro lifts away as it reaches the edges.
       if (how === 'start') await distortionWave(rootRef.current, { origin: recentTap(1000), tone: 'iridescent', tilt: false, duration: 1100, blend: 'normal' });
       setFading(true);
-      setTimeout(() => onDone(how), reduce ? 0 : 420);
+      setTimeout(() => onDone(how), reduce ? 0 : 380);
     },
     [leaving, onDone, reduce],
   );
 
+  // Hold, play the exit, then move on.
   useEffect(() => {
     if (last || leaving) return;
-    const id = setTimeout(next, scene.ms);
-    return () => clearTimeout(id);
-  }, [cur, last, leaving, next, scene.ms]);
+    const ex = reduce ? 0 : exitMs(scene);
+    const a = ex ? setTimeout(() => setSceneLeaving(true), scene.ms - ex) : undefined;
+    const b = setTimeout(next, scene.ms);
+    return () => {
+      clearTimeout(a);
+      clearTimeout(b);
+    };
+  }, [cur, last, leaving, next, scene, reduce]);
 
-  // Drop the scene underneath once the new slab has covered it.
   useEffect(() => {
     if (prev === null) return;
-    const id = setTimeout(() => setPrev(null), reduce ? 0 : 650);
+    const id = setTimeout(() => setPrev(null), reduce ? 0 : 700);
     return () => clearTimeout(id);
   }, [prev, cur, reduce]);
 
@@ -408,9 +463,9 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
       aria-label="What py-tutor is"
       data-intro=""
       className="fixed inset-0 z-[110] cursor-pointer select-none overflow-hidden"
-      style={{ background: scene.bg }}
-      animate={fading ? { opacity: 0, scale: 1.04, filter: 'blur(6px)' } : { opacity: 1, scale: 1, filter: 'blur(0px)' }}
-      transition={{ duration: reduce ? 0 : 0.42, ease: EASE }}
+      style={{ background: GROUNDS[scene.ground].base }}
+      animate={fading ? { opacity: 0, scale: 1.03 } : { opacity: 1, scale: 1 }}
+      transition={{ duration: reduce ? 0 : 0.38, ease: EASE }}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) return;
         if (!last) next();
@@ -424,10 +479,10 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
             className="absolute inset-0"
             initial={entering && !reduce ? { y: '100%' } : false}
             animate={{ y: 0 }}
-            transition={tr(reduce, 0.6)}
+            transition={tr(reduce, 0.7, 0, [0.32, 0.72, 0, 1] as const)}
             aria-hidden="true"
           >
-            <Scene scene={INTRO_SCENES[i]} entering={entering} reduce={reduce} />
+            <Scene scene={INTRO_SCENES[i]} leaving={i === cur && sceneLeaving} reduce={reduce} />
           </motion.div>
         );
       })}
@@ -436,9 +491,9 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
         {sceneText(scene)}
       </p>
 
-      {/* Progress and skip, in the scene's own ink. */}
+      {/* Progress and skip, in the scene's own ink. Progress fills by scaleX, never width. */}
       <div
-        className="absolute inset-x-0 top-0 z-10 flex items-center gap-4 px-[max(1.25rem,env(safe-area-inset-left))] pt-[max(1rem,env(safe-area-inset-top))] transition-colors duration-500"
+        className="absolute inset-x-0 top-0 z-10 flex items-center gap-4 px-[max(1.25rem,env(safe-area-inset-left))] pt-[max(1rem,env(safe-area-inset-top))]"
         style={{ color: scene.ink }}
       >
         <div className="flex flex-1 gap-1.5" aria-hidden="true">
@@ -446,10 +501,10 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
             <span key={s.id} className="h-[2px] flex-1 overflow-hidden rounded-full" style={{ background: 'color-mix(in oklab, currentColor 28%, transparent)' }}>
               <span
                 key={i === cur ? `run-${cur}` : 'still'}
-                className="block h-full rounded-full"
+                className="block h-full w-full origin-left rounded-full"
                 style={{
                   background: 'currentColor',
-                  width: i < cur || (i === cur && last) ? '100%' : i === cur ? undefined : '0%',
+                  transform: i < cur || (i === cur && last) ? 'scaleX(1)' : i === cur ? undefined : 'scaleX(0)',
                   animation: i === cur && !last && !reduce ? `intro-fill ${s.ms}ms linear forwards` : undefined,
                 }}
               />
@@ -480,7 +535,7 @@ export function Intro({ onDone }: { onDone: (how: IntroExit) => void }) {
             type="button"
             onClick={() => void finish('start')}
             className="press inline-flex h-12 min-w-[12rem] items-center justify-center gap-2 rounded-full px-6 text-base font-semibold focus-visible:outline-current"
-            style={{ background: scene.ink, color: scene.bg }}
+            style={{ background: scene.ink, color: C.lilac }}
           >
             Get started
             <ArrowRight className="size-4" strokeWidth={2} aria-hidden="true" />
