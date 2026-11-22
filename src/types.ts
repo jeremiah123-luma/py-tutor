@@ -12,7 +12,9 @@ export type LoopStep =
   | 'feedback'
   | 'doit'
   | 'check'
-  | 'mastered';
+  | 'mastered'
+  /** Quick check: a few exam-style questions after Try it. Practice only, never part of mastery. */
+  | 'quiz';
 
 /** One line-by-line note for the walkthrough. `line` is 1-based. */
 export interface WalkNote {
@@ -136,8 +138,16 @@ export interface SubskillProgress {
   mastered: boolean;
 }
 
+/** Best Quick check score on one lesson: right answers (first try) out of how many questions. */
+export interface QuizScore {
+  best: number;
+  of: number;
+}
+
 export interface Progress {
   concepts: Record<ConceptId, Record<string, SubskillProgress>>;
+  /** Best Quick check per lesson. A perfect score is kept even if a later try does worse. */
+  quiz?: Partial<Record<ConceptId, Record<string, QuizScore>>>;
   last?: { concept: ConceptId; subskill: string; step: LoopStep };
   updatedAt: number;
 }

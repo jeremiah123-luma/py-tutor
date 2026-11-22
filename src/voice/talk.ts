@@ -55,11 +55,13 @@ export class TalkController {
   private bind(session: Session) {
     session.events = {
       onTutorText: (d) => {
+        if (this.paused) return;
         this.speaker.feed(d);
         this.caption += d;
         this.emit();
       },
       onTutorLine: (text, scripted) => {
+        if (this.paused) return;
         if (scripted) {
           this.caption = text;
           this.speaker.say(text);
@@ -97,6 +99,7 @@ export class TalkController {
     this.session.events = {};
     void this.listener.pause();
     this.session = session;
+    this.paused = false;
     this.bind(session);
     this.caption = '';
     this.heard = '';
@@ -118,10 +121,43 @@ export class TalkController {
     else this.speaker.say(this.session.state.turns.at(-1)!.text);
   }
 
+  /** The app went to the background (another app, the lock button, the app switcher). */
+  private paused = false;
+  /**
+   * Stop talking and listening right away and stay quiet until a tap. Without this, the explanation steps kept
+   * moving on by themselves and the mic kept answering whatever it heard while the app wasn't even on screen.
+   */
+  pause() {
+    if (this.stopped || this.paused) return;
+    this.paused = true;
+    if (this.advanceTimer) clearTimeout(this.advanceTimer);
+    this.advanceTimer = null;
+    this.speaker.stop();
+    this.session.interrupt();
+    void this.listener.pause();
+    this.update({ ring: 'idle', error: '', caption: 'Paused. Tap to keep going.' });
+  }
+  get isPaused() {
+    return this.paused;
+  }
+
   /** Whole screen is this button. */
   async tap() {
     // a double tap to start shouldn't cut off the first line it just started
     if (performance.now() - this.begunAt < 700) return;
+    if (this.paused) {
+      // pick up where it stopped: say the last line again, then the usual flow carries on
+      this.paused = false;
+      this.begunAt = performance.now();
+      await this.speaker.unlock();
+      if (this.stopped || this.paused) return;
+      const last = [...this.session.state.turns].reverse().find((t) => t.role === 'tutor');
+      this.caption = last?.text ?? '';
+      if (last) this.speaker.say(last.text);
+      else await this.listenNext();
+      this.emit();
+      return;
+    }
     if (this.ring === 'speaking' || this.ring === 'thinking') {
       this.speaker.stop();
       this.session.interrupt();
@@ -138,13 +174,13 @@ export class TalkController {
   }
 
   private async afterSpeech() {
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
     await this.listenNext();
   }
 
   /** Open the mic for his turn; on the explanation steps the lesson moves on by itself if he says nothing. */
   private async listenNext() {
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
     const step = this.session.state.step;
     // Scripted explanation steps flow on by themselves; he can say "repeat" or ask anything.
     if ((step === 'define' || step === 'example' || step === 'walkthrough') && this.session.state.busy === 'idle') {
@@ -164,7 +200,7 @@ export class TalkController {
   }
 
   private async openMic(autoAdvanceMs?: number) {
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
     if (!(await this.micReady)) {
       this.update({ ring: 'idle' });
       return;
@@ -183,7 +219,7 @@ export class TalkController {
     if (this.advanceTimer) clearTimeout(this.advanceTimer);
     if (autoAdvanceMs) {
       this.advanceTimer = setTimeout(() => {
-        if (this.ring === 'listening' && this.session.state.busy === 'idle') {
+        if (!this.paused && this.ring === 'listening' && this.session.state.busy === 'idle') {
           void this.listener.pause();
           this.session.next();
         }
@@ -201,6 +237,7 @@ export class TalkController {
   };
 
   private async onUtterance(text: string) {
+    if (this.paused || this.stopped) return; // heard just as the app went to the background
     if (this.advanceTimer) clearTimeout(this.advanceTimer);
     await this.listener.pause();
     this.update({ heard: text, ring: 'thinking' });

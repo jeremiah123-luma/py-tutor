@@ -1,8 +1,10 @@
 // Mastery model + persistence (IndexedDB first, mirrored to the Worker).
 import { get, set } from 'idb-keyval';
-import type { ConceptId, LoopStep, Progress, SubskillProgress } from '../types';
+import type { ConceptId, LoopStep, Progress, QuizScore, SubskillProgress } from '../types';
 import { pullProgress, pushProgress } from './api';
 import { cleanProgress, mergeProgress, sameProgress } from './mergeProgress';
+import { betterQuiz } from './quizScore';
+export { betterQuiz, isPerfect } from './quizScore';
 
 const KEY = 'progress-v1';
 let who = '';
@@ -41,6 +43,17 @@ export function record(
     mastered: cur.mastered || (streak >= 2 && typedPass),
   };
   return { ...p, concepts: { ...p.concepts, [c]: { ...p.concepts[c], [s]: next } }, updatedAt: Date.now() };
+}
+
+export function quizScore(p: Progress, c: ConceptId, s: string): QuizScore | undefined {
+  const q = p.quiz?.[c];
+  return q && Object.hasOwn(q, s) ? q[s] : undefined;
+}
+
+/** Save one finished Quick check, keeping the best. */
+export function recordQuiz(p: Progress, c: ConceptId, s: string, right: number, of: number): Progress {
+  const best = betterQuiz(quizScore(p, c, s), { best: right, of });
+  return { ...p, quiz: { ...p.quiz, [c]: { ...p.quiz?.[c], [s]: best! } }, updatedAt: Date.now() };
 }
 
 export function withLast(p: Progress, concept: ConceptId, subskill: string, step: LoopStep): Progress {

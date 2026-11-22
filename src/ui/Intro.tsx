@@ -633,6 +633,16 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
     if (sceneLeaving && scene.kind === 'statement' && scene.exit === 'split') sound.swish();
   }, [sceneLeaving, scene, sound]);
   // Tap-to-pause holds the music too.
+  // Leaving the app pauses the intro (and its sound) until he comes back and taps.
+  useEffect(() => {
+    const hide = () => document.visibilityState === 'hidden' && setPaused(true);
+    document.addEventListener('visibilitychange', hide);
+    window.addEventListener('pagehide', hide);
+    return () => {
+      document.removeEventListener('visibilitychange', hide);
+      window.removeEventListener('pagehide', hide);
+    };
+  }, []);
   useEffect(() => {
     if (paused) sound.pause();
     else sound.resume();

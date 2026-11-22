@@ -16,6 +16,8 @@ export interface LessonStageProps {
   /** The pass that brought him here was clean (first check, no hints). */
   lastClean?: boolean;
   passReason?: 'notClean' | 'notTyped' | 'skippedTalk' | 'notTalked' | 'talkHinted' | 'streakReset';
+  /** Open this lesson's Quick check (only when it has questions). */
+  onQuiz?: () => void;
 }
 
 const PASS_REASON = {
@@ -35,7 +37,7 @@ function Meta({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-ink-2">{children}</p>;
 }
 
-export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed = 0, skippedTalk, lastClean, passReason }: LessonStageProps) {
+export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed = 0, skippedTalk, lastClean, passReason, onQuiz }: LessonStageProps) {
   const hintList = step === 'talkthrough' ? lesson.talkthrough.hints : lesson.doit.hints;
   const hintLabel = hintsUsed < hintList.length ? `Hint ${hintsUsed + 1} of ${hintList.length}` : 'Ask the tutor for help';
   const total = lesson.walkthrough.length;
@@ -45,6 +47,22 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
   let actions: React.ReactNode = (
     <Button variant="primary" onClick={() => onStep('next')} iconEnd={<ArrowRight className="size-4" strokeWidth={2} />}>
       Continue
+    </Button>
+  );
+
+  // After a pass: the Quick check is next, with a way straight on to the next skill.
+  const afterPass = onQuiz ? (
+    <>
+      <Button data-tour="lesson-quiz" variant="primary" onClick={onQuiz} iconEnd={<ArrowRight className="size-4" strokeWidth={2} />}>
+        Quick check
+      </Button>
+      <Button variant="ghost" size="sm" onClick={() => onStep('next')}>
+        Skip to next skill
+      </Button>
+    </>
+  ) : (
+    <Button variant="primary" onClick={() => onStep('next')} iconEnd={<ArrowRight className="size-4" strokeWidth={2} />}>
+      Next skill
     </Button>
   );
 
@@ -140,11 +158,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
           <Voice>{PASS_REASON[passReason ?? (lastClean ? 'notTalked' : 'notClean')]}</Voice>
         </>
       );
-      actions = (
-        <Button variant="primary" onClick={() => onStep('next')} iconEnd={<ArrowRight className="size-4" strokeWidth={2} />}>
-          Next skill
-        </Button>
-      );
+      actions = afterPass;
       break;
     case 'doit':
       body = (
@@ -167,11 +181,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
           <Meta>It’s in your mastered list. The practice exam will keep checking it.</Meta>
         </>
       );
-      actions = (
-        <Button variant="primary" onClick={() => onStep('next')} iconEnd={<ArrowRight className="size-4" strokeWidth={2} />}>
-          Next skill
-        </Button>
-      );
+      actions = afterPass;
       break;
   }
 

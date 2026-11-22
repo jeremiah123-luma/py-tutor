@@ -31,6 +31,8 @@ async function fakeMic(page: import('@playwright/test').Page) {
 
 test('talk mode: tutor speaks, hears a spoken question, answers', async ({ page }, info) => {
   test.skip(info.project.name !== 'laptop', 'one run is enough');
+  // real speech-to-text and text-to-speech cost money: only when asked for (E2E_LIVE_VOICE=1)
+  test.skip(!process.env.E2E_LIVE_VOICE, 'uses paid speech services; set E2E_LIVE_VOICE=1 to run');
   // After each explanation the tutor waits ~2.6 s for a question before moving on, and the recorded question
   // loops with silence around it, so it may land on a later listening window: allow for that.
   test.setTimeout(180_000);

@@ -195,7 +195,7 @@ export class Session {
   }
 
   /** Jump straight to any step (the step tabs). Nothing is graded or recorded by jumping. */
-  goTo(step: 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit') {
+  goTo(step: 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit' | 'quiz') {
     if (this.state.step === step && step !== 'walkthrough') return;
     this.interrupt();
     // Leaving Try it: his run output and test results belong to his code, not to the example.
@@ -225,6 +225,10 @@ export class Session {
             ? `Now let's build it. ${this.lesson.doit.prompt} Say the code you'd write, line by line.`
             : `Now you write it. ${this.lesson.doit.prompt} Press Check when you're ready.`,
         );
+        break;
+      case 'quiz':
+        // Practice only: answered and scored on screen, nothing here touches mastery or calls the tutor.
+        this.set({ step, walkLine: 0 });
         break;
     }
     this.saveLast();

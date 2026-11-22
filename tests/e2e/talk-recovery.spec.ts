@@ -105,3 +105,60 @@ test('talk mode: "next" after a spoken pass goes to the next skill on the same m
   expect(kinds.filter((k) => k === 'ask').length).toBe(0); // "next" never went to the AI
   expect(await page.evaluate(() => (window as any).__gum)).toBe(1); // same mic, no new permission prompt
 });
+
+test('talk mode: goes quiet when the app is hidden, and stays quiet until a tap', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'one run is enough');
+  test.setTimeout(120_000);
+  const wav = readFileSync(path.resolve('tests/e2e/fixtures-question.wav'));
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      const ctx = new AudioContext({ sampleRate: 48000 });
+      await ctx.resume();
+      return ctx.createMediaStreamDestination().stream; // a mic that hears nothing
+    };
+  });
+  let tts = 0;
+  let other = 0;
+  await page.route('**/api/tts', (r) => {
+    tts++;
+    return r.fulfill({ status: 200, contentType: 'audio/wav', body: wav.subarray(0, 44 + 4000) });
+  });
+  await page.route('**/api/stt', (r) => {
+    other++;
+    return r.fulfill({ json: { text: '' } });
+  });
+  await page.route('**/api/tutor', (r) => {
+    other++;
+    return r.fulfill({ body: `Ok.\n${SEP}{"verdict":"none","nailed":[],"fix":[],"highlightLines":[],"next":"stay"}` });
+  });
+  await page.route('**/api/progress', (r) => (r.request().method() === 'GET' ? r.fulfill({ json: null }) : r.fulfill({ json: { ok: true } })));
+  await skipTour(page);
+  await signInApi(page);
+  await page.goto('/');
+  await page.getByRole('radio', { name: /Talk/ }).first().click();
+  await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
+  await page.waitForTimeout(700);
+  await page.getByRole('button', { name: /Tap anywhere to start/ }).click();
+  // it explains on its own: a couple of lines go by with nobody touching it
+  await expect.poll(() => tts, { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+
+  // the app goes to the background
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(page.getByText('Paused. Tap to keep going.')).toBeVisible();
+  const before = { tts, other };
+  await page.waitForTimeout(8000); // longer than the 2.6 s it waits before moving on by itself
+  expect({ tts, other }).toEqual(before);
+
+  // back in the app: still quiet until a tap, then it picks up again
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForTimeout(3000);
+  expect(tts).toBe(before.tts);
+  await page.mouse.click(200, 400);
+  await expect.poll(() => tts, { timeout: 15_000 }).toBeGreaterThan(before.tts);
+});

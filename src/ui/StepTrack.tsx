@@ -9,21 +9,39 @@ export const PHASES = [
   { id: 'example', label: 'Example', steps: ['example'] },
   { id: 'walk', label: 'Line by line', steps: ['walkthrough'] },
   { id: 'talk', label: 'Talk it through', steps: ['talkthrough', 'feedback'] },
-  { id: 'try', label: 'Try it', steps: ['doit', 'check'] },
+  { id: 'try', label: 'Try it', steps: ['doit', 'check', 'mastered'] },
+  { id: 'quiz', label: 'Quick check', steps: ['quiz'] },
 ] as const;
 
-export function phaseIndex(step: LoopStep): number {
-  if (step === 'mastered') return PHASES.length;
-  return PHASES.findIndex((p) => (p.steps as readonly string[]).includes(step));
+/** The step row for a lesson: Quick check only when the lesson has questions. */
+export function phasesFor(hasQuiz: boolean) {
+  return hasQuiz ? PHASES : PHASES.filter((p) => p.id !== 'quiz');
 }
 
-export type JumpTarget = 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit';
-const TARGET: Record<string, JumpTarget> = { learn: 'define', example: 'example', walk: 'walkthrough', talk: 'talkthrough', try: 'doit' };
+export function phaseIndex(step: LoopStep, phases: readonly (typeof PHASES)[number][] = PHASES): number {
+  return phases.findIndex((p) => (p.steps as readonly string[]).includes(step));
+}
 
-export function StepTrack({ step, compact, onJump, seen }: { step: LoopStep; compact?: boolean; onJump?: (t: JumpTarget) => void; seen?: LoopStep[] }) {
-  const current = phaseIndex(step);
+export type JumpTarget = 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit' | 'quiz';
+const TARGET: Record<string, JumpTarget> = { learn: 'define', example: 'example', walk: 'walkthrough', talk: 'talkthrough', try: 'doit', quiz: 'quiz' };
+
+export function StepTrack({
+  step,
+  compact,
+  onJump,
+  seen,
+  hasQuiz = true,
+}: {
+  step: LoopStep;
+  compact?: boolean;
+  onJump?: (t: JumpTarget) => void;
+  seen?: LoopStep[];
+  hasQuiz?: boolean;
+}) {
+  const PHASES = phasesFor(hasQuiz);
+  const current = phaseIndex(step, PHASES);
   const listRef = useRef<HTMLOListElement>(null);
-  // On a phone the five steps don't fit; slide the row so the current one is always in view.
+  // On a phone the steps don't fit; slide the row so the current one is always in view.
   useEffect(() => {
     const list = listRef.current;
     const el = list?.querySelector<HTMLElement>('[aria-current="step"]');
@@ -33,12 +51,12 @@ export function StepTrack({ step, compact, onJump, seen }: { step: LoopStep; com
     const target = list.scrollLeft + (er.left - lr.left) - (lr.width - er.width) / 2;
     list.scrollTo({ left: Math.max(0, target), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }, [current]);
-  const pct = Math.min(100, ((current + (step === 'mastered' ? 0 : 0.5)) / PHASES.length) * 100);
+  const pct = Math.min(100, ((current + (step === 'mastered' ? 1 : 0.5)) / PHASES.length) * 100);
   return (
     <nav aria-label="Lesson progress" className="w-full">
       {compact ? (
         <p className="text-sm text-ink-2">
-          <span className="font-medium text-ink">{current < PHASES.length ? PHASES[current].label : 'Mastered'}</span>
+          <span className="font-medium text-ink">{step === 'mastered' ? 'Mastered' : PHASES[current].label}</span>
           <span className="tnum text-ink-3">
             {' '}
             · step {Math.min(current + 1, PHASES.length)} of {PHASES.length}

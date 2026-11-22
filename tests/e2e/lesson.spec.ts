@@ -50,6 +50,11 @@ async function unlock(page: Page) {
 
 /** Nothing on screen may stick out past the right edge (ignores things inside horizontal scrollers and decorative layers). */
 async function expectFitsScreen(page: Page, where: string) {
+  // measure the settled screen: while a page transition runs, the new screen sits in a big round window on purpose
+  await page.waitForFunction(() => {
+    const s = document.querySelectorAll('[data-screen]');
+    return s.length === 1 && !s[0].getAttribute('style')?.includes('border-radius');
+  });
   const offenders = await page.evaluate(() => {
     // A phone browser zooms out to fit a too-wide page, which would hide the problem; measure against the real screen.
     const W = Math.min(document.documentElement.clientWidth, window.screen.width);

@@ -68,8 +68,8 @@ export const TOUR_STEPS: TourStep[] = [
     screen: 'lesson',
     target: 'lesson-steps',
     placement: 'bottom',
-    title: 'Five steps per lesson',
-    body: 'These tabs show where you are: Learn, Example, Line by line, Talk it through, and Try it. Tap a step to go back to it.',
+    title: 'Six steps per lesson',
+    body: 'These tabs show where you are: Learn, Example, Line by line, Talk it through, Try it, and Quick check (a few exam-style questions). Tap a step to go to it.',
   },
   {
     id: 'lesson-stage',

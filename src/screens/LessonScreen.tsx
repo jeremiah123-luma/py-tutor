@@ -5,7 +5,8 @@ import { distortionWave, recentTap } from '../ui/wave';
 import { sfx } from '../ui/sfx';
 import type { TraceStep } from '../types';
 import { StepPlayer } from '../ui/StepPlayer';
-import type { Concept, Mode, SessionState } from '../types';
+import type { Concept, DrillQuestion, Mode, SessionState } from '../types';
+import { QuizRunner } from '../ui/QuizRunner';
 import { CodeEditor } from '../ui/CodeEditor';
 import { Console } from '../ui/Console';
 import { Conversation } from '../ui/Conversation';
@@ -38,6 +39,12 @@ export interface LessonScreenProps {
   onTrace?: () => Promise<TraceStep[] | null>;
   /** Open the code on screen in the visualizer (frames and objects). */
   onVisualize?: (code: string, files?: Record<string, string>) => void;
+  /** This lesson's Quick check questions (none: no Quick check step). */
+  quiz?: DrillQuestion[];
+  /** A Quick check's first-pass score, to save. */
+  onQuizScore?: (right: number, of: number) => void;
+  /** Where the Quick check's last button goes, and what it says. */
+  quizDoneLabel?: string;
 }
 
 export function LessonScreen(p: LessonScreenProps) {
@@ -124,11 +131,19 @@ export function LessonScreen(p: LessonScreenProps) {
           }
         />
         <div data-tour="lesson-steps" className="border-b border-line px-2 md:px-3">
-          <StepTrack step={session.step} onJump={p.onJump} seen={session.seen} />
+          <StepTrack step={session.step} onJump={p.onJump} seen={session.seen} hasQuiz={!!p.quiz?.length} />
         </div>
       </header>
 
-      {defining ? (
+      {session.step === 'quiz' && p.quiz?.length ? (
+        <main className="flex-1 md:min-h-0 md:overflow-y-auto">
+          <div className="mx-auto w-full max-w-2xl px-5 pt-8 pb-16 md:px-8 md:pt-12">
+          <p className="text-sm text-ink-3">Practice, not graded. Five questions like the ones on the final.</p>
+          <h1 className="mt-1 mb-8 font-voice text-2xl font-medium tracking-[-0.02em]">Quick check: {lesson.title.charAt(0).toLowerCase() + lesson.title.slice(1)}</h1>
+          <QuizRunner key={session.lessonIndex} questions={p.quiz} onFinish={p.onQuizScore} doneLabel={p.quizDoneLabel ?? 'Next skill'} onDone={() => p.onStep('next')} />
+          </div>
+        </main>
+      ) : defining ? (
         <>
           <SlideDeck
             eyebrow={`${concept.title.replace(' and objects', '')} · Lesson ${session.lessonIndex + 1} of ${concept.lessons.length}`}
@@ -168,6 +183,7 @@ export function LessonScreen(p: LessonScreenProps) {
             skippedTalk={session.skippedTalk}
             lastClean={session.lastClean}
             passReason={session.passReason}
+            onQuiz={p.quiz?.length && p.onJump ? () => p.onJump!('quiz') : undefined}
           />
         </div>
 

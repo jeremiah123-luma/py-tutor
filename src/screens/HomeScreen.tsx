@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, FileText, Home, Layers, Play, Sparkles, Timer, Eye } from 'lucide-react';
+import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, Check, FileText, Home, Layers, ListChecks, Play, Sparkles, Timer, Eye } from 'lucide-react';
+import { isPerfect } from '../loop/quizScore';
 import type { Concept, ConceptId, Mode, Progress } from '../types';
 import { ModeToggle } from '../ui/primitives';
 import { FinalPill, TopBar, daysToFinal } from '../ui/TopBar';
@@ -22,6 +23,8 @@ export interface HomeScreenProps {
   onContinue: () => void;
   onStart: (id: ConceptId) => void;
   onDrill?: () => void;
+  /** Every Quick check question in one topic, shuffled. */
+  onPractice?: (id: ConceptId) => void;
   /** Open the visualizer (step through any program, frames and objects drawn). */
   onVisualize?: () => void;
   /** Ask the tutor something from the home prompt; opens the current lesson with the question. */
@@ -36,15 +39,20 @@ const TINT: Record<string, string> = { dictionaries: 'text-tag-violet', files: '
 const short = (c: Concept) => c.title.replace(' and objects', '');
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-function MasteryChart({ names, state, delay }: { names: string[]; state: Progress['concepts'][ConceptId]; delay: number }) {
+function MasteryChart({ names, state, quiz, delay }: { names: string[]; state: Progress['concepts'][ConceptId]; quiz: NonNullable<Progress['quiz']>[ConceptId]; delay: number }) {
   const reduce = useReducedMotion();
   return (
-    <div className="flex h-16 items-end gap-1" aria-hidden="true">
+    <div className="flex h-[4.75rem] items-end gap-1" aria-hidden="true">
       {names.map((n, i) => {
         const s = state[n];
         const h = s?.mastered ? 1 : s && s.attempts > 0 ? 0.45 : 0;
+        const perfect = isPerfect(quiz?.[n]);
         return (
           <div key={n} className="flex h-full flex-1 flex-col justify-end">
+            {/* a perfect Quick check: a small check under that lesson's bar */}
+            <span className="order-last flex h-3 items-end justify-center">
+              {perfect && <Check className="size-3 text-ok" strokeWidth={3} />}
+            </span>
             {h === 0 ? (
               <motion.span
                 className="h-[3px] w-full origin-left rounded-full bg-line-strong"
@@ -88,6 +96,7 @@ function useGreeting(name: string, returning: boolean) {
 export function HomeScreen(p: HomeScreenProps) {
   const [ask, setAsk] = useState('');
   const reduce = useReducedMotion();
+  const perfectQuizzes = (id: ConceptId) => (p.subskills[id] ?? []).filter((s) => isPerfect(p.progress.quiz?.[id]?.[s])).length;
   const mastered = (id: ConceptId) => Object.values(p.progress.concepts[id] ?? {}).filter((s) => s.mastered).length;
   const started = Object.values(p.progress.concepts).some((c) => Object.keys(c).length > 0);
   const nextUp = (c: Concept) => c.lessons.find((l) => !p.progress.concepts[c.id]?.[l.subskill]?.mastered) ?? c.lessons[0];
@@ -260,10 +269,10 @@ export function HomeScreen(p: HomeScreenProps) {
             const Icon = ICONS[c.id] ?? BookOpen;
             const names = p.subskills[c.id] ?? [];
             return (
-              <motion.li key={c.id} {...rise(i + 1)} data-tour={i === 0 ? 'home-lessons' : undefined}>
+              <motion.li key={c.id} {...rise(i + 1)} data-tour={i === 0 ? 'home-lessons' : undefined} className="lift flex flex-col overflow-hidden rounded-2xl border border-line bg-surface hover:border-line-strong">
                 <button
                   onClick={() => p.onStart(c.id)}
-                  className="lift press ht-host group flex h-full w-full flex-col gap-4 rounded-2xl border border-line bg-surface p-5 text-left hover:border-line-strong"
+                  className="press ht-host group relative flex w-full flex-1 flex-col gap-4 p-5 text-left"
                 >
               <span className="halftone halftone-corner" aria-hidden="true" />
                   <span className="flex w-full items-center gap-3">
@@ -275,12 +284,25 @@ export function HomeScreen(p: HomeScreenProps) {
                       {mastered(c.id)}/{names.length}
                     </span>
                   </span>
-                  <MasteryChart names={names} state={p.progress.concepts[c.id] ?? {}} delay={0.5 + i * 0.1} />
+                  <MasteryChart names={names} state={p.progress.concepts[c.id] ?? {}} quiz={p.progress.quiz?.[c.id]} delay={0.5 + i * 0.1} />
                   <span className="flex w-full items-center gap-2 text-[0.9375rem] text-ink-2">
                     <span className="truncate">Next: {lower(nextUp(c).title)}</span>
                     <ArrowRight className="ml-auto size-4 shrink-0 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100" strokeWidth={2} aria-hidden="true" />
                   </span>
                 </button>
+                {p.onPractice && (
+                  <button
+                    onClick={() => p.onPractice!(c.id)}
+                    data-tour={i === 0 ? 'home-practice' : undefined}
+                    className="press group flex h-12 w-full items-center gap-2 border-t border-line px-5 text-left text-[0.9375rem] text-ink-2 hover:bg-surface-2 hover:text-ink"
+                  >
+                    <ListChecks className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                    <span className="font-medium">Practice questions</span>
+                    <span className="tnum ml-auto text-sm text-ink-3">
+                      {perfectQuizzes(c.id)}/{names.length} perfect
+                    </span>
+                  </button>
+                )}
               </motion.li>
             );
           })}

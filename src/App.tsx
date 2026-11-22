@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Toaster, toast } from 'sonner';
 import { AnimatePresence } from 'motion/react';
-import type { Concept, ConceptId, Mode, Progress } from './types';
+import type { Concept, ConceptId, DrillQuestion, Mode, Progress } from './types';
 import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
@@ -11,7 +11,9 @@ import { addPasskey, askTutor, removePasskeys, me, onCap, signOut, type Account,
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
 import { draftStore } from './loop/drafts';
-import { emptyProgress, loadProgress, reviewQueue, saveProgress, setProgressUser, sub } from './loop/progress';
+import { emptyProgress, loadProgress, recordQuiz, reviewQueue, saveProgress, setProgressUser, sub } from './loop/progress';
+import { quizFor, quizzes } from './curriculum/quiz';
+import { PracticeScreen } from './screens/PracticeScreen';
 import { buildDrill, type Drill } from './loop/drill';
 import { browserRunner, type PyRunner } from './runtime/runner';
 import type { TalkController } from './voice/talk';
@@ -45,9 +47,11 @@ const tourOff = () => {
 import { VisualizeScreen, type VizInit } from './screens/VisualizeScreen';
 import { PHASES, phaseIndex } from './ui/StepTrack';
 
-type Screen = 'home' | 'lesson' | 'talk' | 'drill' | 'viz' | 'admin';
+type Screen = 'home' | 'lesson' | 'talk' | 'drill' | 'viz' | 'admin' | 'practice';
 
 const CONCEPTS = conceptOrder.map((id) => conceptMap[id]).filter(Boolean) as Concept[];
+/** Every Quick check question in a topic, in lesson order (Practice questions on Home shuffles them). */
+const PRACTICE = Object.fromEntries(CONCEPTS.map((c) => [c.id, c.lessons.flatMap((l) => quizzes[c.id]?.[l.subskill] ?? [])])) as Record<ConceptId, DrillQuestion[]>;
 const SUBSKILLS = Object.fromEntries(CONCEPTS.map((c) => [c.id, c.lessons.map((l) => l.subskill)]));
 const MODE_KEY = 'py-tutor-mode';
 
@@ -113,6 +117,7 @@ export default function App() {
   const [progress, setProgressState] = useState<Progress>(emptyProgress);
   const progressRef = useRef(progress);
   const [screen, setScreen] = useState<Screen>('home');
+  const [practice, setPractice] = useState<ConceptId | null>(null);
   const [mode, setModeState] = useState<Mode>(readMode);
   const [session, setSession] = useState<Session | null>(null);
   const sessionRef = useRef<Session | null>(null);
@@ -294,6 +299,21 @@ export default function App() {
     setTalk(null);
     sessionRef.current?.interrupt();
   };
+  // Leaving the app (home screen, another app, the lock button) silences talk mode until he taps again. iOS keeps a
+  // home-screen app running for a while in the background, and talk mode is hands-free, so it would otherwise keep
+  // reading the lesson and answering whatever the mic heard.
+  useEffect(() => {
+    const hide = () => {
+      if (document.visibilityState === 'hidden') talkRef.current?.pause();
+    };
+    const gone = () => talkRef.current?.pause();
+    document.addEventListener('visibilitychange', hide);
+    window.addEventListener('pagehide', gone);
+    return () => {
+      document.removeEventListener('visibilitychange', hide);
+      window.removeEventListener('pagehide', gone);
+    };
+  }, []);
   const stopRef = useRef(stopEverything);
   stopRef.current = stopEverything;
 
@@ -504,6 +524,10 @@ export default function App() {
             setScreen('drill');
           }}
           onVisualize={() => openViz('home')}
+          onPractice={(id) => {
+            setPractice(id);
+            setScreen('practice');
+          }}
           continueLabel={`${progress.updatedAt ? 'Continue' : 'Start'}: ${contLesson.title.charAt(0).toLowerCase()}${contLesson.title.slice(1)}`}
         />
         </Reveal>
@@ -525,7 +549,7 @@ export default function App() {
           onSend={(t) => void session.say(t)}
           onStep={(dir) => {
             if (dir === 'back') session.back();
-            else if (state.step === 'check' || state.step === 'mastered') nextSkill();
+            else if (state.step === 'check' || state.step === 'mastered' || state.step === 'quiz') nextSkill();
             else session.next();
           }}
           onHint={() => void session.hint()}
@@ -533,6 +557,9 @@ export default function App() {
           onBack={goHome}
           onJump={(t) => session.goTo(t)}
           onTrace={() => session.traceExample()}
+          quiz={quizFor(session.concept.id, session.lesson.subskill)}
+          onQuizScore={(right, of) => setProgress(recordQuiz(progressRef.current, session.concept.id, session.lesson.subskill, right, of))}
+          quizDoneLabel={session.hasNextLesson ? 'Next skill' : conceptOrder[conceptOrder.indexOf(session.concept.id) + 1] ? 'Next topic' : 'Back to Home'}
           onVisualize={(code, files) => openViz('lesson', { code, files, stdin: programInput, from: session.lesson.title })}
         />
         </Reveal>
@@ -545,7 +572,7 @@ export default function App() {
           error={!!talk?.error || talkLoadFailed}
           passed={state.step === 'check' || state.step === 'mastered'}
           caption={(talkLoadFailed ? 'Voice mode didn’t load. Check your connection and tap to try again.' : '') || talk?.error || talk?.caption || (state.turns.length ? '' : 'I’ll explain it out loud, then you answer out loud. No reading needed.')}
-          context={`${session.concept.title} · ${phaseIndex(state.step) < PHASES.length ? PHASES[phaseIndex(state.step)].label : 'Mastered'}`}
+          context={`${session.concept.title} · ${state.step === 'mastered' ? 'Mastered' : (PHASES[phaseIndex(state.step)]?.label ?? '')}`}
           onTap={() => {
             // After a pass, a tap moves on, but only once he's had the feedback (a tap while it speaks interrupts it)
             if ((state.step === 'check' || state.step === 'mastered') && (talk?.ring === 'listening' || talk?.ring === 'idle')) return nextSkill();
@@ -556,6 +583,12 @@ export default function App() {
           }}
           onExit={goHome}
         />
+        </Reveal>
+      )}
+
+      {screen === 'practice' && practice && conceptMap[practice] && (
+        <Reveal key={`practice-${practice}`}>
+          <PracticeScreen concept={conceptMap[practice]!} questions={PRACTICE[practice]} onExit={goHome} />
         </Reveal>
       )}
 
