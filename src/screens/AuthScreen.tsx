@@ -9,7 +9,8 @@ import { Intro } from '../ui/Intro';
 import { introSeen, markIntroSeen } from '../intro/state';
 import { distortionWave, recentTap } from '../ui/wave';
 import { useScreenReveal } from '../ui/pageTransition';
-import { addPasskey, passkeysSupported, signIn, signInWithPasskey, signUp, type Account } from '../loop/api';
+import { addPasskey, passkeysSupported, signIn, signInWithGoogle, signInWithPasskey, signUp, type Account } from '../loop/api';
+import { GoogleButton } from '../ui/GoogleButton';
 
 type Tab = 'signin' | 'signup';
 
@@ -78,6 +79,17 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
     setBusy('');
   }
 
+  async function googleSignIn(credential: string) {
+    setBusy('form');
+    setError(null);
+    try {
+      await welcome((await signInWithGoogle(credential)).user);
+    } catch (x) {
+      setError({ text: (x as Error).message });
+    }
+    setBusy('');
+  }
+
   async function passkeySignIn() {
     setBusy('passkey');
     setError(null);
@@ -96,7 +108,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
       </div>
       <Aurora className="px-5 pt-16 pb-32 text-center md:pt-24">
         <h1 className="font-voice text-[2.5rem] leading-[1.02] md:text-[4rem]">Ace the final.</h1>
-        <p className="mx-auto mt-3 max-w-[40ch] text-base text-[#3a3340]">A Python tutor for CS 100: dictionaries, files, and classes. It coaches you, it never writes your code.</p>
+        <p className="mx-auto mt-3 max-w-[40ch] text-base text-[#3a3340]">A Python tutor for CS 100, the whole course, with extra depth on dictionaries, files, and classes. It coaches you, it never writes your code.</p>
         <button type="button" onClick={() => setIntro(true)} className="mt-4 text-sm font-medium text-[#111] underline underline-offset-4 hover:text-[#5b21b6]">
           What is py-tutor?
         </button>
@@ -177,11 +189,12 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
               </Button>
             </form>
 
+            <div className="my-4 flex items-center gap-3 text-sm text-ink-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
+            </div>
+            <GoogleButton text={tab === 'signin' ? 'signin_with' : 'signup_with'} onCredential={(cred) => void googleSignIn(cred)} />
             {tab === 'signin' && canPasskey && (
               <>
-                <div className="my-4 flex items-center gap-3 text-sm text-ink-3" aria-hidden="true">
-                  <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
-                </div>
                 <Button
                   type="button"
                   variant="secondary"
@@ -190,7 +203,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
                   loading={busy === 'passkey'}
                   disabled={!!busy}
                   icon={<Fingerprint className="size-5" strokeWidth={1.75} />}
-                  className="w-full justify-center"
+                  className="mt-3 w-full justify-center"
                 >
                   Sign in with a passkey
                 </Button>

@@ -48,7 +48,7 @@ describe('drill builder', () => {
   it('builds 16 short + 2 coding, every concept represented', () => {
     let seed = 7;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    const d = buildDrill(bank, Object.values(allConcepts) as any, rand);
+    const d = buildDrill(bank, [allConcepts.dictionaries!, allConcepts.files!, allConcepts.classes!], rand);
     expect(d.short.length).toBe(16);
     expect(new Set(d.short.map((q) => q.id)).size).toBe(16);
     expect(d.coding.length).toBe(2);
@@ -68,5 +68,25 @@ describe('checkShort is forgiving about typing', () => {
     expect(checkShort(q as never, '{"a": 1}\n2')).toBe(true);
     expect(checkShort(q as never, "\n{'a': 1}  \n2\n\n")).toBe(true);
     expect(checkShort(q as never, "{'a': 2}\n2")).toBe(false);
+  });
+});
+
+describe('practice exam mixes in earlier topics', () => {
+  it('puts 3 earlier-topic questions in, from different topics, and still 16 short questions', async () => {
+    const { buildDrill } = await import('../src/loop/drill');
+    const { drill: bank } = await import('../src/curriculum/drill');
+    const { concepts } = await import('../src/curriculum');
+    const review = ['basics', 'branching', 'functions'].flatMap((c, k) =>
+      [0, 1].map((n) => ({ id: `r-${c}-${n}`, concept: c, kind: 'choice', prompt: 'x', choices: ['a', 'b'], answer: 0, explain: 'x' }) as never),
+    ).flat();
+    let seed = 3;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const main = [concepts.dictionaries!, concepts.files!, concepts.classes!];
+    const d = buildDrill(bank, main, rand, review);
+    expect(d.short.length).toBe(16);
+    const fromReview = d.short.filter((q) => q.id.startsWith('r-'));
+    expect(fromReview.length).toBe(3);
+    expect(new Set(fromReview.map((q) => q.concept)).size).toBe(3);
+    expect(d.coding.every((c) => ['dictionaries', 'files', 'classes'].includes(c.concept))).toBe(true);
   });
 });

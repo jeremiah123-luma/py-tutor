@@ -1,10 +1,11 @@
 // Merging progress from two devices (or an old tab and a new one). Used by the Worker on every save and by the
 // app when it loads, so nothing earned anywhere is ever lost: mastery and the typed pass are kept if either side
 // has them, and the side with more attempts on a lesson has the newer streak.
-import type { ConceptId, Progress, QuizScore, SubskillProgress } from '../types';
+import type { Progress, QuizScore, SubskillProgress } from '../types';
 import { betterQuiz } from './quizScore';
+import { CONCEPT_IDS, emptyConcepts } from '../curriculum/ids';
 
-const CONCEPTS: ConceptId[] = ['dictionaries', 'files', 'classes'];
+const CONCEPTS = CONCEPT_IDS;
 const LOOP_STEPS = new Set(['define', 'example', 'walkthrough', 'talkthrough', 'feedback', 'doit', 'check', 'mastered', 'quiz']);
 
 function cleanSub(v: unknown): SubskillProgress | null {
@@ -16,7 +17,7 @@ function cleanSub(v: unknown): SubskillProgress | null {
 
 /** Accept only the shape the app writes; anything else becomes empty progress instead of a crash later. */
 export function cleanProgress(v: unknown): Progress {
-  const out: Progress = { concepts: { dictionaries: {}, files: {}, classes: {} }, updatedAt: 0 };
+  const out: Progress = { concepts: emptyConcepts<SubskillProgress>(), updatedAt: 0 };
   if (!v || typeof v !== 'object') return out;
   const o = v as Record<string, any>;
   const at = Number(o.updatedAt);
@@ -62,7 +63,7 @@ function mergeSub(a: SubskillProgress | undefined, b: SubskillProgress | undefin
 const own = <T,>(o: Record<string, T> | undefined, k: string) => (o && Object.hasOwn(o, k) ? o[k] : undefined);
 
 export function mergeProgress(a: Progress, b: Progress): Progress {
-  const out: Progress = { concepts: { dictionaries: {}, files: {}, classes: {} }, updatedAt: Math.max(a.updatedAt, b.updatedAt) };
+  const out: Progress = { concepts: emptyConcepts<SubskillProgress>(), updatedAt: Math.max(a.updatedAt, b.updatedAt) };
   for (const c of CONCEPTS) {
     const keys = new Set([...Object.keys(a.concepts[c] ?? {}), ...Object.keys(b.concepts[c] ?? {})]);
     for (const k of keys) out.concepts[c][k] = mergeSub(own(a.concepts[c], k), own(b.concepts[c], k));

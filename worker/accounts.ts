@@ -3,6 +3,7 @@
 //   user:<id>            the account (password hash, passkeys)
 //   uname:<username>     -> user id
 //   cred:<passkey id>    -> user id
+//   google:<sub>         -> user id (Sign in with Google)
 //   sess:<token>         -> user id (60 days)
 //   allow:<date>         that day's per-person allowance, fixed once computed
 import { dailyAllowance, daysLeftInMonth, isCapped, nyDate } from './budget';
@@ -25,6 +26,8 @@ export interface User {
   passkeys: Passkey[];
   /** Old copy of extra credit; the Ledger holds the live amount. */
   bonus?: number;
+  /** Connected Google account (Sign in with Google). */
+  google?: { sub: string; email: string };
 }
 
 export interface CreditRequest {

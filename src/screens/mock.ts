@@ -1,3 +1,4 @@
+import { emptyConcepts } from '../curriculum/ids';
 // Mock data for building and screenshotting the UI before the engine is wired in.
 import type { Concept, Progress, SessionState } from '../types';
 
@@ -91,6 +92,7 @@ const sp = (mastered: boolean, streak = mastered ? 2 : 0) => ({ streak, typedPas
 
 export const mockProgress: Progress = {
   concepts: {
+    ...emptyConcepts(),
     dictionaries: {
       'Make a dict': sp(true),
       'Read a value': sp(true),

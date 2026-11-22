@@ -1,7 +1,7 @@
 // The intro: kinetic type and motion in Geist, on the site's own aurora gradients.
 //   mark      - one bar grows, the >_ unfolds out of it like a fan, flashes to an outline, then shrinks beside the
 //               wordmark as it types itself, with selection blocks sweeping the letters and a blinking caret.
-//   wheel     - a ring of gradient bars spins around a card that flips through the three topics.
+//   wheel     - a ring of gradient bars spins around a card that flips through the topics.
 //   drift     - the old way: app windows drift apart behind "no more three tabs", then gather and vanish.
 //   statement - Raison's grammar: hard cuts alternate with slabs wiping up; lines rise out of masks; nothing
 //               holds still (a slow grow, a slow settle, leading that breathes); exits are designed (lines split

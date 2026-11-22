@@ -4,6 +4,7 @@ import type { ConceptId, LoopStep, Progress, QuizScore, SubskillProgress } from 
 import { pullProgress, pushProgress } from './api';
 import { cleanProgress, mergeProgress, sameProgress } from './mergeProgress';
 import { betterQuiz } from './quizScore';
+import { emptyConcepts } from '../curriculum/ids';
 export { betterQuiz, isPerfect } from './quizScore';
 
 const KEY = 'progress-v1';
@@ -15,11 +16,11 @@ export function setProgressUser(id: string) {
 const localKey = () => (who ? `${KEY}:${who}` : KEY);
 
 export function emptyProgress(): Progress {
-  return { concepts: { dictionaries: {}, files: {}, classes: {} }, updatedAt: 0 };
+  return { concepts: emptyConcepts<SubskillProgress>(), updatedAt: 0 };
 }
 
 export function sub(p: Progress, c: ConceptId, s: string): SubskillProgress {
-  return p.concepts[c][s] ?? { streak: 0, typedPass: false, attempts: 0, mastered: false };
+  return p.concepts[c]?.[s] ?? { streak: 0, typedPass: false, attempts: 0, mastered: false };
 }
 
 /**

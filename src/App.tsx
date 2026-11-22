@@ -7,12 +7,14 @@ import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
 import { hideSplash } from './ui/splash';
-import { addPasskey, askTutor, removePasskeys, me, onCap, signOut, type Account, type Usage } from './loop/api';
+import { addPasskey, askTutor, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
+import { GoogleButton } from './ui/GoogleButton';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
 import { draftStore } from './loop/drafts';
 import { emptyProgress, loadProgress, recordQuiz, reviewQueue, saveProgress, setProgressUser, sub } from './loop/progress';
 import { quizFor, quizzes } from './curriculum/quiz';
+import { FOCUS } from './curriculum/ids';
 import { PracticeScreen } from './screens/PracticeScreen';
 import { buildDrill, type Drill } from './loop/drill';
 import { browserRunner, type PyRunner } from './runtime/runner';
@@ -50,8 +52,11 @@ import { PHASES, phaseIndex } from './ui/StepTrack';
 type Screen = 'home' | 'lesson' | 'talk' | 'drill' | 'viz' | 'admin' | 'practice';
 
 const CONCEPTS = conceptOrder.map((id) => conceptMap[id]).filter(Boolean) as Concept[];
+/** Quick check questions from the earlier topics: the practice exam mixes in a few, since the final is cumulative. */
+const REVIEW_POOL = () => CONCEPTS.filter((c) => !FOCUS.includes(c.id)).flatMap((c) => c.lessons.flatMap((l) => quizzes[c.id]?.[l.subskill] ?? []));
 /** Every Quick check question in a topic, in lesson order (Practice questions on Home shuffles them). */
 const PRACTICE = Object.fromEntries(CONCEPTS.map((c) => [c.id, c.lessons.flatMap((l) => quizzes[c.id]?.[l.subskill] ?? [])])) as Record<ConceptId, DrillQuestion[]>;
+const REVIEW = REVIEW_POOL();
 const SUBSKILLS = Object.fromEntries(CONCEPTS.map((c) => [c.id, c.lessons.map((l) => l.subskill)]));
 const MODE_KEY = 'py-tutor-mode';
 
@@ -118,6 +123,7 @@ export default function App() {
   const progressRef = useRef(progress);
   const [screen, setScreen] = useState<Screen>('home');
   const [practice, setPractice] = useState<ConceptId | null>(null);
+  const [connectGoogle, setConnectGoogle] = useState(false);
   const [mode, setModeState] = useState<Mode>(readMode);
   const [session, setSession] = useState<Session | null>(null);
   const sessionRef = useRef<Session | null>(null);
@@ -442,6 +448,8 @@ export default function App() {
     username: account?.username ?? '',
     admin: !!account?.admin,
     passkeys: account?.passkeys ?? 0,
+    google: account?.google ?? null,
+    onConnectGoogle: () => setConnectGoogle(true),
     usage,
     mastered: masteredCount,
     total: lessonCount,
@@ -520,7 +528,7 @@ export default function App() {
           }}
           onDrill={() => {
             runner();
-            setDrill(buildDrill(drillBank, CONCEPTS));
+            setDrill(buildDrill(drillBank, CONCEPTS.filter((c) => FOCUS.includes(c.id)), Math.random, REVIEW));
             setScreen('drill');
           }}
           onVisualize={() => openViz('home')}
@@ -647,6 +655,35 @@ export default function App() {
       <CapDialog open={cap.open} usage={cap.usage} onClose={() => setCap({ open: false })} />
 
       {toaster}
+      {connectGoogle && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="connect-google-title"
+          className="fixed inset-0 z-[120] grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setConnectGoogle(false)}
+          onKeyDown={(e) => e.key === 'Escape' && setConnectGoogle(false)}
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.6)]">
+            <h2 id="connect-google-title" className="text-md font-semibold">Connect Google sign-in</h2>
+            <p className="mt-1 mb-5 text-[0.9375rem] text-ink-2">Pick your Google account. Next time, Sign in with Google opens this same account, with all your progress.</p>
+            <GoogleButton
+              onCredential={async (cred) => {
+                try {
+                  setAccount((await signInWithGoogle(cred, true)).user);
+                  setConnectGoogle(false);
+                  toast.success('Google connected. You can sign in with it from now on.');
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+            />
+            <button type="button" onClick={() => setConnectGoogle(false)} className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink">
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
     </ProfileContext.Provider>
   );
 }

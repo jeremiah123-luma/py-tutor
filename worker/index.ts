@@ -9,6 +9,7 @@ import {
 } from '@simplewebauthn/server';
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+import { usernameFromEmail, verifyGoogleToken } from './google';
 import { concepts } from '../src/curriculum';
 import { USERNAME_RE, Store, b64u, checkPassword, hashPassword, normUsername, randomId, type User } from './accounts';
 import { PRICES, claudeCost, nyDate, type ClaudeUsage } from './budget';
@@ -29,6 +30,8 @@ type Env = {
   STT_MODEL?: string;
   TTS_MODEL?: string;
   TTS_VOICE?: string;
+  /** Google sign-in client id (public). Without it, Sign in with Google is hidden. */
+  GOOGLE_CLIENT_ID?: string;
   KV: KVNamespace;
   LEDGER: DurableObjectNamespace<Ledger>;
   ASSETS?: Fetcher;
@@ -89,7 +92,7 @@ app.onError((e, c) => {
 });
 
 const STT_VOCAB =
-  'Python tutoring about dictionaries, files, and classes. Words: dict, key, value, .items(), .keys(), .values(), .get(), append, len, for, in, while, if, elif, else, print, input, int, str, open, with, as, read, readline, readlines, write, strip, split, close, "r", "w", "a", class, def, self, __init__, __str__, return, True, False, None, KeyError, FileNotFoundError, colon, square bracket, curly brace.';
+  'Python tutoring for an intro course. Words: variable, int, float, str, list, tuple, slice, index, f-string, range, def, return, argument, parameter, while, break, continue, elif, and, or, not, import, math, random, upper, lower, split, join, replace, find, dict, key, value, .items(), .keys(), .values(), .get(), append, len, for, in, while, if, elif, else, print, input, int, str, open, with, as, read, readline, readlines, write, strip, split, close, "r", "w", "a", class, def, self, __init__, __str__, return, True, False, None, KeyError, FileNotFoundError, colon, square bracket, curly brace.';
 
 const TTS_INSTRUCTIONS =
   'Voice: a warm, relaxed, encouraging tutor in his twenties sitting next to a friend. Natural conversational pace, slightly slower when reading code aloud. Friendly, never salesy or theatrical. Small natural pauses between ideas.';
@@ -102,7 +105,7 @@ function startSession(c: C, token: string) {
   setCookie(c, SID, token, { httpOnly: true, secure: https, sameSite: 'Lax', path: '/', maxAge: 60 * 60 * 24 * 60 });
 }
 
-const publicUser = (u: User) => ({ id: u.id, name: u.name, username: u.username, admin: u.admin, passkeys: u.passkeys.length });
+const publicUser = (u: User) => ({ id: u.id, name: u.name, username: u.username, admin: u.admin, passkeys: u.passkeys.length, google: u.google?.email ?? null });
 
 /**
  * Passkeys belong to the address the person is actually on. The browser's Origin header is that address; the
@@ -225,6 +228,73 @@ app.post('/api/passkey/login/verify', async (c) => {
   }
   startSession(c, await store.newSession(user.id));
   return c.json({ user: publicUser(user) });
+});
+
+// ---------- Sign in with Google ----------
+
+/** What the sign-in page needs to show the Google button (the client id is public by design). */
+app.get('/api/auth/config', (c) => c.json({ google: c.env.GOOGLE_CLIENT_ID || null }));
+
+/**
+ * A Google ID token from the page. Signs in the account connected to that Google account, or makes a new account
+ * for it the first time. Signed in already and `link` set: connects Google to the account you're in instead.
+ */
+app.post('/api/auth/google', async (c) => {
+  const clientId = c.env.GOOGLE_CLIENT_ID;
+  if (!clientId) return c.json({ error: 'Google sign-in isn’t set up.' }, 404);
+  const store = c.get('store');
+  const b = await c.req.json<{ credential?: string; link?: boolean }>().catch(() => ({}) as any);
+  const g = await verifyGoogleToken(String(b.credential ?? ''), clientId).catch((e) => {
+    console.warn('google verify failed', e);
+    return null;
+  });
+  if (!g) return c.json({ error: 'Google sign-in didn’t work. Try again, or use your username and password.' }, 401);
+  const owner = await store.raw().get(`google:${g.sub}`);
+
+  if (b.link) {
+    const me = await store.sessionUser(getCookie(c, SID));
+    if (!me) return c.json({ error: 'locked' }, 401);
+    if (owner && owner !== me.id) return c.json({ error: 'That Google account is already connected to a different py-tutor account.' }, 409);
+    if (me.google && me.google.sub !== g.sub) await store.raw().delete(`google:${me.google.sub}`);
+    me.google = { sub: g.sub, email: g.email };
+    await store.saveUser(me);
+    await store.raw().put(`google:${g.sub}`, me.id);
+    return c.json({ user: publicUser(me) });
+  }
+
+  let user = owner ? await store.user(owner) : null;
+  let created = false;
+  if (!user) {
+    const ip = c.req.header('cf-connecting-ip') ?? 'local';
+    if (c.env.SIGNUP_LIMITER && new URL(c.req.url).hostname !== 'localhost' && !(await c.env.SIGNUP_LIMITER.limit({ key: ip })).success)
+      return c.json({ error: 'Too many new accounts from here. Wait a minute and try again.' }, 429);
+    if (await tooManyTries(store, `signup:${ip}`, 40)) return c.json({ error: 'Too many new accounts from here. Wait 15 minutes and try again.' }, 429);
+    const base = usernameFromEmail(g.email);
+    const fresh: User = {
+      id: randomId(12),
+      username: base,
+      name: g.name.slice(0, 40),
+      admin: false,
+      createdAt: Date.now(),
+      pw: await hashPassword(randomId(24)), // no password: this account signs in with Google (a passkey can be added)
+      passkeys: [],
+      google: { sub: g.sub, email: g.email },
+    };
+    for (let n = 1; n <= 30; n++) {
+      fresh.username = n === 1 ? base : `${base.slice(0, 20)}-${n}`;
+      if (!USERNAME_RE.test(fresh.username) || (await store.userByName(fresh.username))) continue;
+      if (await store.createUser(fresh)) {
+        user = fresh;
+        break;
+      }
+    }
+    if (!user) return c.json({ error: 'Couldn’t make an account for that Google account. Sign up with a username instead.' }, 409);
+    await store.raw().put(`google:${g.sub}`, user.id);
+    await noteFail(store, `signup:${ip}`);
+    created = true;
+  }
+  startSession(c, await store.newSession(user.id));
+  return c.json({ user: publicUser(user), created });
 });
 
 // ---------- everything below needs a signed-in account ----------

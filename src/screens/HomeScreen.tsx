@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, Check, FileText, Home, Layers, ListChecks, Play, Sparkles, Timer, Eye } from 'lucide-react';
+import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, Check, FileText, GitBranch, Home, Layers, List, ListChecks, Play, Repeat, RotateCw, Sparkles, SquareFunction, Timer, Type, Variable, Eye } from 'lucide-react';
 import { isPerfect } from '../loop/quizScore';
+import { FOCUS } from '../curriculum/ids';
 import type { Concept, ConceptId, Mode, Progress } from '../types';
 import { ModeToggle } from '../ui/primitives';
 import { FinalPill, TopBar, daysToFinal } from '../ui/TopBar';
@@ -34,8 +35,14 @@ export interface HomeScreenProps {
   continueLabel?: string;
 }
 
-const ICONS: Record<string, typeof BookOpen> = { dictionaries: BookOpen, files: FileText, classes: Boxes };
-const TINT: Record<string, string> = { dictionaries: 'text-tag-violet', files: 'text-tag-blue', classes: 'text-tag-pink' };
+const ICONS: Record<string, typeof BookOpen> = {
+  dictionaries: BookOpen, files: FileText, classes: Boxes,
+  basics: Variable, 'strings-lists': List, branching: GitBranch, 'for-loops': Repeat, functions: SquareFunction, 'str-methods': Type, 'while-loops': RotateCw,
+};
+const TINT: Record<string, string> = {
+  dictionaries: 'text-tag-violet', files: 'text-tag-blue', classes: 'text-tag-pink',
+  basics: 'text-tag-green', 'strings-lists': 'text-tag-blue', branching: 'text-tag-violet', 'for-loops': 'text-tag-pink', functions: 'text-tag-green', 'str-methods': 'text-tag-blue', 'while-loops': 'text-tag-violet',
+};
 const short = (c: Concept) => c.title.replace(' and objects', '');
 const EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -121,6 +128,51 @@ export function HomeScreen(p: HomeScreenProps) {
     setAsk('');
   };
 
+  const focus = p.concepts.filter((c) => FOCUS.includes(c.id));
+  const earlier = p.concepts.filter((c) => !FOCUS.includes(c.id));
+  const topicCard = (c: Concept, i: number, compact = false) => {
+        const Icon = ICONS[c.id] ?? BookOpen;
+        const names = p.subskills[c.id] ?? [];
+        return (
+          <motion.li key={c.id} {...rise(i + 1)} data-tour={i === 0 && !compact ? 'home-lessons' : undefined} className="lift flex flex-col overflow-hidden rounded-2xl border border-line bg-surface hover:border-line-strong">
+            <button
+              onClick={() => p.onStart(c.id)}
+              className="press ht-host group relative flex w-full flex-1 flex-col gap-4 p-5 text-left"
+            >
+          <span className="halftone halftone-corner" aria-hidden="true" />
+              <span className="flex w-full items-center gap-3">
+                <span className={`grid size-9 place-items-center rounded-lg bg-surface-2 ${TINT[c.id] ?? ''}`} aria-hidden="true">
+                  <Icon className="size-[18px]" strokeWidth={1.75} />
+                </span>
+                <span className="text-md font-semibold tracking-[-0.02em]">{short(c)}</span>
+                <span className="tnum ml-auto text-sm text-ink-3">
+                  {mastered(c.id)}/{names.length}
+                </span>
+              </span>
+              <MasteryChart names={names} state={p.progress.concepts[c.id] ?? {}} quiz={p.progress.quiz?.[c.id]} delay={0.5 + i * 0.1} />
+              <span className="flex w-full items-center gap-2 text-[0.9375rem] text-ink-2">
+                <span className="truncate">Next: {lower(nextUp(c).title)}</span>
+                <ArrowRight className="ml-auto size-4 shrink-0 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100" strokeWidth={2} aria-hidden="true" />
+              </span>
+            </button>
+            {p.onPractice && (
+              <button
+                onClick={() => p.onPractice!(c.id)}
+                data-tour={i === 0 && !compact ? 'home-practice' : undefined}
+                className="press group flex h-12 w-full items-center gap-2 border-t border-line px-5 text-left text-[0.9375rem] text-ink-2 hover:bg-surface-2 hover:text-ink"
+              >
+                <ListChecks className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+                <span className="font-medium">Practice questions</span>
+                <span className="tnum ml-auto text-sm text-ink-3">
+                  {perfectQuizzes(c.id)}/{names.length} perfect
+                </span>
+              </button>
+            )}
+          </motion.li>
+        );
+
+  };
+
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 bg-paper [transform:translateZ(0)] md:bg-paper/80 md:backdrop-blur-xl">
@@ -129,7 +181,7 @@ export function HomeScreen(p: HomeScreenProps) {
           <span aria-current="page" className="tab flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] font-medium">
             <Home className="size-4" strokeWidth={1.75} aria-hidden="true" /> Home
           </span>
-          {p.concepts.map((c) => {
+          {p.concepts.filter((c) => FOCUS.includes(c.id)).map((c) => {
             const Icon = ICONS[c.id] ?? BookOpen;
             return (
               <button key={c.id} onClick={() => p.onStart(c.id)} className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 hover:text-ink">
@@ -137,6 +189,14 @@ export function HomeScreen(p: HomeScreenProps) {
               </button>
             );
           })}
+          {p.concepts.some((c) => !FOCUS.includes(c.id)) && (
+            <button
+              onClick={() => document.getElementById('earlier-topics')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })}
+              className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 hover:text-ink"
+            >
+              <Layers className="size-4" strokeWidth={1.75} aria-hidden="true" /> Earlier topics
+            </button>
+          )}
           <button onClick={p.onDrill} disabled={!p.onDrill} className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 hover:text-ink">
             <Timer className="size-4" strokeWidth={1.75} aria-hidden="true" /> Exam drill
           </button>
@@ -265,47 +325,7 @@ export function HomeScreen(p: HomeScreenProps) {
               <ArrowRight className="size-5 shrink-0 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} aria-hidden="true" />
             </button>
           </motion.li>
-          {p.concepts.map((c, i) => {
-            const Icon = ICONS[c.id] ?? BookOpen;
-            const names = p.subskills[c.id] ?? [];
-            return (
-              <motion.li key={c.id} {...rise(i + 1)} data-tour={i === 0 ? 'home-lessons' : undefined} className="lift flex flex-col overflow-hidden rounded-2xl border border-line bg-surface hover:border-line-strong">
-                <button
-                  onClick={() => p.onStart(c.id)}
-                  className="press ht-host group relative flex w-full flex-1 flex-col gap-4 p-5 text-left"
-                >
-              <span className="halftone halftone-corner" aria-hidden="true" />
-                  <span className="flex w-full items-center gap-3">
-                    <span className={`grid size-9 place-items-center rounded-lg bg-surface-2 ${TINT[c.id] ?? ''}`} aria-hidden="true">
-                      <Icon className="size-[18px]" strokeWidth={1.75} />
-                    </span>
-                    <span className="text-md font-semibold tracking-[-0.02em]">{short(c)}</span>
-                    <span className="tnum ml-auto text-sm text-ink-3">
-                      {mastered(c.id)}/{names.length}
-                    </span>
-                  </span>
-                  <MasteryChart names={names} state={p.progress.concepts[c.id] ?? {}} quiz={p.progress.quiz?.[c.id]} delay={0.5 + i * 0.1} />
-                  <span className="flex w-full items-center gap-2 text-[0.9375rem] text-ink-2">
-                    <span className="truncate">Next: {lower(nextUp(c).title)}</span>
-                    <ArrowRight className="ml-auto size-4 shrink-0 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:opacity-100" strokeWidth={2} aria-hidden="true" />
-                  </span>
-                </button>
-                {p.onPractice && (
-                  <button
-                    onClick={() => p.onPractice!(c.id)}
-                    data-tour={i === 0 ? 'home-practice' : undefined}
-                    className="press group flex h-12 w-full items-center gap-2 border-t border-line px-5 text-left text-[0.9375rem] text-ink-2 hover:bg-surface-2 hover:text-ink"
-                  >
-                    <ListChecks className="size-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
-                    <span className="font-medium">Practice questions</span>
-                    <span className="tnum ml-auto text-sm text-ink-3">
-                      {perfectQuizzes(c.id)}/{names.length} perfect
-                    </span>
-                  </button>
-                )}
-              </motion.li>
-            );
-          })}
+          {focus.map((c, i) => topicCard(c, i))}
           <motion.li {...rise(p.concepts.length + 1)} data-tour="home-drill">
             <button
               onClick={p.onDrill}
@@ -348,6 +368,18 @@ export function HomeScreen(p: HomeScreenProps) {
             </button>
           </motion.li>
         </ul>
+
+        {earlier.length > 0 && (
+          <section id="earlier-topics" aria-labelledby="earlier-heading" className="mt-14 scroll-mt-28">
+            <h2 id="earlier-heading" className="text-lg font-semibold tracking-[-0.02em]">Earlier topics</h2>
+            <p className="mt-1 max-w-[52ch] text-[0.9375rem] text-ink-2">
+              The final covers the whole course. These come up less than the three above, but they’re all fair game.
+            </p>
+            <ul className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="Earlier topics">
+              {earlier.map((c, i) => topicCard(c, focus.length + 3 + i, true))}
+            </ul>
+          </section>
+        )}
       </main>
     </div>
   );

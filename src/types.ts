@@ -1,7 +1,8 @@
 // Shared contract between the UI track and the engine track.
 // UI imports these types; engine modules implement them.
 
-export type ConceptId = 'dictionaries' | 'files' | 'classes';
+import type { ConceptId } from './curriculum/ids';
+export type { ConceptId };
 export type Mode = 'type' | 'talk';
 
 export type LoopStep =

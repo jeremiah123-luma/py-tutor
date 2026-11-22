@@ -43,9 +43,11 @@ export const INTRO_SCENES: IntroScene[] = [
     kind: 'wheel',
     ground: 'aurora',
     ink: C.black,
-    ms: 3000,
-    sub: 'Everything on the final, in the order our zyBook teaches it.',
+    ms: 3800,
+    sub: 'The whole course, in the order our zyBook teaches it, with extra depth on the big three.',
     cards: [
+      { code: 'x = 5', label: 'The basics', detail: 'variables, strings, lists, if', bg: C.sky },
+      { code: 'for', label: 'Loops and functions', detail: 'for, while, range, def, return', bg: C.pink },
       { code: '{ }', label: 'Dictionaries', detail: 'keys, values, get, pop, update', bg: C.violet },
       { code: 'open()', label: 'Files', detail: 'open, read, write, close', bg: C.pink },
       { code: 'class', label: 'Classes', detail: '__init__, self, attributes', bg: C.sky },
@@ -161,7 +163,7 @@ export const INTRO_SCENES: IntroScene[] = [
     hold: 'settle',
     exit: 'none',
     lines: ['Built for', 'Dec 19.'],
-    sub: 'Matched to our zyBook chapter by chapter, with a timed 18-question practice exam.',
+    sub: 'Matched to our zyBook chapter by chapter, with a Quick check after every lesson and a timed 18-question practice exam.',
   },
 ];
 

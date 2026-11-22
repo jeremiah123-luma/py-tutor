@@ -42,8 +42,8 @@ export const TOUR_STEPS: TourStep[] = [
     screen: 'home',
     target: 'home-lessons',
     placement: 'top',
-    title: 'Your three topics',
-    body: 'Dictionaries, Files, and Classes each get a card like this one. The bars fill in as you master each skill.',
+    title: 'Your topics',
+    body: 'Dictionaries, Files, and Classes, the final’s biggest topics, come first. The earlier topics are further down. Each card’s bars fill in as you master each skill, and Practice questions drills the whole topic.',
   },
   {
     id: 'home-drill',

@@ -30,6 +30,8 @@ export interface Account {
   username: string;
   admin: boolean;
   passkeys: number;
+  /** The connected Google account's email, if any. */
+  google?: string | null;
 }
 
 export interface Usage {
@@ -108,6 +110,20 @@ export async function addPasskey(): Promise<Account> {
   const response = await startRegistration({ optionsJSON: options });
   return (await postJSON<{ user: Account }>('/api/passkey/register/verify', response)).user;
 }
+let googleId: Promise<string | null> | null = null;
+/** The Google sign-in client id, or null when Sign in with Google isn't set up. */
+export function googleClientId(): Promise<string | null> {
+  googleId ??= fetch('/api/auth/config', { signal: timeout(6000) })
+    .then((r) => (r.ok ? r.json() : { google: null }))
+    .then((j: { google?: string | null }) => j.google ?? null)
+    .catch(() => {
+      googleId = null; // try again next time
+      return null;
+    });
+  return googleId;
+}
+/** Sign in (or make an account) with a Google ID token; with link, connect Google to the account you're in. */
+export const signInWithGoogle = (credential: string, link = false) => postJSON<{ user: Account; created?: boolean }>('/api/auth/google', { credential, link });
 export const removePasskeys = async () => (await postJSON<{ user: Account }>('/api/passkey/remove')).user;
 export async function signInWithPasskey(): Promise<Account> {
   const { startAuthentication } = await import('@simplewebauthn/browser');
