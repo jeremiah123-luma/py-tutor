@@ -10,8 +10,9 @@ import {
 import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { concepts } from '../src/curriculum';
-import { USERNAME_RE, Store, b64u, checkPassword, hashPassword, normUsername, randomId, type CreditRequest, type User } from './accounts';
+import { USERNAME_RE, Store, b64u, checkPassword, hashPassword, normUsername, randomId, type User } from './accounts';
 import { PRICES, claudeCost, nyDate, type ClaudeUsage } from './budget';
+import { Ledger } from './ledger';
 import { cleanTutorRequest, tutorParams } from './prompt';
 import { cleanProgress, mergeProgress } from '../src/loop/mergeProgress';
 
@@ -29,6 +30,7 @@ type Env = {
   TTS_MODEL?: string;
   TTS_VOICE?: string;
   KV: KVNamespace;
+  LEDGER: DurableObjectNamespace<Ledger>;
   ASSETS?: Fetcher;
   /** Cloudflare rate limiters (atomic, unlike counters in KV). Optional so tests without them still run. */
   LOGIN_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> };
@@ -118,7 +120,7 @@ function rp(c: C) {
 }
 
 app.use('/api/*', async (c, next) => {
-  c.set('store', new Store(c.env.KV));
+  c.set('store', new Store(c.env.KV, c.env.LEDGER.get(c.env.LEDGER.idFromName('class'))));
   await next();
 });
 
@@ -151,7 +153,7 @@ app.post('/api/auth/signup', async (c) => {
     return c.json({ error: 'Usernames are 3 to 24 letters, numbers, dots, dashes or underscores.', field: 'username' }, 400);
   if (password.length < 8) return c.json({ error: 'Use at least 8 characters for your password.', field: 'password' }, 400);
   if (await store.userByName(username)) return c.json({ error: 'That username is taken. Try another.', field: 'username' }, 409);
-  const user: User = { id: randomId(12), username, name, admin, createdAt: Date.now(), pw: await hashPassword(password), passkeys: [], bonus: 0 };
+  const user: User = { id: randomId(12), username, name, admin, createdAt: Date.now(), pw: await hashPassword(password), passkeys: [] };
   await store.createUser(user);
   await noteFail(store, `signup:${ip}`);
   startSession(c, await store.newSession(user.id));
@@ -283,6 +285,17 @@ app.post('/api/passkey/register/verify', async (c) => {
   }
 });
 
+// Forget every passkey on this account (for example ones made on the old address, which can't sign in anymore).
+// The password still works, and a new passkey can be added right after.
+app.post('/api/passkey/remove', async (c) => {
+  const store = c.get('store');
+  const u = (await store.user(c.get('user').id)) ?? c.get('user');
+  for (const p of u.passkeys) if ((await store.raw().get(`cred:${p.id}`)) === u.id) await store.raw().delete(`cred:${p.id}`);
+  u.passkeys = [];
+  await store.saveUser(u);
+  return c.json({ user: publicUser(u) });
+});
+
 // ---------- AI routes: each checks the cap, then records what it cost ----------
 
 async function capCheck(c: C) {
@@ -402,13 +415,8 @@ app.post('/api/credits/request', async (c) => {
   const store = c.get('store');
   const u = c.get('user');
   const usage = await store.usage(u, budget(c));
-  const reqs = await store.requests();
   const today = nyDate();
-  let r = reqs.find((x) => x.userId === u.id && x.date === today && x.status === 'pending');
-  if (!r) {
-    r = { id: randomId(9), userId: u.id, name: u.name, username: u.username, at: Date.now(), date: today, spentToday: usage.spentToday, allowance: usage.allowance, status: 'pending' };
-    await store.saveRequests([...reqs, r]);
-  }
+  await store.addRequest({ id: randomId(9), userId: u.id, name: u.name, username: u.username, at: Date.now(), date: today, spentToday: usage.spentToday, allowance: usage.allowance, status: 'pending' });
   const to = c.env.ADMIN_EMAIL ?? '';
   const subject = `py-tutor: ${u.name} is asking for more credits`;
   const body = `${u.name} is asking for more credits.\n\nUsername: ${u.username}\nUsed today: $${usage.spentToday.toFixed(2)} of $${usage.allowance.toFixed(2)}\n\nReview it on the Class usage page in py-tutor.`;
@@ -427,13 +435,15 @@ app.get('/api/admin/overview', async (c) => {
   const date = nyDate();
   const allowance = await store.allowance(budget(c), date);
   const users = [];
-  for (const id of await store.userIds()) {
+  const ids = await store.userIds();
+  const [spent, bonus] = await Promise.all([store.spentOn(ids, date), store.bonuses(ids)]);
+  for (const id of ids) {
     const u = await store.user(id);
     if (!u) continue;
     users.push({
       ...publicUser(u),
-      bonus: u.bonus,
-      spentToday: await store.spentToday(id, date),
+      bonus: bonus[id] ?? 0,
+      spentToday: spent[id] ?? 0,
       lastSeen: await store.raw().get(`seen:${id}`),
       createdAt: u.createdAt,
     });
@@ -445,20 +455,8 @@ app.post('/api/admin/requests/:id', async (c) => {
   const store = c.get('store');
   const { action, amount } = ((await c.req.json<{ action: 'approve' | 'decline'; amount?: number }>()) ?? {}) as { action?: string; amount?: number };
   if (action !== 'approve' && action !== 'decline') return c.json({ error: 'bad action' }, 400);
-  const reqs = await store.requests();
-  const r = reqs.find((x) => x.id === c.req.param('id'));
+  const r = await store.resolveRequest(c.req.param('id'), action, amount);
   if (!r) return c.json({ error: 'not found' }, 404);
-  if (r.status !== 'pending') return c.json({ ok: true, request: r }); // already handled: approving twice grants once
-  if (action === 'approve') {
-    const u = await store.user(r.userId);
-    if (!u) return c.json({ error: 'user gone' }, 404);
-    const grant = Math.min(5, Math.max(0.05, Number(amount) || r.allowance || 0.25));
-    u.bonus = (u.bonus ?? 0) + grant;
-    await store.saveUser(u);
-    r.granted = grant;
-  }
-  r.status = action === 'approve' ? 'approved' : 'declined';
-  await store.saveRequests(reqs as CreditRequest[]);
   return c.json({ ok: true, request: r });
 });
 
@@ -502,4 +500,5 @@ app.put('/api/progress', async (c) => {
 
 app.all('*', (c) => (c.env.ASSETS ? c.env.ASSETS.fetch(c.req.raw) : c.notFound()));
 
+export { Ledger };
 export default app;

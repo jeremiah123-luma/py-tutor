@@ -49,7 +49,7 @@ export class Listener {
       });
       // left while the model was loading: don't keep a detector nobody will use
       if (this.destroyed) {
-        await vad.destroy().catch(() => {});
+        await dispose(vad);
         throw new Error('stopped');
       }
       this.vad = vad;
@@ -97,7 +97,7 @@ export class Listener {
       // The VAD can't recover from a failed start: drop it so the next tap builds a fresh one.
       const dead = this.vad;
       this.vad = null;
-      void dead.destroy().catch(() => {});
+      void dispose(dead);
       this.ev.onError?.(
         /denied|NotAllowed|permission/i.test(msg)
           ? 'The microphone is blocked. Tap to try again. If it keeps failing, allow the mic for this app in Settings.'
@@ -119,7 +119,7 @@ export class Listener {
   async destroy() {
     this.active = false;
     this.destroyed = true;
-    await this.vad?.destroy().catch(() => {});
+    if (this.vad) await dispose(this.vad);
     this.vad = null;
     releaseMic();
   }
@@ -157,4 +157,22 @@ export function encodeWav(samples: Float32Array, rate: number): Blob {
     v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
   }
   return new Blob([buf], { type: 'audio/wav' });
+}
+
+/**
+ * The VAD runs on the app's shared AudioContext, which it doesn't own, so its destroy() leaves its audio node wired
+ * up (and, on older browsers, still processing). Unhook it so each Talk session doesn't leave one behind.
+ */
+async function dispose(vad: MicVAD) {
+  await vad.destroy().catch(() => {});
+  const v = vad as unknown as { _vadNode?: AudioNode | null; _mediaStreamAudioSourceNode?: AudioNode | null };
+  for (const n of [v._mediaStreamAudioSourceNode, v._vadNode]) {
+    try {
+      n?.disconnect();
+      if (n && 'port' in n) (n as AudioWorkletNode).port.close();
+      if (n && 'onaudioprocess' in n) (n as ScriptProcessorNode).onaudioprocess = null;
+    } catch {
+      /* already gone */
+    }
+  }
 }

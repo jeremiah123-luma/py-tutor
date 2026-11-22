@@ -1,15 +1,13 @@
-// Accounts, sign-in sessions, passkeys, and per-person spending, all in Workers KV.
-//   user:<id>            the account (password hash, passkeys, extra credit)
+// Accounts, sign-in sessions and passkeys in Workers KV. Money and shared lists live in the Ledger Durable Object
+// (worker/ledger.ts), which applies one change at a time.
+//   user:<id>            the account (password hash, passkeys)
 //   uname:<username>     -> user id
 //   cred:<passkey id>    -> user id
 //   sess:<token>         -> user id (60 days)
-//   users                list of every user id
-//   spend:<id>:<date>    what one person spent that day (USD)
-//   month:<YYYY-MM>      what the class spent that month (USD, admins excluded)
 //   seen:<id>            the last day that person used AI
 //   allow:<date>         that day's per-person allowance, fixed once computed
-//   reqs                 "Ask for more" requests
-import { applyCharge, dailyAllowance, daysBetween, isCapped, nyDate } from './budget';
+import { dailyAllowance, daysBetween, isCapped, nyDate } from './budget';
+import type { Ledger } from './ledger';
 
 export interface Passkey {
   id: string; // base64url
@@ -26,8 +24,8 @@ export interface User {
   createdAt: number;
   pw: { salt: string; hash: string; iter: number };
   passkeys: Passkey[];
-  /** Extra credit he approved, used after the daily allowance runs out (USD). */
-  bonus: number;
+  /** Old copy of extra credit; the Ledger holds the live amount. */
+  bonus?: number;
 }
 
 export interface CreditRequest {
@@ -94,7 +92,10 @@ export const normUsername = (u: string) => u.trim().toLowerCase();
 export const USERNAME_RE = /^[a-z0-9._-]{3,24}$/;
 
 export class Store {
-  constructor(private kv: KVNamespace) {}
+  constructor(
+    private kv: KVNamespace,
+    private ledger: DurableObjectStub<Ledger>,
+  ) {}
 
   async getJSON<T>(key: string): Promise<T | null> {
     const v = await this.kv.get(key);
@@ -117,15 +118,14 @@ export class Store {
   saveUser(u: User) {
     return this.putJSON(`user:${u.id}`, u);
   }
-  async userIds(): Promise<string[]> {
-    return (await this.getJSON<string[]>('users')) ?? [];
+  userIds(): Promise<string[]> {
+    return this.ledger.userIds();
   }
 
   async createUser(u: User) {
     await this.saveUser(u);
     await this.kv.put(`uname:${u.username}`, u.id);
-    const ids = await this.userIds();
-    if (!ids.includes(u.id)) await this.putJSON('users', [...ids, u.id]);
+    await this.ledger.addUser(u.id);
   }
 
   async newSession(userId: string) {
@@ -145,10 +145,16 @@ export class Store {
   // ---- spending ----
 
   async spentToday(userId: string, date = nyDate()) {
-    return Number((await this.kv.get(`spend:${userId}:${date}`)) ?? '0');
+    return (await this.ledger.snapshot(userId, date)).spentToday;
   }
   async monthSpent(date = nyDate()) {
-    return Number((await this.kv.get(`month:${date.slice(0, 7)}`)) ?? '0');
+    return (await this.ledger.snapshot('', date)).month;
+  }
+  spentOn(ids: string[], date: string) {
+    return this.ledger.spentOn(ids, date);
+  }
+  bonuses(ids: string[]) {
+    return this.ledger.bonuses(ids);
   }
 
   /** Today's per-person allowance, computed on the first request of the day and then fixed. */
@@ -156,7 +162,8 @@ export class Store {
     const cached = await this.getJSON<Allowance>(`allow:${date}`);
     if (cached) return cached;
     const active = await this.activeCount(date);
-    const monthSpentBefore = (await this.monthSpent(date)) - (await this.classSpentOn(date));
+    const snap = await this.ledger.snapshot('', date);
+    const monthSpentBefore = snap.month - snap.classDay;
     const a: Allowance = { date, perPerson: dailyAllowance(budget, monthSpentBefore, date, active), active, monthSpentBefore };
     await this.putJSON(`allow:${date}`, a, 60 * 60 * 48);
     return a;
@@ -174,37 +181,21 @@ export class Store {
     return Math.max(1, n);
   }
 
-  private async classSpentOn(date: string) {
-    return Number((await this.kv.get(`classday:${date}`)) ?? '0');
-  }
-
   async usage(u: User, budget: number) {
     const date = nyDate();
-    const [spent, a, month] = await Promise.all([this.spentToday(u.id, date), this.allowance(budget, date), this.monthSpent(date)]);
-    const capped = u.admin ? false : isCapped(spent, a.perPerson, u.bonus, month, budget);
-    return { date, spentToday: spent, allowance: a.perPerson, bonus: u.bonus, capped, active: a.active, monthSpent: month, budget, admin: u.admin };
+    const [snap, a] = await Promise.all([this.ledger.snapshot(u.id, date), this.allowance(budget, date)]);
+    const capped = u.admin ? false : isCapped(snap.spentToday, a.perPerson, snap.bonus, snap.month, budget);
+    return { date, spentToday: snap.spentToday, allowance: a.perPerson, bonus: snap.bonus, capped, active: a.active, monthSpent: snap.month, budget, admin: u.admin };
   }
 
-  /** Record what one AI call cost. KV has no transactions; at class scale a lost cent now and then is fine. */
+  /** Record what one AI call cost. */
   async charge(u: User, cost: number, budget: number) {
     if (!(cost > 0)) return;
     const date = nyDate();
     try {
-      const spent = await this.spentToday(u.id, date);
-      await this.kv.put(`spend:${u.id}:${date}`, String(spent + cost), { expirationTtl: 60 * 60 * 24 * 40 });
+      const a = u.admin ? null : await this.allowance(budget, date);
+      await this.ledger.charge(u.id, u.admin, cost, date, a?.perPerson ?? 0);
       await this.kv.put(`seen:${u.id}`, date);
-      if (u.admin) return;
-      const a = await this.allowance(budget, date);
-      const next = applyCharge(spent, a.perPerson, u.bonus, cost);
-      if (next.bonus !== u.bonus) {
-        const fresh = (await this.user(u.id)) ?? u;
-        fresh.bonus = Math.max(0, next.bonus);
-        await this.saveUser(fresh);
-      }
-      const month = await this.monthSpent(date);
-      await this.kv.put(`month:${date.slice(0, 7)}`, String(month + cost), { expirationTtl: 60 * 60 * 24 * 70 });
-      const day = await this.classSpentOn(date);
-      await this.kv.put(`classday:${date}`, String(day + cost), { expirationTtl: 60 * 60 * 48 });
     } catch (e) {
       console.error('charge failed', e);
     }
@@ -212,10 +203,13 @@ export class Store {
 
   // ---- "Ask for more" ----
 
-  async requests(): Promise<CreditRequest[]> {
-    return (await this.getJSON<CreditRequest[]>('reqs')) ?? [];
+  requests(): Promise<CreditRequest[]> {
+    return this.ledger.requests();
   }
-  async saveRequests(r: CreditRequest[]) {
-    await this.putJSON('reqs', r.slice(-200));
+  addRequest(r: CreditRequest) {
+    return this.ledger.addRequest(r);
+  }
+  resolveRequest(id: string, action: 'approve' | 'decline', amount?: number) {
+    return this.ledger.resolveRequest(id, action, amount);
   }
 }

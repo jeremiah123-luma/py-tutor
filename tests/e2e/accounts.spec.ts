@@ -3,7 +3,7 @@
 import { expect, test } from '@playwright/test';
 import { E2E } from './account';
 
-const local = !process.env.E2E_URL;
+const local = !process.env.E2E_URL || process.env.E2E_URL.startsWith('http://localhost');
 const shot = (name: string) => `test-results/onboarding-${name}-${test.info().project.name}.png`;
 
 test('sign up, passkey, tour, sign out, passkey sign-in', async ({ page, context }, info) => {
@@ -68,13 +68,23 @@ test('sign up, passkey, tour, sign out, passkey sign-in', async ({ page, context
   const me = await (await page.request.get('/api/me')).json();
   expect(me.user.username).toBe(username);
   expect(me.user.passkeys).toBe(1);
+
+  // Removing it (for example a passkey made on the old address) brings back "Add a passkey".
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: /^Account:/ }).click();
+  await page.getByRole('menuitem', { name: 'Remove my passkey' }).click();
+  await expect(page.getByText('Passkey removed.')).toBeVisible();
+  expect((await (await page.request.get('/api/me')).json()).user.passkeys).toBe(0);
+  await page.getByRole('button', { name: /^Account:/ }).click();
+  await expect(page.getByRole('menuitem', { name: /Add a passkey/ })).toBeVisible();
 });
 
 test('hitting the cap: pop-up, Ask for more, admin approves', async ({ page, browser }, info) => {
   test.skip(info.project.name !== 'laptop', 'one browser is enough');
   test.skip(!local, 'needs a local admin account');
   const username = `e2e-cap-${Date.now().toString(36)}`;
-  await page.request.post('/api/auth/signup', { data: { name: 'Casey Capped', username, password: E2E.password } });
+  const name = `Casey ${username.slice(-5)}`; // unique, so earlier runs' approvals on the admin page don't match
+  await page.request.post('/api/auth/signup', { data: { name, username, password: E2E.password } });
   await page.addInitScript(() => localStorage.setItem('py-tutor.tour.skip-all', '1'));
   // Pretend the allowance is used up for this one call (the cap math itself is unit-tested).
   await page.route('**/api/tutor', (r) =>
@@ -105,11 +115,11 @@ test('hitting the cap: pop-up, Ask for more, admin approves', async ({ page, bro
   await ap.goto('/');
   await ap.getByRole('button', { name: /^Account:/ }).click();
   await ap.getByRole('menuitem', { name: 'Class usage' }).click();
-  await expect(ap.getByText('Casey Capped').first()).toBeVisible();
+  await expect(ap.getByText(name).first()).toBeVisible();
   await ap.screenshot({ path: shot('7-admin'), fullPage: true });
   const row = ap.locator('div', { hasText: `@${username}` }).filter({ has: ap.getByRole('button', { name: '+$0.50' }) }).last();
   await row.getByRole('button', { name: '+$0.50' }).click();
-  await expect(ap.getByText(/Casey Capped: approved \+\$0\.50/)).toBeVisible();
+  await expect(ap.getByText(`${name}: approved +$0.50`, { exact: false })).toBeVisible();
   const me = await (await page.request.get('/api/me')).json();
   expect(me.usage.bonus).toBeCloseTo(0.5);
   await admin.close();

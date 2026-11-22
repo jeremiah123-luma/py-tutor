@@ -6,7 +6,7 @@ import type { Concept, ConceptId, Mode, Progress } from './types';
 import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
-import { addPasskey, askTutor, me, onCap, signOut, type Account, type Usage } from './loop/api';
+import { addPasskey, askTutor, removePasskeys, me, onCap, signOut, type Account, type Usage } from './loop/api';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
 import { emptyProgress, loadProgress, reviewQueue, saveProgress, setProgressUser, sub } from './loop/progress';
@@ -113,6 +113,8 @@ export default function App() {
   const [mode, setModeState] = useState<Mode>(readMode);
   const [session, setSession] = useState<Session | null>(null);
   const [talk, setTalk] = useState<TalkController | null>(null);
+  const talkRef = useRef<TalkController | null>(null);
+  talkRef.current = talk;
   const [programInput, setProgramInput] = useState('');
   const [drill, setDrill] = useState<Drill | null>(null);
   const [viz, setViz] = useState<{ init?: VizInit; from: 'home' | 'lesson' } | null>(null);
@@ -189,6 +191,22 @@ export default function App() {
       void enter(m.user);
     });
   }, [enter]);
+
+  // Signed out somewhere else, or the 60-day sign-in ran out: back to the sign-in screen. Progress stays saved on
+  // this device and merges back in once he signs in again.
+  useEffect(() => {
+    const onLocked = () => {
+      if (!account) return;
+      void talkRef.current?.end();
+      setTalk(null);
+      setAccount(null);
+      setProgressUser('');
+      setScreen('home');
+      setUnlocked(false);
+    };
+    window.addEventListener('py-tutor:locked', onLocked);
+    return () => window.removeEventListener('py-tutor:locked', onLocked);
+  }, [account]);
 
   // Classmates who signed up before the intro existed see it once, on their next visit.
   useEffect(() => {
@@ -365,6 +383,15 @@ export default function App() {
         toast.success('Passkey added. Next time, sign in with Face ID or Touch ID.');
       } catch (e) {
         if (!['NotAllowedError', 'AbortError'].includes((e as Error).name)) toast.error('The passkey couldn’t be added. Try again.');
+      }
+    },
+    onRemovePasskeys: async () => {
+      if (!window.confirm('Remove your passkey? You’ll sign in with your password, and you can add a new passkey after.')) return;
+      try {
+        setAccount(await removePasskeys());
+        toast.success('Passkey removed. You can add a new one from this menu.');
+      } catch {
+        toast.error('That didn’t work. Try again.');
       }
     },
     onAdmin: () => setScreen('admin'),

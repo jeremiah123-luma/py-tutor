@@ -8,6 +8,8 @@
   "routes": [{ "pattern": "pytutor.jeremiahsleman.com", "custom_domain": true }],
   "workers_dev": true,
   "kv_namespaces": [{ "binding": "KV", "id": "da669864bff842b6a4874b89741d2788" }],
+  "durable_objects": { "bindings": [{ "name": "LEDGER", "class_name": "Ledger" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Ledger"] }],
   "ratelimits": [
     { "name": "LOGIN_LIMITER", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
     { "name": "SIGNUP_LIMITER", "namespace_id": "1002", "simple": { "limit": 20, "period": 60 } }

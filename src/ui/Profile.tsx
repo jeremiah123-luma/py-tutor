@@ -16,6 +16,7 @@ export interface ProfileInfo {
   passkeys: number;
   usage?: Usage | null;
   onAddPasskey?: () => void;
+  onRemovePasskeys?: () => void;
   onAdmin?: () => void;
   onReplayTour?: () => void;
   onSignOut: () => void;
@@ -96,6 +97,11 @@ export function ProfileMenu() {
           {p.passkeys === 0 && p.onAddPasskey && (
             <Menu.Item onSelect={p.onAddPasskey} className={item}>
               <Fingerprint className="size-4" strokeWidth={1.75} aria-hidden="true" /> Add a passkey (Face ID)
+            </Menu.Item>
+          )}
+          {p.passkeys > 0 && p.onRemovePasskeys && (
+            <Menu.Item onSelect={p.onRemovePasskeys} className={item}>
+              <Fingerprint className="size-4" strokeWidth={1.75} aria-hidden="true" /> Remove {p.passkeys === 1 ? 'my passkey' : `my ${p.passkeys} passkeys`}
             </Menu.Item>
           )}
           <SoundItem />

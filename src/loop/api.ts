@@ -63,6 +63,7 @@ async function failed(r: Response, what: string): Promise<never> {
     capListeners.forEach((f) => f(j.usage));
     throw new CapError(j.usage);
   }
+  if (r.status === 401) window.dispatchEvent(new Event('py-tutor:locked'));
   throw new Error(r.status === 401 ? 'locked' : `${what} ${r.status}`);
 }
 
@@ -94,6 +95,7 @@ export async function addPasskey(): Promise<Account> {
   const response = await startRegistration({ optionsJSON: options });
   return (await postJSON<{ user: Account }>('/api/passkey/register/verify', response)).user;
 }
+export const removePasskeys = async () => (await postJSON<{ user: Account }>('/api/passkey/remove')).user;
 export async function signInWithPasskey(): Promise<Account> {
   const { startAuthentication } = await import('@simplewebauthn/browser');
   const { id, options } = await postJSON<{ id: string; options: any }>('/api/passkey/login/options');
