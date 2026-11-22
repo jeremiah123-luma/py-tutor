@@ -24,8 +24,16 @@ export class Listener {
     this.ev = ev;
   }
 
-  async init(audioContext?: AudioContext | null) {
-    if (this.vad) return;
+  private initing: Promise<void> | null = null;
+
+  /** Two quick taps share one load instead of building two detectors (and leaking the first). */
+  init(audioContext?: AudioContext | null): Promise<void> {
+    if (this.vad) return Promise.resolve();
+    if (!this.initing) this.initing = this.load(audioContext).finally(() => (this.initing = null));
+    return this.initing;
+  }
+
+  private async load(audioContext?: AudioContext | null) {
     this.destroyed = false;
     try {
       const vad = await MicVAD.new({
@@ -164,7 +172,10 @@ export function encodeWav(samples: Float32Array, rate: number): Blob {
  * up (and, on older browsers, still processing). Unhook it so each Talk session doesn't leave one behind.
  */
 async function dispose(vad: MicVAD) {
-  await vad.destroy().catch(() => {});
+  let released = true;
+  await vad.destroy().catch(() => (released = false));
+  // destroy() throws before freeing the voice model if the mic never started; free it here instead
+  if (!released) await (vad as unknown as { model?: { release?: () => Promise<void> } }).model?.release?.().catch(() => {});
   const v = vad as unknown as { _vadNode?: AudioNode | null; _mediaStreamAudioSourceNode?: AudioNode | null };
   for (const n of [v._mediaStreamAudioSourceNode, v._vadNode]) {
     try {

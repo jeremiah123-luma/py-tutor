@@ -1,7 +1,7 @@
 // Lifts the start-up screen in index.html once the app knows what to show (signed in or not). It stays up until the
 // word has assembled (so it never just flickers on a fast load), then plays its exit: the pieces fly off to the left,
 // blurring, and the app shows through. The exit itself lives with the rest of the animation, in index.html.
-const MIN_MS = 1650;
+const MIN_MS = 1300;
 
 let done = false;
 export function hideSplash() {

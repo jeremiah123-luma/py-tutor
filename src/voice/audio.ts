@@ -34,15 +34,18 @@ export function primeMic(): Promise<MediaStream> {
     navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
     });
+  // a refusal can be retried on the next tap (only clear it if a newer request hasn't replaced it)
+  const forget = (p: Promise<MediaStream>) => p.catch(() => mic === p && (mic = null));
   if (!mic) {
-    mic = fresh();
-    mic.catch(() => (mic = null)); // a refusal can be retried on the next tap
-    return mic;
+    const p = fresh();
+    mic = p;
+    forget(p);
+    return p;
   }
-  const prev = mic;
-  mic = prev.then((s) => (live(s) ? s : fresh()));
-  mic.catch(() => (mic = null));
-  return mic;
+  const p = mic.then((s) => (live(s) ? s : fresh()));
+  mic = p;
+  forget(p);
+  return p;
 }
 
 /** The session's mic stream (opening it if a tap hasn't already). */

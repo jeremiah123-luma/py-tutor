@@ -58,7 +58,8 @@ export function Conversation({ turns, thinking, onSend, placeholder = 'Ask anyth
   }, [turns.length, thinking]);
   const send = () => {
     const t = draft.trim();
-    if (!t) return;
+    // one at a time: sending mid-answer would cut the first answer off (the text stays in the box)
+    if (!t || thinking) return;
     sfx.send();
     onSend(t);
     setDraft('');
@@ -113,7 +114,7 @@ export function Conversation({ turns, thinking, onSend, placeholder = 'Ask anyth
           />
           <button
             type="submit"
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || thinking}
             aria-label="Send"
             className="press grid size-9 shrink-0 place-items-center rounded-md bg-ink text-paper disabled:bg-surface-2 disabled:text-ink-3"
           >

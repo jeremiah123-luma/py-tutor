@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, FileText, Home, Layers, Play, Sparkles, Timer, Eye } from 'lucide-react';
 import type { Concept, ConceptId, Mode, Progress } from '../types';
@@ -11,6 +11,8 @@ import { homeGreeting } from '../ui/greeting';
 export interface HomeScreenProps {
   /** The signed-in person's name, for the greeting. */
   name?: string;
+  /** They had progress when they opened the app (says "Welcome back"). */
+  returning?: boolean;
   concepts: Concept[];
   progress: Progress;
   /** Ordered sub-skill names per concept, for the mastery chart. */
@@ -66,6 +68,23 @@ function MasteryChart({ names, state, delay }: { names: string[]; state: Progres
   );
 }
 
+/** The greeting, kept current: an app left open overnight says good morning when it's opened again. */
+function useGreeting(name: string, returning: boolean) {
+  const [g, setG] = useState(() => homeGreeting(name, returning));
+  useEffect(() => {
+    const update = () => setG(homeGreeting(name, returning));
+    update();
+    const onVis = () => document.visibilityState === 'visible' && update();
+    document.addEventListener('visibilitychange', onVis);
+    const t = window.setInterval(update, 5 * 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.clearInterval(t);
+    };
+  }, [name, returning]);
+  return g;
+}
+
 export function HomeScreen(p: HomeScreenProps) {
   const [ask, setAsk] = useState('');
   const reduce = useReducedMotion();
@@ -74,7 +93,7 @@ export function HomeScreen(p: HomeScreenProps) {
   const nextUp = (c: Concept) => c.lessons.find((l) => !p.progress.concepts[c.id]?.[l.subskill]?.mastered) ?? c.lessons[0];
   const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
   const headline = started ? 'Back at it.' : 'Ace the final.';
-  const greeting = useState(() => homeGreeting(p.name ?? '', started))[0];
+  const greeting = useGreeting(p.name ?? '', !!p.returning);
 
   const rise = (i: number) =>
     reduce

@@ -48,3 +48,22 @@ describe('input() prompt text', () => {
     expect(fb.text).toMatch(/plain input\(\)/);
   });
 });
+
+describe('bug-hunt fixes', () => {
+  it('caps everyone (without extra credit) once the class has used its share of the day', () => {
+    // personal allowance not reached, but the class already spent today's share
+    expect(isCapped(0.1, 3, 0, 5, 30, 1.2, 1.0)).toBe(true);
+    expect(isCapped(0.1, 3, 0, 5, 30, 0.5, 1.0)).toBe(false);
+    // approved extra credit still works
+    expect(isCapped(0.1, 3, 0.5, 5, 30, 1.2, 1.0)).toBe(false);
+    // the month running out always caps
+    expect(isCapped(0, 3, 0.5, 30, 30, 0, 1)).toBe(true);
+  });
+
+  it('ignores lesson names that collide with built-in object properties', () => {
+    const p = cleanProgress({ concepts: { files: { toString: { attempts: 2 }, __proto__: { attempts: 1 }, 'read-lines': { attempts: 1 } } }, updatedAt: 1 });
+    expect(Object.keys(p.concepts.files)).toEqual(['read-lines']);
+    const merged = mergeProgress(cleanProgress(null), cleanProgress({ concepts: { files: { constructor: { attempts: 3 } } }, updatedAt: 1 }));
+    expect(Object.keys(merged.concepts.files)).toEqual([]);
+  });
+});

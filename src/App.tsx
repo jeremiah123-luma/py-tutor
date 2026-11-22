@@ -10,6 +10,7 @@ import { hideSplash } from './ui/splash';
 import { addPasskey, askTutor, removePasskeys, me, onCap, signOut, type Account, type Usage } from './loop/api';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
+import { draftStore } from './loop/drafts';
 import { emptyProgress, loadProgress, reviewQueue, saveProgress, setProgressUser, sub } from './loop/progress';
 import { buildDrill, type Drill } from './loop/drill';
 import { browserRunner, type PyRunner } from './runtime/runner';
@@ -72,7 +73,8 @@ function nextLesson(p: Progress): { concept: ConceptId; index: number } {
     const i = c.lessons.findIndex((l) => sub(p, c.id, l.subskill).attempts === 0);
     if (i >= 0) return { concept: c.id, index: i };
   }
-  const r = reviewQueue(p)[0];
+  // (skips anything saved under a lesson name that no longer exists)
+  const r = reviewQueue(p).find((x) => conceptMap[x.concept] && idx(x.concept, x.subskill) >= 0);
   if (r) return { concept: r.concept, index: idx(r.concept, r.subskill) };
   return { concept: CONCEPTS[0].id, index: 0 };
 }
@@ -113,6 +115,17 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [mode, setModeState] = useState<Mode>(readMode);
   const [session, setSession] = useState<Session | null>(null);
+  const sessionRef = useRef<Session | null>(null);
+  const [returning, setReturning] = useState(false);
+  /** The lesson was opened by a question typed on Home: show the Ask panel with it. */
+  const [askFromHome, setAskFromHome] = useState(false);
+  // used once, by the lesson screen that opens for it (it reads it when it mounts)
+  useEffect(() => {
+    if (!askFromHome || screen !== 'lesson') return;
+    const t = window.setTimeout(() => setAskFromHome(false), 50);
+    return () => window.clearTimeout(t);
+  }, [askFromHome, screen]);
+  sessionRef.current = session;
   const [talk, setTalk] = useState<TalkController | null>(null);
   const talkRef = useRef<TalkController | null>(null);
   talkRef.current = talk;
@@ -177,7 +190,11 @@ export default function App() {
   const enter = useCallback(async (u: Account) => {
     setAccount(u);
     setProgressUser(u.id);
-    const loaded = await loadProgress();
+    // Never leave the start-up screen waiting on a bad connection: progress that can't load in time starts from this
+    // device's copy (loadProgress falls back to it) and syncs later.
+    const loaded = await loadProgress().catch(() => emptyProgress());
+    // "Welcome back" is for people who had progress when they opened the app, not after their first try today
+    setReturning(Object.values(loaded.concepts).some((c) => Object.keys(c ?? {}).length > 0));
     progressRef.current = loaded;
     setProgressState(loaded);
     setUnlocked(true);
@@ -198,8 +215,8 @@ export default function App() {
   useEffect(() => {
     const onLocked = () => {
       if (!account) return;
-      void talkRef.current?.end();
-      setTalk(null);
+      stopRef.current();
+      toast.message('Your sign-in ran out. Sign in again to keep going.', { description: 'Your progress and the code you were writing are saved.' });
       setAccount(null);
       setProgressUser('');
       setScreen('home');
@@ -244,6 +261,7 @@ export default function App() {
         grade: (code, tests) => runner().grade(code, tests, []),
         getProgress: () => progressRef.current,
         setProgress,
+        draft: draftStore(account?.id ?? '', conceptId, concept.lessons[index]?.subskill ?? ''),
       });
       setSession(s);
       setProgramInput('');
@@ -255,20 +273,32 @@ export default function App() {
         loadTalkFor(s); // starts on the first tap (iOS audio needs a gesture)
       } else {
         runner(); // warm Python while he reads the definition
+        // Coming back to a lesson he left while writing code: pick up at Try it, with his code
+        // (read before start(), which records this visit as being on Learn)
+        const last = progressRef.current.last;
         s.start();
+        if (last && last.concept === conceptId && last.subskill === concept.lessons[index]?.subskill && (last.step === 'doit' || last.step === 'check'))
+          s.goTo('doit');
         setScreen('lesson');
       }
       return s;
     },
-    [setProgress, talk],
+    [setProgress, talk, account],
   );
 
-  const goHome = () => {
+  /** Stops talk mode (even one still loading), the mic, and the tutor. */
+  const stopEverything = () => {
     cancelTalk();
-    void talk?.end();
+    void talkRef.current?.end();
     releaseMic();
     setTalk(null);
-    session?.interrupt();
+    sessionRef.current?.interrupt();
+  };
+  const stopRef = useRef(stopEverything);
+  stopRef.current = stopEverything;
+
+  const goHome = () => {
+    stopEverything();
     setScreen('home');
   };
 
@@ -360,7 +390,20 @@ export default function App() {
   const contLesson = conceptMap[cont.concept]!.lessons[cont.index];
 
   if (unlocked === null) return <div className="min-h-dvh bg-paper" />; // the start-up screen (index.html) covers this
-  if (!unlocked) return <AuthScreen onSignedIn={(u) => enter(u)} />;
+  // (also on the sign-in screen, for "Your sign-in ran out")
+  const toaster = (
+    <Toaster
+      position="bottom-center"
+      toastOptions={{ style: { fontFamily: 'var(--font-ui)', background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)' } }}
+    />
+  );
+  if (!unlocked)
+    return (
+      <>
+        <AuthScreen onSignedIn={(u) => enter(u)} />
+        {toaster}
+      </>
+    );
 
   // First-run tour: home right after signing in; the lesson tour the first time they reach "Try it",
   // when every part it points at is on screen.
@@ -410,11 +453,9 @@ export default function App() {
       setIntroOpen(true); // the intro first, then the spotlight tour picks up on Home
       setTourTick((n) => n + 1);
     },
-    onSignOut: () => {
-      void talk?.end();
-      setTalk(null);
-      session?.interrupt();
-      void signOut();
+    onSignOut: async () => {
+      stopEverything();
+      await signOut(); // finish signing out first, so a quick sign-in right after can't have its new session cleared
       setAccount(null);
       setProgressUser('');
       setScreen('home');
@@ -429,6 +470,7 @@ export default function App() {
         <Reveal key="home">
         <HomeScreen
           name={account?.name}
+          returning={returning}
           concepts={CONCEPTS}
           progress={progress}
           subskills={SUBSKILLS}
@@ -440,6 +482,7 @@ export default function App() {
           onContinue={() => startLesson(cont.concept, cont.index, mode)}
           onAsk={(text) => {
             setMode('type');
+            setAskFromHome(true);
             const s = startLesson(cont.concept, cont.index, 'type');
             void s.say(text);
           }}
@@ -469,6 +512,7 @@ export default function App() {
       {screen === 'lesson' && session && state && (
         <Reveal key={`lesson-${session.concept.id}-${session.state.lessonIndex}`}>
         <LessonScreen
+          startAsk={askFromHome}
           session={state}
           concept={session.concept}
           mode="type"
@@ -569,10 +613,7 @@ export default function App() {
 
       <CapDialog open={cap.open} usage={cap.usage} onClose={() => setCap({ open: false })} />
 
-      <Toaster
-        position="bottom-center"
-        toastOptions={{ style: { fontFamily: 'var(--font-ui)', background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--line)' } }}
-      />
+      {toaster}
     </ProfileContext.Provider>
   );
 }

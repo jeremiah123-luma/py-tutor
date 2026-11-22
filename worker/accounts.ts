@@ -4,9 +4,8 @@
 //   uname:<username>     -> user id
 //   cred:<passkey id>    -> user id
 //   sess:<token>         -> user id (60 days)
-//   seen:<id>            the last day that person used AI
 //   allow:<date>         that day's per-person allowance, fixed once computed
-import { dailyAllowance, daysBetween, isCapped, nyDate } from './budget';
+import { dailyAllowance, daysLeftInMonth, isCapped, nyDate } from './budget';
 import type { Ledger } from './ledger';
 
 export interface Passkey {
@@ -88,6 +87,9 @@ export async function checkPassword(user: User, password: string): Promise<boole
   return diff === 0;
 }
 
+/** What the Ledger needs to know about an account. */
+export const meta = (u: User) => ({ admin: !!u.admin, test: u.username.startsWith('e2e-') });
+
 export const normUsername = (u: string) => u.trim().toLowerCase();
 export const USERNAME_RE = /^[a-z0-9._-]{3,24}$/;
 
@@ -122,10 +124,18 @@ export class Store {
     return this.ledger.userIds();
   }
 
-  async createUser(u: User) {
-    await this.saveUser(u);
-    await this.kv.put(`uname:${u.username}`, u.id);
-    await this.ledger.addUser(u.id);
+  /** False if the username was taken (claimed in the Ledger, so two sign-ups at once can't both get it). */
+  async createUser(u: User): Promise<boolean> {
+    if (!(await this.ledger.claimName(u.username, u.id))) return false;
+    try {
+      await this.saveUser(u);
+      await this.kv.put(`uname:${u.username}`, u.id);
+      await this.ledger.addUser(u.id, meta(u));
+    } catch (e) {
+      await this.ledger.releaseName(u.username, u.id);
+      throw e;
+    }
+    return true;
   }
 
   async newSession(userId: string) {
@@ -144,17 +154,18 @@ export class Store {
 
   // ---- spending ----
 
-  async spentToday(userId: string, date = nyDate()) {
-    return (await this.ledger.snapshot(userId, date)).spentToday;
-  }
   async monthSpent(date = nyDate()) {
     return (await this.ledger.snapshot('', date)).month;
   }
-  spentOn(ids: string[], date: string) {
-    return this.ledger.spentOn(ids, date);
+  /** Per person, for the admin page: spent today, extra credit left, last day using AI. */
+  table(ids: string[], date: string) {
+    return this.ledger.table(ids, date);
   }
-  bonuses(ids: string[]) {
-    return this.ledger.bonuses(ids);
+  beginTutor(userId: string) {
+    return this.ledger.beginTutor(userId);
+  }
+  endTutor(userId: string, ticket: number) {
+    return this.ledger.endTutor(userId, ticket);
   }
 
   /** Today's per-person allowance, computed on the first request of the day and then fixed. */
@@ -170,21 +181,17 @@ export class Store {
   }
 
   /** Students (not admins or test accounts) who used AI in the last 7 days. At least 1. */
-  async activeCount(date: string) {
-    let n = 0;
-    for (const id of await this.userIds()) {
-      const seen = await this.kv.get(`seen:${id}`);
-      if (!seen || daysBetween(seen, date) >= 7) continue;
-      const u = await this.user(id);
-      if (u && !u.admin && !u.username.startsWith('e2e-')) n++;
-    }
-    return Math.max(1, n);
+  activeCount(date: string) {
+    return this.ledger.activeCount(date);
   }
 
   async usage(u: User, budget: number) {
     const date = nyDate();
     const [snap, a] = await Promise.all([this.ledger.snapshot(u.id, date), this.allowance(budget, date)]);
-    const capped = u.admin ? false : isCapped(snap.spentToday, a.perPerson, snap.bonus, snap.month, budget);
+    // Also a cap on the whole class's day, so a crowd of new people (who weren't counted in today's allowance) can't
+    // spend several days' worth in one day.
+    const classDaily = Math.max(0, budget - a.monthSpentBefore) / daysLeftInMonth(date);
+    const capped = u.admin ? false : isCapped(snap.spentToday, a.perPerson, snap.bonus, snap.month, budget, snap.classDay, classDaily);
     return { date, spentToday: snap.spentToday, allowance: a.perPerson, bonus: snap.bonus, capped, active: a.active, monthSpent: snap.month, budget, admin: u.admin };
   }
 
@@ -194,8 +201,7 @@ export class Store {
     const date = nyDate();
     try {
       const a = u.admin ? null : await this.allowance(budget, date);
-      await this.ledger.charge(u.id, u.admin, cost, date, a?.perPerson ?? 0);
-      await this.kv.put(`seen:${u.id}`, date);
+      await this.ledger.charge(u.id, meta(u), cost, date, a?.perPerson ?? 0);
     } catch (e) {
       console.error('charge failed', e);
     }

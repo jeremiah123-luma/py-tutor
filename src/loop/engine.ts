@@ -41,6 +41,8 @@ export interface EngineDeps {
   grade: (code: string, tests: TestCase[]) => Promise<GradeResult>;
   getProgress: () => Progress;
   setProgress: (p: Progress) => void;
+  /** Keeps what he typed on Try it between visits (optional). */
+  draft?: { load(): string | null; save(code: string): void; clear(): void };
 }
 
 export interface SessionEvents {
@@ -87,7 +89,7 @@ export class Session {
       seen: ['define'],
       walkLine: 0,
       turns: [],
-      code: this.lesson.doit.starter,
+      code: this.deps.draft?.load() ?? this.lesson.doit.starter,
       busy: 'idle',
       freeHints: { talk: 0, doit: 0 },
     };
@@ -186,6 +188,7 @@ export class Session {
       this.checks = 0;
       this.doHints = this.hintsAfterPass; // hints read after the last pass count against this round
       this.hintsAfterPass = 0;
+      this.deps.draft?.clear();
       this.set({ code: this.lesson.doit.starter, freeHints: { talk: this.state.freeHints?.talk ?? 0, doit: 0 } });
     }
     this.set({ step: 'doit', walkLine: 0, lastRun: undefined, lastGrade: undefined, gradeExplained: false });
@@ -249,6 +252,7 @@ export class Session {
 
   setCode(code: string) {
     this.set({ code });
+    this.deps.draft?.save(code);
   }
 
   /** Stop the tutor mid-sentence (barge-in or tap). */
@@ -267,19 +271,29 @@ export class Session {
     // Placeholder turn that fills in as text streams.
     const at = Date.now();
     let live = '';
-    const turns = [...this.state.turns, { role: 'tutor' as const, text: '', at }];
-    this.set({ turns });
+    // Updated by identity, not by position: a check or hint pushed mid-stream must not get overwritten.
+    let mine: TutorTurn = { role: 'tutor', text: '', at };
+    const fill = (t: TutorTurn) => {
+      const i = this.state.turns.lastIndexOf(mine);
+      if (i < 0) return;
+      const turns = this.state.turns.slice();
+      turns[i] = t;
+      mine = t;
+      this.set({ turns });
+    };
+    this.set({ turns: [...this.state.turns, mine] });
     try {
       const res = await this.deps.tutor(
         { ...req, concept: this.concept.id, subskill: this.lesson.subskill, step: this.state.step, mode: this.mode, history },
         (d) => {
+          if (ctrl.signal.aborted) return; // stopped: text still in flight is dropped
           live += d;
-          this.replaceLast({ role: 'tutor', text: live, at });
+          fill({ role: 'tutor', text: live, at });
           this.events.onTutorText?.(d);
         },
         ctrl.signal,
       );
-      this.replaceLast({
+      fill({
         role: 'tutor',
         text: res.text,
         nailed: res.meta.nailed,
@@ -290,7 +304,11 @@ export class Session {
       this.events.onTutorLine?.(res.text, false);
       return res;
     } catch (e) {
-      if ((e as Error).name === 'AbortError') return null;
+      if ((e as Error).name === 'AbortError') {
+        // stopped before it said anything: don't leave an empty bubble behind
+        if (!live) this.set({ turns: this.state.turns.filter((t) => t !== mine) });
+        return null;
+      }
       const m = (e as Error).message;
       const msg =
         m === 'locked'
@@ -298,7 +316,7 @@ export class Session {
           : m === 'cap'
             ? "You've used today's AI help. Checks and written hints still work, and it resets tomorrow."
             : "I couldn't reach the tutor just now. Check your connection and try again.";
-      this.replaceLast({ role: 'tutor', text: msg, at });
+      fill({ role: 'tutor', text: msg, at });
       this.events.onTutorLine?.(msg, true); // Talk mode says it out loud and finishes the turn
       return null;
     } finally {
@@ -307,11 +325,6 @@ export class Session {
         this.set({ busy: 'idle' });
       }
     }
-  }
-
-  private replaceLast(t: TutorTurn) {
-    const turns = this.state.turns.slice(0, -1).concat(t);
-    this.set({ turns });
   }
 
   /** He said or typed something. What it means depends on the step. */
@@ -370,6 +383,7 @@ export class Session {
    * shown in order with no AI call. Only after those does Hint ask the tutor (which uses API credits).
    */
   async hint() {
+    this.interrupt(); // a reply still streaming stops here; the hint comes next
     const step = this.state.step;
     if (step === 'talkthrough') this.talkHints++;
     else if (step === 'doit') this.doHints++;
@@ -419,6 +433,8 @@ export class Session {
   /** Grade against the tests and explain the result from the tests alone. Always free: no AI call, no credits. */
   async check() {
     if (this.state.step !== 'doit' && this.state.step !== 'check') return;
+    if (this.state.busy === 'running') return; // a double tap grades once
+    this.interrupt(); // a reply still streaming stops; the check result comes next
     this.set({ busy: 'running' });
     const lastGrade = await this.deps.grade(this.state.code, this.lesson.doit.tests);
     this.checks++;

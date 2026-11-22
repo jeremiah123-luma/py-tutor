@@ -35,19 +35,23 @@
     <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/launch-750x1334.png" />
     <style>
       /* Start-up screen ("assemble", after Aristide Benoist's WebGPU type studies): ">_ py-tutor" builds itself from slices
-         that fly in on curves, with red and blue fringes and a light haze that clears as each letter lands. It is painted
+         that fly in on curves, with red and blue fringes (about 1.2 s). It is painted
          with the first byte of HTML and run by the script below, before the app's code loads; src/ui/splash.ts lifts it. */
       html, body { background: #111111; margin: 0; }
-      #splash { position: fixed; inset: 0; z-index: 1000; overflow: hidden; display: grid; place-items: center; background: #111111; color: #F5F5F5; -webkit-user-select: none; user-select: none; pointer-events: none; }
+      #splash { position: fixed; inset: 0; z-index: 1000; overflow: hidden; display: grid; place-items: center; color: #F5F5F5; -webkit-user-select: none; user-select: none; pointer-events: none; }
+      #splash .bg { position: absolute; inset: 0; background: #111111; }
       #splash .center { position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; }
-      #splash .bloom { position: absolute; left: 50%; top: 50%; width: 120%; height: 160%; translate: -50% -62%; border-radius: 50%; background: radial-gradient(closest-side, rgb(255 255 255 / 0.5), rgb(196 181 253 / 0.18) 55%, transparent); filter: blur(24px); opacity: 0; }
       #splash .aword { position: relative; display: flex; font: 900 min(60px, 14.5vw)/1 system-ui, -apple-system, 'Segoe UI', sans-serif; letter-spacing: -0.03em; white-space: nowrap; }
       #splash .g { position: relative; display: inline-block; }
       #splash .g.sp { width: 0.32em; }
       #splash .sz { visibility: hidden; }
-      #splash .sl { position: absolute; left: 0; top: 0; will-change: transform; }
-      #splash .sl.r { color: #FF3355; mix-blend-mode: screen; }
-      #splash .sl.b { color: #3D7BFF; mix-blend-mode: screen; }
+      #splash .sl { position: absolute; left: -0.2em; top: -0.3em; padding: 0.3em 0.2em; }
+      /* once a letter's pieces land it's drawn whole: no seams between strips, nothing cropped */
+      #splash .g.done .sz { visibility: visible; }
+      #splash .g.done .sl { visibility: hidden; }
+      #splash .g.y .sz { color: #FFE27A; }
+      #splash .sl.r { color: #FF3355; }
+      #splash .sl.b { color: #3D7BFF; }
       #splash .sl.w { color: #F5F5F5; }
       #splash .g.y .sl.w { color: #FFE27A; }
       #splash .sp-sub { position: relative; font-family: system-ui, -apple-system, sans-serif; font-size: 13px; color: #8C8C8C; letter-spacing: 0.01em; }
@@ -56,8 +60,8 @@
   </head>
   <body>
     <div id="splash" role="status" aria-label="Opening py-tutor">
+      <div class="bg"></div>
       <div class="center" aria-hidden="true">
-        <div class="bloom"></div>
         <div class="aword" data-text=">_ py-tutor"></div>
         <div class="sp-sub">CS 100 final · <b>Dec 19</b></div>
       </div>
@@ -73,13 +77,16 @@
         window.__splashAt = performance.now();
         var reduce = false;
         try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-        var abox = el;
-        var word = abox.querySelector('.aword');
+        // Everything animated here is transform or opacity only, which phones run on the graphics chip: it stays
+        // smooth even while the app's own code is loading at the same moment.
+        var word = el.querySelector('.aword');
         var text = word.getAttribute('data-text');
         var seed = 7;
         var rnd = function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-        var K = 4; // slices per letter
+        var K = 3; // slices per letter
+        var GAP = 0.045; // seconds between letters
         var slices = [];
+        var frag = document.createDocumentFragment();
         text.split('').forEach(function (ch, gi) {
           var g = document.createElement('span');
           g.className = 'g' + (ch === '_' ? ' y' : '') + (ch === ' ' ? ' sp' : '');
@@ -93,14 +100,19 @@
                 var sl = document.createElement('span');
                 sl.className = 'sl ' + col;
                 sl.textContent = ch;
-                sl.style.clipPath = 'inset(' + (s * 100) / K + '% -20% ' + ((K - 1 - s) * 100) / K + '% -20%)';
+                // Each strip's box is padded past the line (Safari won't clip outside an element's own box), so the
+                // outer strips keep the tails of p and y and the tops of tall letters; inner edges overlap so no seam shows.
+                var PAD = 0.3, H = 1 + 2 * PAD, OV = 0.03;
+                var top = s === 0 ? 0 : ((PAD + s / K - OV) / H) * 100, bot = s === K - 1 ? 0 : ((PAD + (K - 1 - s) / K - OV) / H) * 100;
+                sl.style.clipPath = 'inset(' + top.toFixed(2) + '% 0 ' + bot.toFixed(2) + '% 0)';
                 g.appendChild(sl);
                 slices.push({ el: sl, gi: gi, s: s, col: col });
               });
             }
           }
-          word.appendChild(g);
+          frag.appendChild(g);
         });
+        word.appendChild(frag);
         // one random path per slice, shared by its three colour copies
         var paths = {};
         slices.forEach(function (o) {
@@ -108,49 +120,43 @@
           if (!paths[key]) {
             paths[key] = {
               dx: 120 + rnd() * 220,
-              dy: (o.s - 1.5) * (18 + rnd() * 30) + (rnd() - 0.5) * 40,
+              dy: (o.s - 1) * (22 + rnd() * 34) + (rnd() - 0.5) * 40,
               r: (rnd() - 0.5) * 50,
               sx: 0.15 + rnd() * 0.3,
-              d: 0.08 + o.gi * 0.065 + o.s * 0.025 + rnd() * 0.06,
+              d: 0.06 + o.gi * GAP + o.s * 0.025 + rnd() * 0.05,
             };
           }
           var p = paths[key];
-          var lag = o.col === 'w' ? 0 : o.col === 'r' ? 0.035 : 0.07;
+          var lag = o.col === 'w' ? 0 : o.col === 'r' ? 0.03 : 0.055;
           if (reduce) return;
-          o.el.animate(
+          var a = o.el.animate(
             [
               { transform: 'translate(' + p.dx + 'px,' + p.dy + 'px) rotate(' + p.r + 'deg) scaleX(' + p.sx + ')', opacity: 0, offset: 0 },
               { opacity: 1, offset: 0.25 },
               { transform: 'translate(' + p.dx * 0.18 + 'px,' + p.dy * 0.05 + 'px) rotate(' + p.r * 0.1 + 'deg) scaleX(1.06)', offset: 0.7 },
               { transform: 'none', opacity: 1, offset: 1 },
             ],
-            { duration: 720, delay: (p.d + lag) * 1000, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' },
+            { duration: 560, delay: (p.d + lag) * 1000, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' },
           );
+          var g = o.el.parentNode;
+          g.pending = (g.pending || 0) + 1;
+          a.onfinish = function () { if (--g.pending === 0) g.classList.add('done'); };
         });
-        // a light haze: each letter is soft while its pieces fly in and sharpens as they land, and a faint glow
-        // rises behind the word and settles
-        var glyphs = word.querySelectorAll('.g');
-        if (!reduce) {
-          for (var gi = 0; gi < glyphs.length; gi++)
-            glyphs[gi].animate([{ filter: 'blur(7px)' }, { filter: 'blur(2.5px)', offset: 0.55 }, { filter: 'blur(0px)' }], { duration: 900, delay: (0.08 + gi * 0.065) * 1000, easing: 'cubic-bezier(.3,.6,.3,1)', fill: 'backwards' });
-          abox.querySelector('.bloom').animate([{ opacity: 0 }, { opacity: 0.16, offset: 0.55 }, { opacity: 0.05 }], { duration: 1700, delay: 150, easing: 'ease-out', fill: 'forwards' });
-        }
-        abox.querySelector('.sp-sub').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: reduce ? 0 : 1150, fill: 'backwards' });
+        if (reduce) word.querySelectorAll('.g').forEach(function (g) { g.classList.add('done'); });
+        el.querySelector('.sp-sub').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: reduce ? 0 : 880, fill: 'backwards' });
         window.__splashExit = function () {
+          word.querySelectorAll('.g').forEach(function (g) { g.classList.remove('done'); }); // back to pieces to fly off
           slices.forEach(function (o) {
             var p = paths[o.gi + ':' + o.s];
-            var lag = o.col === 'w' ? 0 : o.col === 'r' ? 0.03 : 0.06;
+            var lag = o.col === 'w' ? 0 : o.col === 'r' ? 0.025 : 0.05;
             o.el.animate(
               [{ transform: 'none', opacity: 1 }, { transform: 'translate(' + -p.dx * 1.2 + 'px,' + -p.dy * 0.6 + 'px) rotate(' + -p.r + 'deg) scaleX(' + p.sx + ')', opacity: 0 }],
-              { duration: 460, delay: ((text.length - o.gi) * 0.03 + o.s * 0.015 + lag) * 1000, easing: 'cubic-bezier(.6,0,.8,.3)', fill: 'forwards' },
+              { duration: 380, delay: ((text.length - o.gi) * 0.022 + o.s * 0.012 + lag) * 1000, easing: 'cubic-bezier(.6,0,.8,.3)', fill: 'forwards' },
             );
           });
-          for (var gi = 0; gi < glyphs.length; gi++)
-            glyphs[gi].animate([{ filter: 'blur(0px)' }, { filter: 'blur(8px)' }], { duration: 460, delay: (text.length - gi) * 30, easing: 'ease-in', fill: 'forwards' });
-          abox.querySelector('.bloom').animate([{ opacity: 0.05 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
-          abox.querySelector('.sp-sub').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
-          abox.animate([{ backgroundColor: '#111111' }, { backgroundColor: 'rgba(17,17,17,0)' }], { duration: 380, delay: 420, easing: 'ease-in', fill: 'forwards' });
-          return 860;
+          el.querySelector('.sp-sub').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' });
+          el.querySelector('.bg').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, delay: 300, easing: 'ease-in', fill: 'forwards' });
+          return 650;
         };
       })();
     </script>

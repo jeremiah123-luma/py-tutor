@@ -57,7 +57,11 @@ export function applyCharge(spentToday: number, allowance: number, bonus: number
   return { spentToday: spentToday + cost, bonus: bonus - fromBonus };
 }
 
-/** bonus is what's LEFT of the extra credit: applyCharge already takes today's overage out of it. */
-export function isCapped(spentToday: number, allowance: number, bonus: number, monthSpent: number, budget: number): boolean {
-  return monthSpent >= budget || (spentToday >= allowance && bonus <= 1e-9);
+/** bonus is what's LEFT of the extra credit (applyCharge already takes today's overage out of it). classDay/classDaily:
+ *  the whole class's spending today and its share of what's left this month; once the class has used today's share,
+ *  everyone without extra credit waits for tomorrow. */
+export function isCapped(spentToday: number, allowance: number, bonus: number, monthSpent: number, budget: number, classDay = 0, classDaily = Infinity): boolean {
+  if (monthSpent >= budget) return true;
+  if (bonus > 1e-9) return false; // extra credit he approved still works
+  return spentToday >= allowance || classDay >= classDaily;
 }

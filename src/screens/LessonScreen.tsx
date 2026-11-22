@@ -16,6 +16,8 @@ import { TopBar } from '../ui/TopBar';
 import { codeOnScreen, isWriting, runFilesFor, showsOwnCode } from '../loop/engine';
 
 export interface LessonScreenProps {
+  /** Open with the Ask the tutor panel showing (a question asked from Home). */
+  startAsk?: boolean;
   session: SessionState;
   concept: Concept;
   mode: Mode;
@@ -51,11 +53,14 @@ export function LessonScreen(p: LessonScreenProps) {
   const [playerLine, setPlayerLine] = useState(0);
   const [tracing, setTracing] = useState(false);
   const canPlay = !showsOwnCode(session.step) && !defining && !!p.onTrace;
-  const [askOpen, setAskOpen] = useState(false);
+  // A question asked from Home opens here with the Ask the tutor panel already showing it.
+  const [askOpen, setAskOpen] = useState(!!p.startAsk);
+  const mounted = useRef(false);
   // Any step change (or switching lessons) closes the player, so its line never fights the walkthrough's.
   useEffect(() => {
     setPlayer(null);
-    setAskOpen(false); // the Ask the tutor drawer belongs to the step he opened it on
+    if (mounted.current) setAskOpen(false); // the Ask the tutor drawer belongs to the step he opened it on
+    mounted.current = true;
   }, [session.step, session.lessonIndex]);
   const ownCode = showsOwnCode(session.step);
   const onPlayerLine = useCallback((l: number) => setPlayerLine(l), []);

@@ -25,7 +25,8 @@ export function cleanProgress(v: unknown): Progress {
     if (!subs || typeof subs !== 'object') continue;
     for (const [k, sv] of Object.entries(subs).slice(0, 50)) {
       const s = cleanSub(sv);
-      if (s && /^[\w-]{1,40}$/.test(k)) out.concepts[c][k] = s;
+      // names like toString or __proto__ would collide with built-in object properties
+      if (s && /^[\w-]{1,40}$/.test(k) && !(k in Object.prototype)) out.concepts[c][k] = s;
     }
   }
   const l = o.last;
@@ -46,11 +47,13 @@ function mergeSub(a: SubskillProgress | undefined, b: SubskillProgress | undefin
   };
 }
 
+const own = <T,>(o: Record<string, T> | undefined, k: string) => (o && Object.hasOwn(o, k) ? o[k] : undefined);
+
 export function mergeProgress(a: Progress, b: Progress): Progress {
   const out: Progress = { concepts: { dictionaries: {}, files: {}, classes: {} }, updatedAt: Math.max(a.updatedAt, b.updatedAt) };
   for (const c of CONCEPTS) {
     const keys = new Set([...Object.keys(a.concepts[c] ?? {}), ...Object.keys(b.concepts[c] ?? {})]);
-    for (const k of keys) out.concepts[c][k] = mergeSub(a.concepts[c]?.[k], b.concepts[c]?.[k]);
+    for (const k of keys) out.concepts[c][k] = mergeSub(own(a.concepts[c], k), own(b.concepts[c], k));
   }
   const last = (b.updatedAt >= a.updatedAt ? b.last : a.last) ?? a.last ?? b.last;
   if (last) out.last = last;

@@ -70,13 +70,26 @@ async function failed(r: Response, what: string): Promise<never> {
 async function postJSON<T>(url: string, body?: unknown): Promise<T> {
   const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) });
   const j = (await r.json().catch(() => ({}))) as T & { error?: string; field?: string };
+  // signed out in the middle of using it (not a wrong password on the sign-in screen)
+  if (r.status === 401 && !/^\/api\/(auth|passkey\/login)\//.test(url)) window.dispatchEvent(new Event('py-tutor:locked'));
   if (!r.ok) throw Object.assign(new Error(j.error ?? `Something went wrong (${r.status}). Try again.`), { field: j.field, status: r.status });
   return j;
 }
 
+/** A signal that gives up after ms (AbortSignal.timeout isn't in older Safari). */
+function timeout(ms: number): AbortSignal | undefined {
+  try {
+    const c = new AbortController();
+    setTimeout(() => c.abort(), ms);
+    return c.signal;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function me(): Promise<{ user: Account; usage: Usage } | null> {
   try {
-    const r = await fetch('/api/me');
+    const r = await fetch('/api/me', { signal: timeout(8000) });
     return r.ok ? await r.json() : null;
   } catch {
     return null;
@@ -192,7 +205,7 @@ export async function speechAudio(text: string, signal?: AbortSignal): Promise<A
 
 export async function pullProgress(): Promise<Progress | null> {
   try {
-    const r = await fetch('/api/progress');
+    const r = await fetch('/api/progress', { signal: timeout(6000) });
     return r.ok ? ((await r.json()) as Progress | null) : null;
   } catch {
     return null;

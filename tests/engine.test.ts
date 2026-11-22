@@ -291,3 +291,46 @@ describe('Check my code is always free; the tutor explains only when he asks', (
     expect(calls.filter((c) => c.kind === 'explain-grade')).toHaveLength(1);
   });
 });
+
+describe('a reply still streaming', () => {
+  it('stops when Check is pressed, and never overwrites the check result', async () => {
+    const concept = concepts.dictionaries!;
+    const prog = { p: emptyProgress() };
+    let push: ((d: string) => void) | null = null;
+    const d: EngineDeps = {
+      ...deps(prog, []),
+      tutor: (_req, onText, signal) =>
+        new Promise((resolve, reject) => {
+          push = onText;
+          signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+        }) as never,
+    };
+    const s = new Session(concept, 0, 'type', d);
+    s.start();
+    s.goTo('doit');
+    const asking = s.say('what does this line do?');
+    await Promise.resolve();
+    push!('Part of an ans');
+    s.setCode(concept.lessons[0].doit.reference);
+    await s.check();
+    push!('wer that arrives late');
+    await asking;
+    const texts = s.state.turns.map((t) => t.text);
+    const fb = s.state.turns.at(-1)!;
+    expect(fb.role).toBe('tutor');
+    expect(fb.text).not.toMatch(/arrives late/);
+    expect(texts).toContain('Check my code.');
+    expect(texts.filter((t) => t === '')).toHaveLength(0);
+  });
+
+  it('a double tap on Check grades once', async () => {
+    const concept = concepts.dictionaries!;
+    const prog = { p: emptyProgress() };
+    const s = new Session(concept, 0, 'type', deps(prog, []));
+    s.start();
+    s.goTo('doit');
+    s.setCode(concept.lessons[0].doit.wrong[0]);
+    await Promise.all([s.check(), s.check()]);
+    expect(s.state.turns.filter((t) => t.text === 'Check my code.')).toHaveLength(1);
+  });
+});

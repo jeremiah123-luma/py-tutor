@@ -107,9 +107,10 @@ export class TalkController {
 
   /** Must be called from a tap. Starts talking right away; the mic model loads in parallel. */
   async begin() {
-    this.stopped = false;
+    if (this.stopped) return;
     this.begunAt = performance.now();
-    await this.speaker.unlock();
+    await this.speaker.unlock(); // can stall on iPhone; Done may be tapped meanwhile
+    if (this.stopped) return;
     this.update({ ring: 'thinking' });
     void this.keepAwake();
     this.micReady = this.initMic();

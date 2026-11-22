@@ -82,7 +82,8 @@ app.use('/api/*', async (c, next) => {
 
 // A malformed request is a 400 with a message, never a bare "Internal Server Error".
 app.onError((e, c) => {
-  if (e instanceof SyntaxError || e instanceof TypeError) return c.json({ error: 'bad request' }, 400);
+  // Bad JSON is the client's fault; anything else (a dropped connection upstream, a bug here) is ours and is logged.
+  if (e instanceof SyntaxError) return c.json({ error: 'bad request' }, 400);
   console.error('unhandled', e);
   return c.json({ error: 'Something went wrong. Try again.' }, 500);
 });
@@ -154,7 +155,7 @@ app.post('/api/auth/signup', async (c) => {
   if (password.length < 8) return c.json({ error: 'Use at least 8 characters for your password.', field: 'password' }, 400);
   if (await store.userByName(username)) return c.json({ error: 'That username is taken. Try another.', field: 'username' }, 409);
   const user: User = { id: randomId(12), username, name, admin, createdAt: Date.now(), pw: await hashPassword(password), passkeys: [] };
-  await store.createUser(user);
+  if (!(await store.createUser(user))) return c.json({ error: 'That username is taken. Try another.', field: 'username' }, 409);
   await noteFail(store, `signup:${ip}`);
   startSession(c, await store.newSession(user.id));
   return c.json({ user: publicUser(user) });
@@ -314,6 +315,10 @@ app.post('/api/tutor', async (c) => {
   if (capped) return capped;
   const user = c.get('user');
   const store = c.get('store');
+  // At most 2 answers at once per person: the cap is checked before a call and charged after, so many at once
+  // could otherwise run past it.
+  const ticket = await store.beginTutor(user.id);
+  if (ticket === null) return c.json({ error: 'One question at a time. Wait for the answer, then ask again.' }, 429);
   req.learnerName = user.name.split(/\s+/)[0];
 
   const client = new Anthropic({ apiKey: c.env.ANTHROPIC_API_KEY });
@@ -324,6 +329,7 @@ app.post('/api/tutor', async (c) => {
   const chargeOnce = () => {
     if (charged) return;
     charged = true;
+    c.executionCtx.waitUntil(Promise.resolve(store.endTutor(user.id, ticket)).catch(() => {}));
     // Cut off early (barge-in), the final token count never arrives: bill what was streamed (~3.5 characters a token).
     usage.output_tokens = Math.max(usage.output_tokens ?? 0, Math.ceil(sentChars / 3.5));
     c.executionCtx.waitUntil(store.charge(user, claudeCost(usage), budget(c)));
@@ -380,7 +386,10 @@ app.post('/api/stt', async (c) => {
     headers: { authorization: `Bearer ${c.env.OPENAI_API_KEY}` },
     body: out,
   });
-  if (!r.ok) return c.json({ error: 'stt failed', detail: await r.text() }, 502);
+  if (!r.ok) {
+    console.error('stt failed', r.status, await r.text()); // the details stay in the logs, not the browser
+    return c.json({ error: 'stt failed' }, 502);
+  }
   c.executionCtx.waitUntil(c.get('store').charge(c.get('user'), sttCost, budget(c)));
   const j = (await r.json()) as { text: string };
   return c.json({ text: j.text });
@@ -404,7 +413,10 @@ app.post('/api/tts', async (c) => {
       response_format: 'mp3',
     }),
   });
-  if (!r.ok || !r.body) return c.json({ error: 'tts failed', detail: await r.text() }, 502);
+  if (!r.ok || !r.body) {
+    console.error('tts failed', r.status, await r.text());
+    return c.json({ error: 'tts failed' }, 502);
+  }
   c.executionCtx.waitUntil(c.get('store').charge(c.get('user'), input.length * PRICES.ttsPerChar, budget(c)));
   return new Response(r.body, { headers: { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' } });
 });
@@ -436,17 +448,11 @@ app.get('/api/admin/overview', async (c) => {
   const allowance = await store.allowance(budget(c), date);
   const users = [];
   const ids = await store.userIds();
-  const [spent, bonus] = await Promise.all([store.spentOn(ids, date), store.bonuses(ids)]);
-  for (const id of ids) {
-    const u = await store.user(id);
-    if (!u) continue;
-    users.push({
-      ...publicUser(u),
-      bonus: bonus[id] ?? 0,
-      spentToday: spent[id] ?? 0,
-      lastSeen: await store.raw().get(`seen:${id}`),
-      createdAt: u.createdAt,
-    });
+  const table = await store.table(ids, date);
+  // account records, 20 at a time
+  for (let i = 0; i < ids.length; i += 20) {
+    const batch = await Promise.all(ids.slice(i, i + 20).map((id) => store.user(id)));
+    for (const u of batch) if (u) users.push({ ...publicUser(u), ...table[u.id], createdAt: u.createdAt });
   }
   return c.json({ date, budget: budget(c), monthSpent: await store.monthSpent(date), allowance, users, requests: (await store.requests()).reverse() });
 });
