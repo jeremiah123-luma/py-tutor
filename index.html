@@ -22,8 +22,75 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="py-tutor" />
+    <!-- iPhone home-screen launch: the start-up screen's first frame (plain dark), so it opens without a white flash. -->
+    <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1320x2868.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1290x2796.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1284x2778.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1242x2688.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/launch-828x1792.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1206x2622.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1179x2556.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1170x2532.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1125x2436.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/launch-750x1334.png" />
+    <style>
+      /* Start-up screen: painted with the first byte of HTML, before any script loads. src/ui/splash.ts lifts it. */
+      html, body { background: #111111; margin: 0; }
+      #splash {
+        position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; overflow: hidden;
+        background: #111111; color: #F5F5F5; -webkit-user-select: none; user-select: none;
+        font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+        transition: opacity 420ms cubic-bezier(0.16, 1, 0.3, 1), transform 520ms cubic-bezier(0.16, 1, 0.3, 1), filter 420ms ease;
+      }
+      #splash.out { opacity: 0; transform: scale(1.06); filter: blur(6px); pointer-events: none; }
+      #splash .glow { position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%; filter: blur(60px); opacity: 0; animation: sp-glow 1.4s 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards, sp-drift 9s 0.15s ease-in-out infinite alternate; }
+      #splash .g1 { background: radial-gradient(closest-side, #A78BFA, transparent); left: -30vmax; top: -34vmax; }
+      #splash .g2 { background: radial-gradient(closest-side, #F9A8D4, transparent); right: -36vmax; bottom: -38vmax; animation-delay: 0.3s, 0.3s; }
+      #splash .g3 { background: radial-gradient(closest-side, #93C5FD, transparent); right: -40vmax; top: -30vmax; width: 50vmax; height: 50vmax; animation-delay: 0.45s, 0.45s; }
+      #splash .center { position: relative; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+      #splash svg { width: 112px; height: 67px; overflow: visible; }
+      #splash .arm { transform-box: fill-box; transform-origin: 100% 50%; animation: sp-bar 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+      #splash .up { animation: sp-bar 0.45s cubic-bezier(0.16, 1, 0.3, 1) both, sp-up 0.6s 0.4s cubic-bezier(0.34, 1.4, 0.5, 1) forwards; }
+      #splash .down { animation: sp-bar 0.45s cubic-bezier(0.16, 1, 0.3, 1) both, sp-down 0.6s 0.42s cubic-bezier(0.34, 1.4, 0.5, 1) forwards; }
+      #splash .tip { opacity: 0; animation: sp-fade 0.2s 0.82s ease forwards; }
+      #splash .caret { transform-box: fill-box; transform-origin: 0 50%; transform: scaleX(0); animation: sp-caret 0.4s 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards, sp-blink 1.06s 1.6s steps(1) infinite; }
+      #splash .word { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 30px; font-weight: 700; letter-spacing: -0.045em; line-height: 1; white-space: nowrap; }
+      #splash .word i { font-style: normal; display: inline-block; opacity: 0; transform: translateY(6px); animation: sp-letter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+      #splash .sub { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; color: #8C8C8C; letter-spacing: 0.01em; opacity: 0; animation: sp-fade 0.6s 1.25s ease forwards; }
+      #splash .sub b { color: #A8A8A8; font-weight: 500; }
+      @keyframes sp-bar { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
+      @keyframes sp-up { from { transform: rotate(0); } to { transform: rotate(-32deg); } }
+      @keyframes sp-down { from { transform: rotate(0); } to { transform: rotate(32deg); } }
+      @keyframes sp-caret { to { transform: scaleX(1); } }
+      @keyframes sp-blink { 50% { opacity: 0; } }
+      @keyframes sp-letter { to { opacity: 1; transform: none; } }
+      @keyframes sp-fade { to { opacity: 1; } }
+      @keyframes sp-glow { to { opacity: 0.32; } }
+      @keyframes sp-drift { to { translate: 4vmax 3vmax; } }
+      @media (prefers-reduced-motion: reduce) {
+        #splash * { animation: none !important; }
+        #splash .up { transform: rotate(-32deg); } #splash .down { transform: rotate(32deg); }
+        #splash .tip { opacity: 0; animation: sp-fade 0.2s 0.82s ease forwards; }
+      #splash .caret { transform: none; } #splash .tip { opacity: 1; } #splash .word i { opacity: 1; transform: none; } #splash .sub { opacity: 1; } #splash .glow { opacity: 0.32; }
+        #splash { transition: opacity 200ms ease; } #splash.out { transform: none; filter: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" role="status" aria-label="Opening py-tutor">
+      <div class="glow g1"></div><div class="glow g2"></div><div class="glow g3"></div>
+      <div class="center" aria-hidden="true">
+        <svg viewBox="0 0 200 120">
+          <rect class="arm up" x="16" y="52" width="84" height="16" rx="8" fill="#F5F5F5" />
+          <rect class="arm down" x="16" y="52" width="84" height="16" rx="8" fill="#F5F5F5" />
+          <circle class="tip" cx="94.5" cy="60" r="8" fill="#F5F5F5" />
+          <rect class="caret" x="116" y="92" width="72" height="16" rx="5" fill="#FFE27A" />
+        </svg>
+        <div class="word"><i style="animation-delay:0.850s">p</i><i style="animation-delay:0.895s">y</i><i style="animation-delay:0.940s">-</i><i style="animation-delay:0.985s">t</i><i style="animation-delay:1.030s">u</i><i style="animation-delay:1.075s">t</i><i style="animation-delay:1.120s">o</i><i style="animation-delay:1.165s">r</i></div>
+        <div class="sub">CS 100 final · <b>Dec 19</b></div>
+      </div>
+    </div>
+    <script>window.__splashAt = performance.now();</script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

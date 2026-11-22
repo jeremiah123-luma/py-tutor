@@ -6,6 +6,7 @@ import type { Concept, ConceptId, Mode, Progress } from './types';
 import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
+import { hideSplash } from './ui/splash';
 import { addPasskey, askTutor, removePasskeys, me, onCap, signOut, type Account, type Usage } from './loop/api';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
@@ -208,6 +209,11 @@ export default function App() {
     return () => window.removeEventListener('py-tutor:locked', onLocked);
   }, [account]);
 
+  // The start-up screen lifts once we know whether to show sign-in or home.
+  useEffect(() => {
+    if (unlocked !== null) hideSplash();
+  }, [unlocked]);
+
   // Classmates who signed up before the intro existed see it once, on their next visit.
   useEffect(() => {
     if (account && !introSeen()) setIntroOpen(true);
@@ -353,7 +359,7 @@ export default function App() {
   const cont = useMemo(() => nextLesson(progress), [progress]);
   const contLesson = conceptMap[cont.concept]!.lessons[cont.index];
 
-  if (unlocked === null) return <div className="min-h-dvh bg-paper" />;
+  if (unlocked === null) return <div className="min-h-dvh bg-paper" />; // the start-up screen (index.html) covers this
   if (!unlocked) return <AuthScreen onSignedIn={(u) => enter(u)} />;
 
   // First-run tour: home right after signing in; the lesson tour the first time they reach "Try it",
