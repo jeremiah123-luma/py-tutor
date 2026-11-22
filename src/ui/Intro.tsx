@@ -439,8 +439,10 @@ function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene,
           {scene.lines.map((line, i) => (
             <span
               key={i}
-              className="block overflow-hidden pb-[0.12em]"
-              style={{ ['--i' as string]: i, animation: !reduce && scene.hold === 'breathe' ? `hold-breathe ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both` : undefined } as CSSProperties}
+              // Clipped above and below only (the mask the line rises through). A side clip stopped split exits at
+              // the text block's edge, which on a wide screen is well short of the screen's edge.
+              className="block pb-[0.12em]"
+              style={{ ['--i' as string]: i, clipPath: 'inset(0 -150vw)', animation: !reduce && scene.hold === 'breathe' ? `hold-breathe ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both` : undefined } as CSSProperties}
             >
               <motion.span
                 className="block"
