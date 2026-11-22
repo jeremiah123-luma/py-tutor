@@ -428,6 +428,7 @@ export default function App() {
       {screen === 'home' && (
         <Reveal key="home">
         <HomeScreen
+          name={account?.name}
           concepts={CONCEPTS}
           progress={progress}
           subskills={SUBSKILLS}

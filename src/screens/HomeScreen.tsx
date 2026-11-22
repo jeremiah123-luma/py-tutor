@@ -6,8 +6,11 @@ import { ModeToggle } from '../ui/primitives';
 import { FinalPill, TopBar, daysToFinal } from '../ui/TopBar';
 import { Aurora } from '../ui/Aurora';
 import { sfx } from '../ui/sfx';
+import { homeGreeting } from '../ui/greeting';
 
 export interface HomeScreenProps {
+  /** The signed-in person's name, for the greeting. */
+  name?: string;
   concepts: Concept[];
   progress: Progress;
   /** Ordered sub-skill names per concept, for the mastery chart. */
@@ -71,6 +74,7 @@ export function HomeScreen(p: HomeScreenProps) {
   const nextUp = (c: Concept) => c.lessons.find((l) => !p.progress.concepts[c.id]?.[l.subskill]?.mastered) ?? c.lessons[0];
   const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
   const headline = started ? 'Back at it.' : 'Ace the final.';
+  const greeting = useState(() => homeGreeting(p.name ?? '', started))[0];
 
   const rise = (i: number) =>
     reduce
@@ -136,6 +140,14 @@ export function HomeScreen(p: HomeScreenProps) {
             </motion.li>
           ))}
         </ul>
+        <motion.p
+          className="mb-2.5 text-[0.9375rem] font-medium text-[#3a3340] md:text-base"
+          initial={reduce ? false : { opacity: 0, y: 8, filter: 'blur(6px)' }}
+          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+          transition={{ duration: 0.7, delay: 0.02, ease: EASE }}
+        >
+          {greeting}
+        </motion.p>
         <h1 className="font-voice text-[2.75rem] leading-[1.02] md:text-[4.5rem]" aria-label={headline}>
           {headline.split(' ').map((w, i) => (
             <motion.span
