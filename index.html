@@ -28,11 +28,14 @@
     <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1284x2778.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1242x2688.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/launch-828x1792.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1260x2736.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1206x2622.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1179x2556.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1170x2532.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/launch-1125x2436.png" />
     <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/launch-750x1334.png" />
+    <!-- any other iPhone: the same plain dark screen, scaled -->
+    <link rel="apple-touch-startup-image" href="/splash/launch-1179x2556.png" />
     <style>
       /* Start-up screen ("assemble", after Aristide Benoist's WebGPU type studies): ">_ py-tutor" builds itself from slices
          that fly in on curves, with red and blue fringes (about 1.2 s). It is painted
@@ -114,6 +117,46 @@
         });
         word.appendChild(frag);
         // one random path per slice, shared by its three colour copies
+        // No animation here uses a start delay. On iPhone a delayed animation can only begin when the page's main
+        // thread is free, and the app's own code loads right in the middle of this, so pieces stalled and then popped
+        // in late. Instead every animation starts at once and holds its first frame until its moment; once running,
+        // Safari plays it on the graphics chip whatever the main thread is doing.
+        function play(node, frames, dur, delay, easing, fill) {
+          var total = delay + dur, out = [];
+          if (delay > 0) out.push(Object.assign({}, frames[0], { offset: 0, easing: 'linear' }));
+          frames.forEach(function (f) { out.push(Object.assign({}, f, { offset: (delay + f.offset * dur) / total, easing: easing })); });
+          return node.animate(out, { duration: total, fill: fill || 'none' });
+        }
+        // cubic-bezier(x1,y1,x2,y2) as a function of time, like CSS
+        function bezier(x1, y1, x2, y2) {
+          var f = function (t, a, b) { return 3 * a * t * (1 - t) * (1 - t) + 3 * b * t * t * (1 - t) + t * t * t; };
+          return function (x) {
+            var lo = 0, hi = 1, t = x;
+            for (var i = 0; i < 24; i++) { t = (lo + hi) / 2; if (f(t, x1, x2) < x) lo = t; else hi = t; }
+            return f(t, y1, y2);
+          };
+        }
+        var EASE_IN = bezier(0.2, 0.75, 0.25, 1);
+        // piecewise-linear through [offset, value] pairs
+        function at(pairs, u) {
+          for (var i = 1; i < pairs.length; i++) if (u <= pairs[i][0]) {
+            var a = pairs[i - 1], b = pairs[i], k = (u - a[0]) / (b[0] - a[0]);
+            return a[1] + (b[1] - a[1]) * k;
+          }
+          return pairs[pairs.length - 1][1];
+        }
+        // a slice's flight in, as 24 steps: from off to the side, through a near miss, onto its place
+        function flight(p) {
+          var frames = [];
+          for (var i = 0; i <= 24; i++) {
+            var u = EASE_IN(i / 24);
+            var x = at([[0, p.dx], [0.7, p.dx * 0.18], [1, 0]], u), y = at([[0, p.dy], [0.7, p.dy * 0.05], [1, 0]], u);
+            var r = at([[0, p.r], [0.7, p.r * 0.1], [1, 0]], u), sx = at([[0, p.sx], [0.7, 1.06], [1, 1]], u);
+            frames.push({ transform: 'translate(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px) rotate(' + r.toFixed(2) + 'deg) scaleX(' + sx.toFixed(3) + ')', opacity: Math.min(1, u / 0.25), offset: i / 24 });
+          }
+          frames[24].transform = 'none';
+          return frames;
+        }
         var paths = {};
         slices.forEach(function (o) {
           var key = o.gi + ':' + o.s;
@@ -129,33 +172,30 @@
           var p = paths[key];
           var lag = o.col === 'w' ? 0 : o.col === 'r' ? 0.03 : 0.055;
           if (reduce) return;
-          var a = o.el.animate(
-            [
-              { transform: 'translate(' + p.dx + 'px,' + p.dy + 'px) rotate(' + p.r + 'deg) scaleX(' + p.sx + ')', opacity: 0, offset: 0 },
-              { opacity: 1, offset: 0.25 },
-              { transform: 'translate(' + p.dx * 0.18 + 'px,' + p.dy * 0.05 + 'px) rotate(' + p.r * 0.1 + 'deg) scaleX(1.06)', offset: 0.7 },
-              { transform: 'none', opacity: 1, offset: 1 },
-            ],
-            { duration: 560, delay: (p.d + lag) * 1000, easing: 'cubic-bezier(.2,.75,.25,1)', fill: 'backwards' },
-          );
+          // the same flight as before (one cubic-bezier over the whole path), sampled into steps so it can hold first
+          var a = play(o.el, flight(p), 560, (p.d + lag) * 1000, 'linear');
           var g = o.el.parentNode;
           g.pending = (g.pending || 0) + 1;
           a.onfinish = function () { if (--g.pending === 0) g.classList.add('done'); };
         });
         if (reduce) word.querySelectorAll('.g').forEach(function (g) { g.classList.add('done'); });
-        el.querySelector('.sp-sub').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: reduce ? 0 : 880, fill: 'backwards' });
+        if (!reduce) play(el.querySelector('.sp-sub'), [{ opacity: 0, offset: 0 }, { opacity: 1, offset: 1 }], 400, 880, 'ease', 'forwards');
         window.__splashExit = function () {
           word.querySelectorAll('.g').forEach(function (g) { g.classList.remove('done'); }); // back to pieces to fly off
           slices.forEach(function (o) {
             var p = paths[o.gi + ':' + o.s];
             var lag = o.col === 'w' ? 0 : o.col === 'r' ? 0.025 : 0.05;
-            o.el.animate(
-              [{ transform: 'none', opacity: 1 }, { transform: 'translate(' + -p.dx * 1.2 + 'px,' + -p.dy * 0.6 + 'px) rotate(' + -p.r + 'deg) scaleX(' + p.sx + ')', opacity: 0 }],
-              { duration: 380, delay: ((text.length - o.gi) * 0.022 + o.s * 0.012 + lag) * 1000, easing: 'cubic-bezier(.6,0,.8,.3)', fill: 'forwards' },
+            play(
+              o.el,
+              [{ transform: 'none', opacity: 1, offset: 0 }, { transform: 'translate(' + -p.dx * 1.2 + 'px,' + -p.dy * 0.6 + 'px) rotate(' + -p.r + 'deg) scaleX(' + p.sx + ')', opacity: 0, offset: 1 }],
+              380,
+              ((text.length - o.gi) * 0.022 + o.s * 0.012 + lag) * 1000,
+              'cubic-bezier(.6,0,.8,.3)',
+              'forwards',
             );
           });
           el.querySelector('.sp-sub').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' });
-          el.querySelector('.bg').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, delay: 300, easing: 'ease-in', fill: 'forwards' });
+          play(el.querySelector('.bg'), [{ opacity: 1, offset: 0 }, { opacity: 0, offset: 1 }], 320, 300, 'ease-in', 'forwards');
           return 650;
         };
       })();
