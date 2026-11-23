@@ -16,6 +16,8 @@ export function noteMicFrame(frame: Float32Array) {
 
 /** Where the tutor's speech should connect: a meter that passes the sound straight on to the speakers. */
 export function speechOut(ctx: AudioContext): AudioNode {
+  // an audio context without meters (older browsers, test fakes): the orb just won't follow the voice
+  if (typeof ctx.createAnalyser !== 'function') return ctx.destination;
   if (!meter || meterCtx !== ctx) {
     meter = ctx.createAnalyser();
     meter.fftSize = 512;
