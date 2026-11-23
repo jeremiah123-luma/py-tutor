@@ -633,6 +633,7 @@ export default function App() {
           error={!!talk?.error || talkLoadFailed}
           passed={state.step === 'check' || state.step === 'mastered' || state.step === 'quiz'}
           caption={(talkLoadFailed ? 'Voice mode didn’t load. Check your connection and tap to try again.' : '') || talk?.error || talk?.caption || (state.turns.length ? '' : 'I’ll explain it out loud, then you answer out loud. No reading needed.')}
+          heard={talk?.heard}
           context={`${session.concept.title} · ${state.step === 'mastered' ? 'Mastered' : (PHASES[phaseIndex(state.step)]?.label ?? '')}`}
           onTap={() => {
             // After a pass, a tap moves on, but only once he's had the feedback (a tap while it speaks interrupts it)

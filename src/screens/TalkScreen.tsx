@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { sfx } from '../ui/sfx';
 import { X } from 'lucide-react';
-import { Orb } from '../ui/Orb';
+import { OrbVideo } from '../ui/OrbVideo';
+import { ListeningGlow } from '../ui/ListeningGlow';
 
 export type TalkState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -9,6 +10,8 @@ export interface TalkScreenProps {
   state: TalkState;
   /** Last thing the tutor said (or is saying). */
   caption: string;
+  /** What it heard him say (shown word by word while it thinks). */
+  heard?: string;
   /** Short context, e.g. "Dictionaries · Line by line". */
   context?: string;
   /** Live mic level 0–1 while listening (drives the ring). */
@@ -36,7 +39,7 @@ const RING: Record<TalkState, string> = {
   speaking: 'var(--talk-speak)',
 };
 
-export function TalkScreen({ state, caption, context, onTap, onExit, error, passed }: TalkScreenProps) {
+export function TalkScreen({ state, caption, heard, context, onTap, onExit, error, passed }: TalkScreenProps) {
   const label =
     error && state === 'idle'
       ? 'Tap to try again'
@@ -73,20 +76,34 @@ export function TalkScreen({ state, caption, context, onTap, onExit, error, pass
           onTap();
         }}
         aria-label={`${label}. ${caption}`}
-        className="flex flex-1 flex-col items-center justify-center gap-[min(2.5rem,4svh)] px-6 pb-4 outline-offset-[-8px]"
+        className="relative z-10 flex flex-1 flex-col items-center justify-center gap-[min(2.5rem,4svh)] px-6 pb-4 outline-offset-[-8px]"
       >
-        {/* the orb: frosted glass with the ribbon folding inside, moving with the conversation (Orb.tsx) */}
-        <div className="relative size-[min(84vw,22rem,40svh)]" aria-hidden="true">
-          <Orb state={state} />
+        {/* the orb, rendered in Blender: frosted glass with a ribbon of light folding inside (OrbVideo.tsx) */}
+        <div className="relative size-[min(80vw,21rem,38svh)]" aria-hidden="true">
+          <OrbVideo state={state} />
         </div>
 
         <div className="flex flex-col items-center gap-5 text-center">
           <p className="text-lg font-medium" style={{ color: RING[state] === 'var(--talk-sub)' ? 'var(--talk-ink)' : RING[state] }}>
             {label}
           </p>
-          <p className="line-clamp-4 max-w-[22ch] font-voice text-[clamp(1.75rem,4.5svh,1.875rem)] leading-[1.3] tracking-[-0.01em] text-[var(--talk-ink)] sm:max-w-[28ch]">
-            {caption}
-          </p>
+          {state === 'thinking' && heard ? (
+            // what it heard him say, word by word, while it works out an answer
+            <p key={heard} className="line-clamp-4 max-w-[24ch] font-voice text-[clamp(1.5rem,4svh,1.75rem)] leading-[1.3] tracking-[-0.01em] text-[var(--talk-ink)] sm:max-w-[30ch]">
+              {heard.split(/\s+/).map((w, i) => (
+                <span key={i} className="inline-block animate-[word-in_420ms_var(--ease-out)_both] whitespace-pre" style={{ animationDelay: `${Math.min(i, 30) * 45}ms` }}>
+                  {w}{' '}
+                </span>
+              ))}
+            </p>
+          ) : (
+            // the tutor's line; while he answers it stays up, quieter, so he can glance at the question
+            <p
+              className={`line-clamp-4 max-w-[22ch] font-voice text-[clamp(1.75rem,4.5svh,1.875rem)] leading-[1.3] tracking-[-0.01em] text-[var(--talk-ink)] transition-opacity duration-300 sm:max-w-[28ch] ${state === 'listening' || state === 'thinking' ? 'opacity-55' : ''}`}
+            >
+              {caption}
+            </p>
+          )}
         </div>
       </button>
 
@@ -95,7 +112,9 @@ export function TalkScreen({ state, caption, context, onTap, onExit, error, pass
         {label}
       </p>
 
-      <footer className="px-6 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-sm text-[var(--talk-sub)] [@media(max-height:600px)]:hidden">
+      <ListeningGlow on={state === 'listening'} />
+
+      <footer className={`relative z-10 px-6 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-sm text-[var(--talk-sub)] [@media(max-height:600px)]:hidden transition-opacity duration-300 ${state === 'listening' ? 'opacity-0' : ''}`}>
         Keep the screen on and the phone in a mount. Eyes on the road. Tap anywhere to interrupt.
       </footer>
     </div>

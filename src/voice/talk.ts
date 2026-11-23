@@ -249,7 +249,7 @@ export class TalkController {
       void this.listener.pause();
       return;
     }
-    this.update({ ring: 'listening', error: '' });
+    this.update({ ring: 'listening', error: '', heard: '' }); // a new turn: last turn's words go
     void micStream()
       .then((s) => s.getAudioTracks().forEach((t) => t.addEventListener('ended', this.micEnded, { once: true })))
       .catch(() => {});
