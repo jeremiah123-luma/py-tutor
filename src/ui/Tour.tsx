@@ -7,6 +7,8 @@ import { motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { Button } from './primitives';
 import { sfx } from './sfx';
+import { DateCoin } from './DateCoin';
+import { daysToFinal, finalIn } from './TopBar';
 import type { TourScreen, TourStep } from '../tour/types';
 
 /* ---------- Pure layout math ---------- */
@@ -187,6 +189,10 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
     };
   }, []);
   const [glide, setGlide] = useState(false);
+  // A light halo of Python's own brackets around the spotlight (drawn on a canvas; see the effect below).
+  const haloRef = useRef<HTMLCanvasElement>(null);
+  const holeRef = useRef<Rect | null>(null);
+  const glideRef = useRef(false);
 
   const go = useCallback((to: number) => setPos({ screen, i: to }), [screen]);
   const next = useCallback(() => {
@@ -372,10 +378,108 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
     }
   };
 
+  // The halo: a couple of rows of ( [ { : = hugging the spotlight, a little taller above it, flickering slowly.
+  // Deliberately quiet: only the cells next to the hole are drawn, and nothing is drawn when a step has no target.
+  useEffect(() => {
+    const cv = haloRef.current;
+    const g = cv?.getContext('2d');
+    if (!cv || !g) return;
+    const RAMP = ['·', ':', '=', '(', '[', '{'];
+    const CW = 8;
+    const CH = 12;
+    const hash = (x: number, y: number) => {
+      const v = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+      return v - Math.floor(v);
+    };
+    let raf = 0;
+    let cur: Rect | null = null;
+    let lastTick = -1;
+    let w = 0;
+    let h = 0;
+    const draw = (now: number) => {
+      raf = document.visibilityState === 'visible' ? requestAnimationFrame(draw) : 0;
+      const tgt = holeRef.current;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const W = window.innerWidth;
+      const H = window.innerHeight;
+      if (w !== W || h !== H) {
+        w = W;
+        h = H;
+        cv.width = Math.round(W * dpr);
+        cv.height = Math.round(H * dpr);
+        lastTick = -1;
+      }
+      if (!tgt) {
+        if (cur) {
+          cur = null;
+          g.setTransform(1, 0, 0, 1, 0, 0);
+          g.clearRect(0, 0, cv.width, cv.height);
+        }
+        return;
+      }
+      let moving = false;
+      if (!cur || !glideRef.current) {
+        moving = !sameRect(cur, tgt);
+        cur = { ...tgt };
+      } else {
+        for (const k of ['top', 'left', 'width', 'height'] as const) {
+          const d = tgt[k] - cur[k];
+          if (Math.abs(d) > 0.5) {
+            cur[k] += d * 0.28;
+            moving = true;
+          } else cur[k] = tgt[k];
+        }
+      }
+      const tick = reduce ? 0 : Math.floor(now / 150);
+      if (!moving && tick === lastTick) return;
+      lastTick = tick;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, W, H);
+      g.font = '500 10px "Geist Mono Variable", ui-monospace, monospace';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      const cx = cur.left + cur.width / 2;
+      const cy = cur.top + cur.height / 2;
+      const c0 = Math.max(0, Math.floor((cur.left - 24) / CW));
+      const c1 = Math.min(Math.ceil(W / CW), Math.ceil((cur.left + cur.width + 24) / CW));
+      const r0 = Math.max(0, Math.floor((cur.top - 44) / CH));
+      const r1 = Math.min(Math.ceil(H / CH), Math.ceil((cur.top + cur.height + 24) / CH));
+      for (let r = r0; r < r1; r++) {
+        for (let c = c0; c < c1; c++) {
+          const x = c * CW + CW / 2;
+          const y = r * CH + CH / 2;
+          const qx = Math.abs(x - cx) - cur.width / 2 + RADIUS;
+          const qy = Math.abs(y - cy) - cur.height / 2 + RADIUS;
+          const d = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - RADIUS;
+          if (d < 4) continue;
+          const lick = 0.5 + 0.5 * Math.sin(c * 0.55 + tick * 0.24 + Math.sin(c * 0.19 - tick * 0.13) * 2.2);
+          const reach = y < cur.top ? 8 + 20 * lick : 8;
+          const heat = Math.exp(-(d - 4) / reach) * (0.7 + 0.3 * hash(c, r + tick));
+          if (heat < 0.18) continue;
+          g.globalAlpha = Math.min(0.85, heat);
+          g.fillStyle = heat > 0.8 ? '#F9A8D4' : '#A78BFA';
+          g.fillText(RAMP[Math.min(RAMP.length - 1, Math.floor(heat * RAMP.length))], x, y);
+        }
+      }
+      g.globalAlpha = 1;
+    };
+    const wake = () => {
+      if (document.visibilityState === 'visible' && !raf) raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    document.addEventListener('visibilitychange', wake);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('visibilitychange', wake);
+    };
+  }, [reduce]);
+
   if (!step || typeof document === 'undefined') return null;
 
   const vp = layout?.vp ?? { width: 0, height: 0 };
   const hole = layout?.target ? spotlightRect(layout.target, PAD) : null;
+  holeRef.current = hole;
+  glideRef.current = glide && !reduce;
   const width = cardWidth(vp);
   const place = placeCard(hole, { width, height: cardH }, vp, { placement: step.placement });
   const ready = !!layout && cardH > 0;
@@ -435,6 +539,7 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
           />
         )}
       </motion.svg>
+      <canvas ref={haloRef} aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full" />
 
       <motion.div
         ref={cardRef}
@@ -468,6 +573,16 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
               />
             </div>
           </div>
+          {step.id === 'home-welcome' && (
+            <div className="flex items-center gap-3 py-1">
+              <DateCoin days={daysToFinal()} size={52} label={`${finalIn()}: Sat, Dec 19`} />
+              <span className="font-code text-[0.6875rem] leading-relaxed tracking-[0.06em] text-ink-3 uppercase">
+                CS 100 final
+                <br />
+                Sat, Dec 19
+              </span>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <h2 id={titleId} aria-label={step.title} className="font-voice text-md font-semibold tracking-[-0.01em] text-ink">
               {step.title.split(' ').map((w, k, all) => (

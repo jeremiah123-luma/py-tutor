@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ProfileMenu } from './Profile';
+import { DateCoin } from './DateCoin';
 
 export const FINAL_DATE = new Date('2026-12-19T09:00:00-05:00');
 
@@ -61,20 +62,10 @@ export function TopBar({ crumbs = [], right, onHome }: { crumbs?: string[]; righ
 }
 
 export function FinalPill() {
-  const d = daysToFinal();
+  // the date as a coin: SAT, DEC, 19, then the days left
   return (
-    <span className="pill-final tnum inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm whitespace-nowrap">
-      <span className="size-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" aria-hidden="true" />
-      {d === 0 ? (
-        <span className="font-medium text-accent">Final today</span>
-      ) : (
-        <>
-          <span className="text-ink-2 max-sm:hidden">Final in</span>
-          <span className="font-medium text-accent">
-            {d} day{d === 1 ? '' : 's'}
-          </span>
-        </>
-      )}
+    <span className="inline-flex h-9 items-center">
+      <DateCoin days={daysToFinal()} size={26} label={`${finalIn()}: Sat, Dec 19`} />
     </span>
   );
 }
