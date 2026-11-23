@@ -236,6 +236,7 @@ export async function pushProgress(p: Progress) {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(p),
+      keepalive: true, // still sent if the page is closing
     });
     if (r.status === 401) window.dispatchEvent(new Event('py-tutor:locked'));
   } catch {

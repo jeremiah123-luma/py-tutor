@@ -178,14 +178,16 @@ export class Ledger extends DurableObject<Env> {
    * At most 2 tutor answers at once per person, so firing many requests together can't run far past the cap
    * (the cap is checked before a call and charged after it). Returns a ticket to pass to endTutor, or null.
    */
-  beginTutor(userId: string): number | null {
+  beginTutor(userId: string, max = 2): number | null {
     const now = Date.now();
-    const live = (this.inFlight.get(userId) ?? []).filter((t) => now - t < 90_000);
-    if (live.length >= 2) return null;
-    live.push(now);
+    const live = (this.inFlight.get(userId) ?? []).filter((t) => now - Math.floor(t) < 90_000);
+    if (live.length >= max) return null;
+    const ticket = now + ++this.seq / 1e6; // unique even for two calls in the same millisecond
+    live.push(ticket);
     this.inFlight.set(userId, live);
-    return now;
+    return ticket;
   }
+  private seq = 0;
   endTutor(userId: string, ticket: number) {
     const live = (this.inFlight.get(userId) ?? []).filter((t) => t !== ticket);
     if (live.length) this.inFlight.set(userId, live);

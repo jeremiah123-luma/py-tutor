@@ -242,7 +242,8 @@ export class TalkController {
     await this.listener.pause();
     this.update({ heard: text, ring: 'thinking' });
     const s = this.session;
-    if (NAV.test(text) && (s.state.step === 'check' || s.state.step === 'mastered')) {
+    // Quick check is tap-only (it isn't read aloud yet), so in talk mode it counts as done: "next" moves on
+    if (NAV.test(text) && (s.state.step === 'check' || s.state.step === 'mastered' || s.state.step === 'quiz')) {
       this.onNextSkill();
       return;
     }

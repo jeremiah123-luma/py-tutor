@@ -97,6 +97,7 @@ const STT_VOCAB =
 const TTS_INSTRUCTIONS =
   'Voice: a warm, relaxed, encouraging tutor in his twenties sitting next to a friend. Natural conversational pace, slightly slower when reading code aloud. Friendly, never salesy or theatrical. Small natural pauses between ideas.';
 
+const isLocal = (c: C) => ['localhost', '127.0.0.1'].includes(new URL(c.req.url).hostname);
 const budget = (c: C) => Number(c.env.MONTHLY_BUDGET_USD ?? '30');
 const SID = 'sid';
 
@@ -140,7 +141,7 @@ async function noteFail(store: Store, key: string) {
 
 app.post('/api/auth/signup', async (c) => {
   const store = c.get('store');
-  const b = await c.req.json<{ name?: string; username?: string; password?: string; code?: string }>().catch(() => ({}) as any);
+  const b = (await c.req.json<{ name?: string; username?: string; password?: string; code?: string }>().catch(() => null)) ?? ({} as any);
   const name = String(b.name ?? '').trim().slice(0, 40);
   const username = normUsername(String(b.username ?? ''));
   const password = String(b.password ?? '');
@@ -155,6 +156,8 @@ app.post('/api/auth/signup', async (c) => {
   if (!name) return c.json({ error: 'Enter your name.', field: 'name' }, 400);
   if (!USERNAME_RE.test(username))
     return c.json({ error: 'Usernames are 3 to 24 letters, numbers, dots, dashes or underscores.', field: 'username' }, 400);
+  // "e2e-" names are the automated test accounts, which the class budget leaves out: only made on a dev machine
+  if (username.startsWith('e2e-') && !isLocal(c)) return c.json({ error: 'That username is taken. Try another.', field: 'username' }, 409);
   if (password.length < 8) return c.json({ error: 'Use at least 8 characters for your password.', field: 'password' }, 400);
   if (await store.userByName(username)) return c.json({ error: 'That username is taken. Try another.', field: 'username' }, 409);
   const user: User = { id: randomId(12), username, name, admin, createdAt: Date.now(), pw: await hashPassword(password), passkeys: [] };
@@ -166,7 +169,7 @@ app.post('/api/auth/signup', async (c) => {
 
 app.post('/api/auth/login', async (c) => {
   const store = c.get('store');
-  const b = await c.req.json<{ username?: string; password?: string }>().catch(() => ({}) as any);
+  const b = (await c.req.json<{ username?: string; password?: string }>().catch(() => null)) ?? ({} as any);
   const username = normUsername(String(b.username ?? ''));
   // Per username and network, so typing someone else's username wrong can't lock them out everywhere.
   const failKey = `login:${username}:${c.req.header('cf-connecting-ip') ?? 'local'}`;
@@ -176,6 +179,8 @@ app.post('/api/auth/login', async (c) => {
   if (c.env.LOGIN_LIMITER && new URL(c.req.url).hostname !== 'localhost' && !(await c.env.LOGIN_LIMITER.limit({ key: `u:${username}` })).success)
     return c.json({ error: 'Too many tries. Wait a minute and try again.' }, 429);
   const user = username ? await store.userByName(username) : null;
+  // an unknown username takes as long as a wrong password, so timing can't tell which usernames exist
+  if (!user) await hashPassword(String(b.password ?? ''));
   if (!user || !(await checkPassword(user, String(b.password ?? '')))) {
     await noteFail(store, failKey);
     return c.json({ error: 'That username and password don’t match.' }, 401);
@@ -246,7 +251,7 @@ app.post('/api/auth/google', async (c) => {
   const ip = c.req.header('cf-connecting-ip') ?? 'local';
   if (c.env.LOGIN_LIMITER && new URL(c.req.url).hostname !== 'localhost' && !(await c.env.LOGIN_LIMITER.limit({ key: `g:${ip}` })).success)
     return c.json({ error: 'Too many tries. Wait a minute and try again.' }, 429);
-  const b = await c.req.json<{ credential?: string; link?: boolean }>().catch(() => ({}) as any);
+  const b = (await c.req.json<{ credential?: string; link?: boolean }>().catch(() => null)) ?? ({} as any);
   const g = await verifyGoogleToken(String(b.credential ?? ''), clientId).catch((e) => {
     console.warn('google verify failed', e);
     return null;
@@ -272,7 +277,8 @@ app.post('/api/auth/google', async (c) => {
     if (c.env.SIGNUP_LIMITER && new URL(c.req.url).hostname !== 'localhost' && !(await c.env.SIGNUP_LIMITER.limit({ key: ip })).success)
       return c.json({ error: 'Too many new accounts from here. Wait a minute and try again.' }, 429);
     if (await tooManyTries(store, `signup:${ip}`, 40)) return c.json({ error: 'Too many new accounts from here. Wait 15 minutes and try again.' }, 429);
-    const base = usernameFromEmail(g.email);
+    const e = usernameFromEmail(g.email);
+    const base = e.startsWith('e2e-') ? `u-${e}`.slice(0, 20) : e;
     const fresh: User = {
       id: randomId(12),
       username: base,
@@ -285,7 +291,7 @@ app.post('/api/auth/google', async (c) => {
     };
     for (let n = 1; n <= 30; n++) {
       fresh.username = n === 1 ? base : `${base.slice(0, 20)}-${n}`;
-      if (!USERNAME_RE.test(fresh.username) || (await store.userByName(fresh.username))) continue;
+      if (!USERNAME_RE.test(fresh.username) || fresh.username.startsWith('e2e-') || (await store.userByName(fresh.username))) continue;
       if (await store.createUser(fresh)) {
         user = fresh;
         break;
@@ -381,7 +387,7 @@ async function capCheck(c: C) {
 app.post('/api/tutor', async (c) => {
   const req = cleanTutorRequest(await c.req.json());
   if (!req) return c.json({ error: 'bad request' }, 400);
-  const concept = concepts[req.concept as keyof typeof concepts];
+  const concept = Object.hasOwn(concepts, req.concept) ? concepts[req.concept as keyof typeof concepts] : undefined;
   const lesson = concept?.lessons.find((l) => l.subskill === req.subskill);
   if (!concept || !lesson) return c.json({ error: 'unknown lesson' }, 400);
   const capped = await capCheck(c);
@@ -449,6 +455,10 @@ app.post('/api/stt', async (c) => {
   if (audio.size > 3_000_000) return c.json({ error: 'That was too long. Try a shorter answer.' }, 413);
   // priced per minute; compressed speech is about 16 KB a second
   const sttCost = Math.max(PRICES.sttPerCall, (audio.size / (16_000 * 60)) * PRICES.sttPerCall);
+  // a few at a time per person: the cap is checked before a call and charged after, so a burst could run past it
+  const store = c.get('store');
+  const sttTicket = await store.beginTutor(`${c.get('user').id}:stt`, 2);
+  if (sttTicket === null) return c.json({ error: 'One at a time. Wait for the last answer to finish.' }, 429);
   const out = new FormData();
   out.append('file', audio, audio.name || 'speech.webm');
   out.append('model', c.env.STT_MODEL ?? 'gpt-4o-mini-transcribe');
@@ -458,7 +468,7 @@ app.post('/api/stt', async (c) => {
     method: 'POST',
     headers: { authorization: `Bearer ${c.env.OPENAI_API_KEY}` },
     body: out,
-  });
+  }).finally(() => c.executionCtx.waitUntil(Promise.resolve(store.endTutor(`${c.get('user').id}:stt`, sttTicket)).catch(() => {})));
   if (!r.ok) {
     console.error('stt failed', r.status, await r.text()); // the details stay in the logs, not the browser
     return c.json({ error: 'stt failed' }, 502);
@@ -475,6 +485,10 @@ app.post('/api/tts', async (c) => {
   const capped = await capCheck(c);
   if (capped) return capped;
   const input = text.slice(0, 1500);
+  const store = c.get('store');
+  const key = `${c.get('user').id}:tts`;
+  const ticket = await store.beginTutor(key, 3); // the speaker fetches a sentence or two ahead, never more
+  if (ticket === null) return c.json({ error: 'Too many at once.' }, 429);
   const r = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: { authorization: `Bearer ${c.env.OPENAI_API_KEY}`, 'content-type': 'application/json' },
@@ -485,7 +499,7 @@ app.post('/api/tts', async (c) => {
       instructions: TTS_INSTRUCTIONS,
       response_format: 'mp3',
     }),
-  });
+  }).finally(() => c.executionCtx.waitUntil(Promise.resolve(store.endTutor(key, ticket)).catch(() => {})));
   if (!r.ok || !r.body) {
     console.error('tts failed', r.status, await r.text());
     return c.json({ error: 'tts failed' }, 502);
@@ -573,7 +587,13 @@ app.put('/api/progress', async (c) => {
     /* a bad stored copy is replaced */
   }
   const merged = mergeProgress(prev, cleanProgress(body));
-  await c.env.KV.put(key, JSON.stringify(merged));
+  try {
+    await c.env.KV.put(key, JSON.stringify(merged));
+  } catch (e) {
+    // KV allows about one write a second per key; the app sends its whole progress again on the next save
+    console.warn('progress save failed', e);
+    return c.json({ error: 'busy, try again' }, 503);
+  }
   return c.json({ ok: true });
 });
 

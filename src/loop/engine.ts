@@ -256,7 +256,8 @@ export class Session {
 
   setCode(code: string) {
     this.set({ code });
-    this.deps.draft?.save(code);
+    // after a pass the round is over: tweaking the passed code on the pass screen isn't a draft to resume
+    if (!this.roundDone) this.deps.draft?.save(code);
   }
 
   /** Stop the tutor mid-sentence (barge-in or tap). */
@@ -442,6 +443,14 @@ export class Session {
     this.set({ busy: 'running' });
     const lastGrade = await this.deps.grade(this.state.code, this.lesson.doit.tests);
     this.checks++;
+    // He jumped to another step (say, Quick check) while it graded: the attempt still counts, but it mustn't pull
+    // him back off the step he's on.
+    const s = this.state.step;
+    if (s !== 'doit' && s !== 'check' && s !== 'mastered') {
+      this.set({ busy: 'idle' });
+      this.finishDoit(lastGrade.passed, true, false);
+      return;
+    }
     this.set({ lastGrade, busy: 'idle', gradeExplained: false });
     this.push({ role: 'learner', text: 'Check my code.' });
     const fb = gradeFeedback(lastGrade, this.state.code);
@@ -460,10 +469,17 @@ export class Session {
     if (res === null) this.set({ gradeExplained: false });
   }
 
-  private finishDoit(passed: boolean, typed: boolean) {
+  private finishDoit(passed: boolean, typed: boolean, move = true) {
     const clean = passed && this.checks === 1 && this.doHints === 0;
     const p = record(this.deps.getProgress(), this.concept.id, this.lesson.subskill, { passed, clean, typed });
     this.deps.setProgress(p);
+    if (!move) {
+      if (passed) {
+        this.roundDone = true;
+        this.deps.draft?.clear();
+      }
+      return;
+    }
     if (!passed) {
       // loop: back on Try it until it passes (a failing re-check after a pass must not leave "All tests pass" up).
       // He's working on new code now, so it's mid-round again: a tab jump must not reset it to the starter.
@@ -476,6 +492,9 @@ export class Session {
       return;
     }
     this.roundDone = true;
+    // The passing code is done with: next time Try it opens (this visit or a later one) it starts from the starter,
+    // so a second clean pass means writing it again, not pressing Check on the saved copy.
+    this.deps.draft?.clear();
     const mastered = sub(p, this.concept.id, this.lesson.subskill).mastered;
     if (mastered) this.wasMastered = true;
     // why it isn't mastered yet, in plain words (shown on the pass screen)

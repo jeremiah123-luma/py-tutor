@@ -50,7 +50,7 @@ export function GoogleButton({ onCredential, text = 'continue_with' }: { onCrede
         shape: 'pill',
         text,
         logo_alignment: 'center',
-        width: Math.min(400, Math.max(200, box.current.parentElement?.clientWidth ?? 320)),
+        width: Math.min(400, Math.max(200, box.current.clientWidth || 320)), // the space it sits in, not the padded card
       });
       setReady(true);
     })();
@@ -60,5 +60,5 @@ export function GoogleButton({ onCredential, text = 'continue_with' }: { onCrede
   }, [text]);
 
   if (ready === false) return null;
-  return <div ref={box} className="flex min-h-11 justify-center" aria-busy={ready === null} />;
+  return <div ref={box} className="flex min-h-11 w-full justify-center" aria-busy={ready === null} />;
 }

@@ -104,7 +104,8 @@ export function HomeScreen(p: HomeScreenProps) {
   const [ask, setAsk] = useState('');
   const reduce = useReducedMotion();
   const perfectQuizzes = (id: ConceptId) => (p.subskills[id] ?? []).filter((s) => isPerfect(p.progress.quiz?.[id]?.[s])).length;
-  const mastered = (id: ConceptId) => Object.values(p.progress.concepts[id] ?? {}).filter((s) => s.mastered).length;
+  // counted from the lesson list, so an old save under a renamed lesson can't show 4/3
+  const mastered = (id: ConceptId) => (p.subskills[id] ?? []).filter((s) => p.progress.concepts[id]?.[s]?.mastered).length;
   const started = Object.values(p.progress.concepts).some((c) => Object.keys(c).length > 0);
   const nextUp = (c: Concept) => c.lessons.find((l) => !p.progress.concepts[c.id]?.[l.subskill]?.mastered) ?? c.lessons[0];
   const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);

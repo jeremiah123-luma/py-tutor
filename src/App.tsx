@@ -13,7 +13,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
 import { draftStore } from './loop/drafts';
-import { emptyProgress, loadProgress, recordQuiz, reviewQueue, saveProgress, setProgressUser, sub } from './loop/progress';
+import { emptyProgress, flushProgress, loadProgress, recordQuiz, saveProgress, setProgressUser, sub } from './loop/progress';
 import { quizFor, quizzes } from './curriculum/quiz';
 import { FOCUS } from './curriculum/ids';
 import { PracticeScreen } from './screens/PracticeScreen';
@@ -72,22 +72,38 @@ function readMode(): Mode {
   }
 }
 
-/** Where "Continue" goes: the lesson in progress, then the first lesson not tried yet, then review of tried-but-unmastered ones. */
+/**
+ * Where "Continue" goes, in order: the lesson in progress; the next unmastered lesson in the topic he's working
+ * in; then the final's main topics (lessons not tried, then tried but not mastered); then the earlier topics the
+ * same way. So finishing a Basics lesson keeps him in Basics, and nobody is sent to Basics while a main topic
+ * still has unmastered work.
+ */
 function nextLesson(p: Progress): { concept: ConceptId; index: number } {
-  const idx = (c: ConceptId, s: string) => conceptMap[c]!.lessons.findIndex((l) => l.subskill === s);
-  if (p.last && !sub(p, p.last.concept, p.last.subskill).mastered) {
+  const idx = (c: ConceptId, s: string) => conceptMap[c]?.lessons.findIndex((l) => l.subskill === s) ?? -1;
+  const open = (c: Concept, test: (s: ReturnType<typeof sub>) => boolean) => c.lessons.findIndex((l) => test(sub(p, c.id, l.subskill)));
+  if (p.last && conceptMap[p.last.concept]) {
     const i = idx(p.last.concept, p.last.subskill);
-    if (i >= 0) return { concept: p.last.concept, index: i };
+    if (i >= 0 && !sub(p, p.last.concept, p.last.subskill).mastered) return { concept: p.last.concept, index: i };
+    const j = open(conceptMap[p.last.concept]!, (s) => !s.mastered);
+    if (j >= 0) return { concept: p.last.concept, index: j };
   }
-  for (const c of CONCEPTS) {
-    const i = c.lessons.findIndex((l) => sub(p, c.id, l.subskill).attempts === 0);
-    if (i >= 0) return { concept: c.id, index: i };
+  for (const group of [CONCEPTS.filter((c) => FOCUS.includes(c.id)), CONCEPTS.filter((c) => !FOCUS.includes(c.id))]) {
+    for (const c of group) {
+      const i = open(c, (s) => s.attempts === 0);
+      if (i >= 0) return { concept: c.id, index: i };
+    }
+    for (const c of group) {
+      const i = open(c, (s) => !s.mastered);
+      if (i >= 0) return { concept: c.id, index: i };
+    }
   }
-  // (skips anything saved under a lesson name that no longer exists)
-  const r = reviewQueue(p).find((x) => conceptMap[x.concept] && idx(x.concept, x.subskill) >= 0);
-  if (r) return { concept: r.concept, index: idx(r.concept, r.subskill) };
   return { concept: CONCEPTS[0].id, index: 0 };
 }
+
+/** First lesson in a topic that isn't mastered yet (lesson 1 if it's all mastered). */
+const firstOpen = (p: Progress, c: Concept) => Math.max(0, c.lessons.findIndex((l) => !sub(p, c.id, l.subskill).mastered));
+/** Mastered lessons that still exist in the topic (a renamed lesson's old save doesn't count). */
+const masteredIn = (p: Progress, c: Concept) => c.lessons.filter((l) => sub(p, c.id, l.subskill).mastered).length;
 
 function useSession(s: Session | null) {
   return useSyncExternalStore(
@@ -294,8 +310,9 @@ export default function App() {
         // (read before start(), which records this visit as being on Learn)
         const last = progressRef.current.last;
         s.start();
-        if (last && last.concept === conceptId && last.subskill === concept.lessons[index]?.subskill && (last.step === 'doit' || last.step === 'check'))
-          s.goTo('doit');
+        const here = last && last.concept === conceptId && last.subskill === concept.lessons[index]?.subskill;
+        if (here && (last.step === 'doit' || last.step === 'check')) s.goTo('doit');
+        else if (here && last.step === 'quiz' && quizFor(conceptId, concept.lessons[index].subskill).length) s.goTo('quiz');
         setScreen('lesson');
       }
       return s;
@@ -342,7 +359,7 @@ export default function App() {
       const ci = conceptOrder.indexOf(session.concept.id);
       const nextC = conceptOrder[ci + 1];
       toast.success(`${session.concept.title} done.`);
-      if (nextC && conceptMap[nextC]) startLesson(nextC, 0, session.mode);
+      if (nextC && conceptMap[nextC]) startLesson(nextC, firstOpen(progressRef.current, conceptMap[nextC]!), session.mode);
       else goHome();
     }
   };
@@ -447,7 +464,7 @@ export default function App() {
     return null;
   })();
 
-  const masteredCount = CONCEPTS.reduce((n, c) => n + Object.values(progress.concepts[c.id] ?? {}).filter((x) => x.mastered).length, 0);
+  const masteredCount = CONCEPTS.reduce((n, c) => n + masteredIn(progress, c), 0);
   const lessonCount = CONCEPTS.reduce((n, c) => n + c.lessons.length, 0);
   const profile = {
     name: account?.name ?? '',
@@ -489,6 +506,7 @@ export default function App() {
     },
     onSignOut: async () => {
       stopEverything();
+      await flushProgress(); // anything still waiting to upload belongs to this account
       await signOut(); // finish signing out first, so a quick sign-in right after can't have its new session cleared
       setAccount(null);
       setProgressUser('');
@@ -529,8 +547,7 @@ export default function App() {
           }}
           onStart={(id) => {
             const c = conceptMap[id]!;
-            const i = c.lessons.findIndex((l) => !sub(progress, id, l.subskill).mastered);
-            startLesson(id, i === -1 ? 0 : i, mode);
+            startLesson(id, firstOpen(progress, c), mode);
           }}
           onDrill={() => {
             runner();
@@ -584,12 +601,12 @@ export default function App() {
         <TalkScreen
           state={talk?.ring ?? 'idle'}
           error={!!talk?.error || talkLoadFailed}
-          passed={state.step === 'check' || state.step === 'mastered'}
+          passed={state.step === 'check' || state.step === 'mastered' || state.step === 'quiz'}
           caption={(talkLoadFailed ? 'Voice mode didn’t load. Check your connection and tap to try again.' : '') || talk?.error || talk?.caption || (state.turns.length ? '' : 'I’ll explain it out loud, then you answer out loud. No reading needed.')}
           context={`${session.concept.title} · ${state.step === 'mastered' ? 'Mastered' : (PHASES[phaseIndex(state.step)]?.label ?? '')}`}
           onTap={() => {
             // After a pass, a tap moves on, but only once he's had the feedback (a tap while it speaks interrupts it)
-            if ((state.step === 'check' || state.step === 'mastered') && (talk?.ring === 'listening' || talk?.ring === 'idle')) return nextSkill();
+            if ((state.step === 'check' || state.step === 'mastered' || state.step === 'quiz') && (talk?.ring === 'listening' || talk?.ring === 'idle')) return nextSkill();
             unlockAudio(); // synchronously, inside the gesture
             void primeMic().catch(() => {}); // iPhone: the mic must be asked for inside the tap
             if (talkLoadFailed) loadTalkFor(session);

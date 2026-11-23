@@ -164,8 +164,8 @@ export class Store {
   table(ids: string[], date: string) {
     return this.ledger.table(ids, date);
   }
-  beginTutor(userId: string) {
-    return this.ledger.beginTutor(userId);
+  beginTutor(userId: string, max?: number) {
+    return this.ledger.beginTutor(userId, max);
   }
   endTutor(userId: string, ticket: number) {
     return this.ledger.endTutor(userId, ticket);

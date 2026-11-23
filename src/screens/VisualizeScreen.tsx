@@ -243,8 +243,15 @@ export function VisualizeScreen({
                   }}
                 >
                   <option value="">Pick one from your lessons…</option>
-                  {examples.map((x) => (
-                    <option key={x.id} value={x.id}>{x.label}</option>
+                  {/* grouped by topic: 63 lessons in one flat list was a long scroll */}
+                  {concepts.map((c) => (
+                    <optgroup key={c.id} label={c.title.replace(' and objects', '')}>
+                      {examples
+                        .filter((x) => x.id.startsWith(`${c.id}-`) && /^\d+$/.test(x.id.slice(c.id.length + 1)))
+                        .map((x) => (
+                          <option key={x.id} value={x.id}>{x.label.slice(x.label.indexOf(': ') + 2)}</option>
+                        ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

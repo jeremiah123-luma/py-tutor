@@ -77,13 +77,33 @@ export async function loadProgress(): Promise<Progress> {
   return merged;
 }
 
+// Uploads wait for a short pause (clicking through steps saves several times a second, and the server's store
+// takes about one write a second per account). The newest copy always wins, and leaving the page sends it at once.
+let pending: Progress | null = null;
+let timer: ReturnType<typeof setTimeout> | undefined;
+function flush(): Promise<void> {
+  clearTimeout(timer);
+  if (!pending) return Promise.resolve();
+  const p = pending;
+  pending = null;
+  return pushProgress(p);
+}
+/** Send any waiting progress now (before signing out, so it lands in the right account). */
+export const flushProgress = () => flush();
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', () => void flush());
+  document.addEventListener('visibilitychange', () => void (document.visibilityState === 'hidden' && flush()));
+}
+
 export async function saveProgress(p: Progress) {
   try {
     await set(localKey(), p);
   } catch {
     /* ignore */
   }
-  void pushProgress(p);
+  pending = p;
+  clearTimeout(timer);
+  timer = setTimeout(() => void flush(), 1200);
 }
 
 /** Subskills that were attempted but not mastered come back first. */

@@ -84,7 +84,7 @@ export function QuizRunner({ questions, onFinish, doneLabel, onDone, reshuffle, 
             ? practice
               ? 'Perfect. Every question right.'
               : 'Perfect. It shows as a check on Home.'
-            : right >= n - 1
+            : n >= 3 && right >= n - 1
               ? 'Close. Read the one you missed again, then try once more for a perfect score.'
               : 'Worth another pass. Go back through Learn or the example, then try again.'}
         </p>
