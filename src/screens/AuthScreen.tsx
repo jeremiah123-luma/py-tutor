@@ -11,6 +11,7 @@ import { distortionWave, recentTap } from '../ui/wave';
 import { useScreenReveal } from '../ui/pageTransition';
 import { addPasskey, passkeysSupported, signIn, signInWithGoogle, signInWithPasskey, signUp, type Account } from '../loop/api';
 import { GoogleButton } from '../ui/GoogleButton';
+import { toast } from 'sonner';
 
 type Tab = 'signin' | 'signup';
 
@@ -83,7 +84,15 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
     setBusy('form');
     setError(null);
     try {
-      await welcome((await signInWithGoogle(credential)).user);
+      const { user, created } = await signInWithGoogle(credential);
+      // A new account, made just now. Someone who already had a password account would otherwise wonder where
+      // their progress went.
+      if (created)
+        toast('New account made with Google.', {
+          description: 'Already had one? Sign out, sign in with your password, then choose Connect Google sign-in in your profile.',
+          duration: 12000,
+        });
+      await welcome(user);
     } catch (x) {
       setError({ text: (x as Error).message });
     }

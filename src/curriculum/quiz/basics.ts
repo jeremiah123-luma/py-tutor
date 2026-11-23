@@ -10,7 +10,7 @@ export const basicsQuiz: Record<string, DrillQuestion[]> = {
       prompt: 'What does this print?',
       code: 'a = 4\nb = a\na = 9\nprint(a, b)',
       answer: '9 4',
-      explain: 'b = a copies the value 4 into b. Assigning a again later changes only a, so b keeps 4.',
+      explain: 'b = a makes b name the same 4. a = 9 points a at a new value, so b still shows 4.',
     },
     {
       id: 'q-b-variables-assign-2',
@@ -28,7 +28,7 @@ export const basicsQuiz: Record<string, DrillQuestion[]> = {
       prompt: 'What does this print?',
       code: 'x = 2\ny = x + 3\nx = y * 2\nprint(x)\nprint(y)',
       answer: '10\n5',
-      explain: 'y is assigned 2 + 3, which is 5. Then x is assigned 5 * 2, which is 10. y does not change when x does.',
+      explain: 'y gets 2 + 3, which is 5. Then x gets 5 * 2, which is 10. y does not change when x does.',
     },
     {
       id: 'q-b-variables-assign-4',
@@ -136,7 +136,7 @@ export const basicsQuiz: Record<string, DrillQuestion[]> = {
       prompt: 'What does this print?',
       code: 'n = "3"\nprint(type(n))\nn = int(n) * 2\nprint(n)',
       answer: "<class 'str'>\n6",
-      explain: 'n starts as the string "3". int(n) is the number 3, times 2 is 6, and n is assigned with that number.',
+      explain: 'n starts as the string "3". int(n) is the number 3, times 2 is 6, and n now names that number.',
     },
     {
       id: 'q-b-type-conversion-4',
@@ -203,13 +203,13 @@ export const basicsQuiz: Record<string, DrillQuestion[]> = {
       kind: 'choice',
       prompt: 'Which value should be stored as a float, not an int?',
       choices: [
-        'The number of students in a class',
-        'The number of cars in a parking lot',
-        'How many emails you got today',
-        'A person’s body temperature, like 98.6',
+        'The number of seats on a bus',
+        'How many songs are in a playlist',
+        'How many texts you sent today',
+        'A gas price, like 3.49',
       ],
       answer: 3,
-      explain: 'Use floats for things you measure, like temperature or weight. Things you count, like students or cars, are integers.',
+      explain: 'A price can land between whole numbers, so it needs a decimal point. Seats, songs, and texts only come in whole units, so they are integers.',
     },
     {
       id: 'q-b-float-numbers-5',

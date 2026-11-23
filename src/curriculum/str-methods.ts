@@ -9,15 +9,17 @@ export const strMethods: Concept = {
   title: 'String methods',
   blurb: 'Search, clean up, check, and cut apart text with the tools built into every string.',
   allowed: [
-    '.upper() .lower() .capitalize() .title()', '.find(x) .find(x, start) .rfind(x) .count(x)', 'in / not in on strings',
+    '.upper() .lower() .capitalize() .title()', '.find(x) .find(x, start) .find(x, start, end) .rfind(x) .count(x)', 'in / not in on strings',
     '.startswith(x) .endswith(x)', '.replace(old, new) .replace(old, new, count)', '.strip()',
     '.isdigit() .isalnum() .isupper() .islower() .isspace()', '.split() .split(sep)', 'sep.join(list_of_strings)',
-    'string comparison == != < >', 'indexing and slicing', 'len() int() str()', 'f-strings', 'lists and .append()',
+    'string comparison == != < <= > >=', 'indexing and slicing', 'len() int() str()', 'f-strings', 'lists, .append() and .insert()',
     'if/elif/else', 'for loops and range()', 'functions (def, return)',
   ],
   banned: [
     'while loops (Module 8)', 'break / continue (Module 8)', 'dictionaries (Module 10)', 'files and open() (Module 9)',
     'list comprehension', 'lambda', 'with', 'try/except', 'global',
+    'is / is not to compare strings (use == instead)',
+    'enumerate(), any(), all() (skipped by the instructor)',
     '.isalpha() .lstrip() .rstrip() .swapcase() .format() (not listed in Module 7)',
   ],
   lessons: [
@@ -152,11 +154,11 @@ export const strMethods: Concept = {
       subskill: 'replace-strip',
       title: 'Cleaning up text: replace and strip',
       define:
-        'replace(old, new) returns a copy of the string with every old changed to new. Add a third number, replace(old, new, 1), to change only that many, from the left. strip() returns a copy with the spaces cut off the start and end, but never the spaces in the middle.',
+        'replace(old, new) returns a copy of the string with every old changed to new. Add a third number, replace(old, new, 1), to change only that many, from the left. strip() returns a copy with the spaces, and other whitespace like tabs and newlines, cut off the start and end, but never the spaces in the middle.',
       example: 'raw = "  I like cats. cats are great.  "\nclean = raw.strip()\nprint(clean)\nprint(clean.replace("cats", "dogs"))\nprint(clean.replace("cats", "dogs", 1))\nprint(len(raw), len(clean))',
       walkthrough: [
         { line: 1, text: 'A sentence with two extra spaces at the front and two at the end, like sloppy user input.', spoken: 'raw equals, space space, I like cats dot cats are great dot, space space' },
-        { line: 2, text: 'strip() returns a copy without the outer spaces. raw itself stays the same, so we save the copy in clean.', spoken: 'clean equals raw dot strip' },
+        { line: 2, text: 'strip() returns a copy without the outer whitespace (spaces, tabs, newlines). raw itself stays the same, so we save the copy in clean.', spoken: 'clean equals raw dot strip' },
         { line: 3, text: 'Prints I like cats. cats are great. The single spaces between words are still there.' },
         { line: 4, text: 'replace changes every cats to dogs: I like dogs. dogs are great.', spoken: 'print clean dot replace, cats comma dogs' },
         { line: 5, text: 'The 1 at the end means change only the first one: I like dogs. cats are great.', spoken: 'print clean dot replace, cats comma dogs comma 1' },
@@ -221,7 +223,7 @@ export const strMethods: Concept = {
         { line: 1, text: 'A string made of capital letters and digits.', spoken: 'code equals, N J I T 2 0 2 7' },
         { line: 2, text: 'Every character is a letter or a digit, so isalnum() is True.', spoken: 'print code dot is al num' },
         { line: 3, text: 'isdigit() needs every character to be 0 to 9. N is not, so this is False.', spoken: 'print code dot is digit' },
-        { line: 4, text: 'isupper() only looks at the letters and skips the digits. N, J, I, T are all capitals, so True.', spoken: 'print code dot is upper' },
+        { line: 4, text: 'isupper() only looks at the letters and skips the digits. N, J, I, T are all capitals, so True. It does need at least one letter, so "123".isupper() is False.', spoken: 'print code dot is upper' },
         { line: 5, text: 'Only digits, so True. A string like "20.5" or "-3" would be False, because of the dot and the minus sign.', spoken: 'print, 2 0 2 7, dot is digit' },
         { line: 6, text: 'Only spaces, so isspace() is True.', spoken: 'print, three spaces, dot is space' },
         { line: 7, text: 'input() always gives a string, so pretend the user typed 19.' },

@@ -14,9 +14,13 @@ const CERTS = 'https://www.googleapis.com/oauth2/v3/certs';
 
 let keys: { at: number; byKid: Map<string, JsonWebKey> } | null = null;
 
-/** Google's public signing keys, kept for an hour (Google rotates them every few days, with overlap). */
+/**
+ * Google's public signing keys, kept for an hour (Google rotates them every few days, with overlap). An unknown
+ * key id fetches again at most once a minute, so junk tokens can't make every request call Google.
+ */
 async function googleKey(kid: string, fetcher: typeof fetch): Promise<JsonWebKey | null> {
-  if (!keys || Date.now() - keys.at > 3600_000 || !keys.byKid.has(kid)) {
+  const age = keys ? Date.now() - keys.at : Infinity;
+  if (age > 3600_000 || (!keys!.byKid.has(kid) && age > 60_000)) {
     const r = await fetcher(CERTS);
     if (!r.ok) throw new Error(`google certs ${r.status}`);
     const j = (await r.json()) as { keys: (JsonWebKey & { kid: string })[] };
@@ -57,5 +61,5 @@ export async function verifyGoogleToken(token: string, clientId: string, fetcher
 /** A username for a new Google account, from the email: jms423@njit.edu becomes jms423 (or jms423-2 if taken). */
 export function usernameFromEmail(email: string) {
   const base = email.split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '').replace(/^[._-]+/, '').slice(0, 20);
-  return base.length >= 3 ? base : `${base}user`.slice(0, 20);
+  return base.length >= 3 ? base : `${base || 'student'}-${base ? 'py' : ''}`.replace(/-$/, '').slice(0, 20);
 }

@@ -257,7 +257,7 @@ export function HomeScreen(p: HomeScreenProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.35, ease: EASE }}
         >
-          Dictionaries, files, and classes, taught just like zyBooks (just better ;)
+          All of CS 100, taught just like zyBooks (just better ;)
         </motion.p>
       </Aurora>
 

@@ -14,6 +14,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, Play, Volume2, VolumeX } from 'lucide-react';
 import { IntroSound, rememberSound, soundWanted } from '../intro/sound';
+import { whenSplashGone } from './splash';
 import { C, INTRO_SCENES, exitMs, sceneText, type Ground, type IntroScene } from '../intro/slides';
 import { distortionWave, recentTap } from './wave';
 
@@ -508,6 +509,17 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
   const rootRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLButtonElement>(null);
   const [paused, setPaused] = useState(false);
+  // On a first visit the start-up screen is still lifting when this mounts. Its logo and this one building at the
+  // same time looked like a glitch, so the intro holds on its dark ground until the start-up screen is gone.
+  const [waiting, setWaiting] = useState(() => !!document.getElementById('splash'));
+  useEffect(() => {
+    if (!waiting) return;
+    let live = true;
+    void whenSplashGone().then(() => live && setWaiting(false));
+    return () => {
+      live = false;
+    };
+  }, [waiting]);
   const soundRef = useRef<IntroSound | null>(null);
   soundRef.current ??= new IntroSound();
   const sound = soundRef.current;
@@ -598,7 +610,7 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
   const played = useRef({ scene: -1, ms: 0 });
   if (played.current.scene !== cur) played.current = { scene: cur, ms: 0 };
   useEffect(() => {
-    if (last || leaving || paused) return;
+    if (last || leaving || paused || waiting) return;
     const ex = reduce ? 0 : exitMs(scene);
     const start = performance.now();
     const done = played.current.ms;
@@ -609,7 +621,7 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
       clearTimeout(b);
       if (played.current.scene === cur) played.current.ms = done + (performance.now() - start);
     };
-  }, [cur, last, leaving, next, scene, reduce, paused]);
+  }, [cur, last, leaving, next, scene, reduce, paused, waiting]);
   // Pausing mid-exit would freeze on an empty screen (the lines already flew off), so the scene comes back to its
   // held state and the exit plays again on resume.
   useEffect(() => {
@@ -750,7 +762,7 @@ export function Intro({ onDone, signedIn = false }: { onDone: (how: IntroExit) =
     >
       <PausedCtx.Provider value={paused}>
       <SoundCtx.Provider value={sound}>
-      {layers.map(({ i, visit }) => {
+      {!waiting && layers.map(({ i, visit }) => {
         const isCur = visit === visitRef.current;
         const entering = isCur && prev !== null;
         return (

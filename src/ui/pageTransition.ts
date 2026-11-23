@@ -23,6 +23,8 @@ export function useScreenReveal<T extends HTMLElement>() {
     // was on screen, so scrolling the new page to the top can't make it jump, and the new page opens over it.
     for (const old of document.querySelectorAll<HTMLElement>('[data-screen]')) {
       if (old === el) continue;
+      // tapped again before it finished opening: snap it to its full, normal layout first, then pin that
+      (old as HTMLElement & { __settle?: () => void }).__settle?.();
       const r = old.getBoundingClientRect();
       Object.assign(old.style, { position: 'fixed', top: `${r.top}px`, left: `${r.left}px`, width: `${r.width}px`, zIndex: '0', pointerEvents: 'none' });
       old.setAttribute('aria-hidden', 'true');
@@ -39,7 +41,7 @@ export function useScreenReveal<T extends HTMLElement>() {
     const inner = el.querySelector<HTMLElement>(':scope > [data-screen-inner]');
     const rim = el.querySelector<HTMLElement>(':scope > [data-screen-rim]');
     if (!inner) return;
-    const W = window.innerWidth, H = window.innerHeight;
+    const W = document.documentElement.clientWidth, H = window.innerHeight; // clientWidth: no scrollbar
     const at = recentTap(1500) ?? { x: W / 2, y: H * 0.35 };
     const R = Math.ceil(Math.hypot(Math.max(at.x, W - at.x), Math.max(at.y, H - at.y))) + 24;
     // Only transforms and opacity move, so the graphics chip runs it whatever the page's code is doing (a
@@ -72,11 +74,16 @@ export function useScreenReveal<T extends HTMLElement>() {
     const anims = [el.animate(outerK, opts), inner.animate(innerK, opts)];
     if (rim) anims.push(rim.animate(rimK, opts));
     const anim = anims[0];
+    let settled = false;
     const settle = () => {
+      if (settled) return;
+      settled = true;
+      anims.forEach((a) => a.cancel());
       for (const k of Object.keys(shape)) el.style.removeProperty(k.replace(/[A-Z]/g, (m) => '-' + m.toLowerCase()));
       for (const k of ['position', 'left', 'top', 'width', 'min-height', 'transform-origin']) inner.style.removeProperty(k);
       if (rim) rim.hidden = true;
     };
+    (el as HTMLElement & { __settle?: () => void }).__settle = settle;
     anim.finished.then(settle, settle);
     const finishAll = () => anims.forEach((a) => a.finish());
     el.classList.add('page-entering');

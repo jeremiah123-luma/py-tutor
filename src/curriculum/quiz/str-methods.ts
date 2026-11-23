@@ -118,7 +118,7 @@ export const strMethodsQuiz: Record<string, DrillQuestion[]> = {
       prompt: 'What does this print?',
       code: 's = "  hi  there  "\nprint("[" + s.strip() + "]")',
       answer: '[hi  there]',
-      explain: 'strip() only removes spaces at the start and end. The two spaces between hi and there stay.',
+      explain: 'strip() only removes whitespace (spaces, tabs, newlines) at the start and end. The two spaces between hi and there stay.',
     },
     {
       id: 'q-sm-replace-strip-2',
@@ -160,7 +160,7 @@ export const strMethodsQuiz: Record<string, DrillQuestion[]> = {
       prompt: 'What does "  a b  ".strip() return?',
       choices: ['"ab"', '"a b"', '"a b  "', '"  a b"'],
       answer: 1,
-      explain: 'strip() cuts the spaces off both ends and leaves the space in the middle alone.',
+      explain: 'strip() cuts the whitespace off both ends and leaves the space in the middle alone.',
     },
   ],
 

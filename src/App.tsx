@@ -7,8 +7,9 @@ import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
 import { hideSplash } from './ui/splash';
-import { addPasskey, askTutor, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
+import { addPasskey, askTutor, googleClientId, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
 import { GoogleButton } from './ui/GoogleButton';
+import * as Dialog from '@radix-ui/react-dialog';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
 import { draftStore } from './loop/drafts';
@@ -124,6 +125,11 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [practice, setPractice] = useState<ConceptId | null>(null);
   const [connectGoogle, setConnectGoogle] = useState(false);
+  // Connect Google shows only when Google sign-in is set up
+  const [googleOn, setGoogleOn] = useState(false);
+  useEffect(() => {
+    void googleClientId().then((id) => setGoogleOn(!!id));
+  }, []);
   const [mode, setModeState] = useState<Mode>(readMode);
   const [session, setSession] = useState<Session | null>(null);
   const sessionRef = useRef<Session | null>(null);
@@ -449,7 +455,7 @@ export default function App() {
     admin: !!account?.admin,
     passkeys: account?.passkeys ?? 0,
     google: account?.google ?? null,
-    onConnectGoogle: () => setConnectGoogle(true),
+    onConnectGoogle: googleOn ? () => setConnectGoogle(true) : undefined,
     usage,
     mastered: masteredCount,
     total: lessonCount,
@@ -655,18 +661,14 @@ export default function App() {
       <CapDialog open={cap.open} usage={cap.usage} onClose={() => setCap({ open: false })} />
 
       {toaster}
-      {connectGoogle && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="connect-google-title"
-          className="fixed inset-0 z-[120] grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={(e) => e.target === e.currentTarget && setConnectGoogle(false)}
-          onKeyDown={(e) => e.key === 'Escape' && setConnectGoogle(false)}
-        >
-          <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.6)]">
-            <h2 id="connect-google-title" className="text-md font-semibold">Connect Google sign-in</h2>
-            <p className="mt-1 mb-5 text-[0.9375rem] text-ink-2">Pick your Google account. Next time, Sign in with Google opens this same account, with all your progress.</p>
+      <Dialog.Root open={connectGoogle} onOpenChange={setConnectGoogle}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm" />
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-[121] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line-strong bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] data-[state=open]:animate-[pop-in_220ms_var(--ease-out)]">
+            <Dialog.Title className="text-md font-semibold">Connect Google sign-in</Dialog.Title>
+            <Dialog.Description className="mt-1 mb-5 text-[0.9375rem] text-ink-2">
+              Pick your Google account. Next time, Sign in with Google opens this same account, with all your progress.
+            </Dialog.Description>
             <GoogleButton
               onCredential={async (cred) => {
                 try {
@@ -678,12 +680,14 @@ export default function App() {
                 }
               }}
             />
-            <button type="button" onClick={() => setConnectGoogle(false)} className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink">
-              Not now
-            </button>
-          </div>
-        </div>
-      )}
+            <Dialog.Close asChild>
+              <button type="button" className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink">
+                Not now
+              </button>
+            </Dialog.Close>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </ProfileContext.Provider>
   );
 }

@@ -3,8 +3,8 @@ import type { Concept } from '../types';
 // Matches zyBooks Module 3 (ch 4): string indexing, len, + and immutability; slicing with start:end:stride on strings
 // and lists; f-strings with the presentation types in the book's table (.2f, ,d, ,.2f, 03d, =, {{ }}); lists with
 // indexing, assignment, del, +, len/min/max/sum, list(); the list methods table (append, extend, insert, remove, pop,
-// sort, reverse, index, count); tuples; in / not in and is / ==; int() float() str() conversions.
-// Branching, loops, def and str methods come in later modules, so no lesson uses them.
+// sort, reverse, index, count); tuples with len, indexing, slicing (no unpacking: that is Module 6); in / not in and
+// is / ==; int() float() str() conversions. Branching, loops, def and most str methods come later, so no lesson uses them.
 export const stringsLists: Concept = {
   id: 'strings-lists',
   title: 'Strings, lists, and tuples',
@@ -14,12 +14,12 @@ export const stringsLists: Concept = {
     'slicing [start:end] and [start:end:stride] on strings, lists, tuples', 'f-strings {} with :.2f :,d :,.2f :03d and {x=}',
     'list literals [] and list()', 'lst[i] = x', 'del lst[i]', 'min() max() sum()',
     '.append() .extend() .insert() .remove() .pop() .sort() .reverse() .index() .count()',
-    'tuples () and tuple()', 'tuple unpacking a, b = t', 'in / not in', 'is / is not and ==',
-    'int() float() str()', 'variables, arithmetic, input(), print()',
+    'tuples ()', 'in / not in', 'is / is not and ==',
+    'int() float() str()', 'input().split() to read several words from one line', 'variables, arithmetic, input(), print()',
   ],
   banned: [
     'if/elif/else (Module 4)', 'for and while loops (Modules 5 and 8)', 'def functions (Module 6)',
-    'string methods like .upper() .split() .find() .join() (Module 7)', 'sorted()', 'dictionaries (Module 10)',
+    'other string methods like .upper() .find() .join() (Module 7)', 'sorted()', 'dictionaries (Module 10)',
     'list comprehension', 'lambda', 'import collections (namedtuple)',
   ],
   lessons: [
@@ -28,16 +28,17 @@ export const stringsLists: Concept = {
       title: 'Strings: positions, length, and joining',
       define:
         'A string is text: a row of characters in quotes, and each character has a position called its index. The first index is 0, and negative indexes count from the end, so -1 is the last character. len() counts the characters, + glues strings together into a new string, and strings are immutable: you can’t change one character, only assign a whole new string.',
-      example: 'city = "Newark"\nprint(city[0], city[-1])\nprint(len(city))\ngreeting = "Hi, " + city + "!"\nprint(greeting)\nprint(city[len(city) - 2])\ncity = "Trenton"\nprint(greeting, city)',
+      example: 'city = "Newark"\nprint(city[0], city[-1])\nprint(len(city))\nprint("Letters: " + str(len(city)))\ngreeting = "Hi, " + city + "!"\nprint(greeting)\nprint(city[len(city) - 2])\ncity = "Trenton"\nprint(greeting, city)',
       walkthrough: [
         { line: 1, text: 'A string in double quotes. N is at index 0, e at 1, w at 2, a at 3, r at 4, k at 5.', spoken: 'city equals, Newark, in quotes' },
         { line: 2, text: 'Square brackets with an index pick one character. Index 0 is the first, N. Index -1 counts from the end, so it is the last, k. This prints N k.', spoken: 'print city, square bracket 0, comma, city, square bracket minus 1' },
         { line: 3, text: 'len counts the characters. Newark has 6, so this prints 6. Notice the last index is 5, one less than the length.', spoken: 'print len of city' },
-        { line: 4, text: 'The + sign concatenates: it makes one new string from three pieces. The space after the comma is inside the quotes, so it shows up. greeting is Hi, Newark!', spoken: 'greeting equals, Hi comma space, plus city, plus exclamation mark' },
-        { line: 5, text: 'Prints Hi, Newark!' },
-        { line: 6, text: 'The index can be any expression that gives a whole number. len(city) - 2 is 4, and index 4 is r. city[-2] would give the same thing.', spoken: 'print city, square bracket, len of city minus 2' },
-        { line: 7, text: 'You can’t change one letter: city[0] = "T" would crash with a TypeError, because strings are immutable. Assigning a whole new string to the variable is fine.', spoken: 'city equals, Trenton, in quotes' },
-        { line: 8, text: 'Prints Hi, Newark! Trenton. greeting kept its old text, because line 4 built a separate string. Changing city later doesn’t reach back into it.' },
+        { line: 4, text: '+ can’t join a string and a number, so str() turns 6 into "6" first. Prints Letters: 6. Without str() this line would be a TypeError.', spoken: 'print, Letters colon space, plus str of len of city' },
+        { line: 5, text: 'The + sign concatenates: it makes one new string from three pieces. The space after the comma is inside the quotes, so it shows up. greeting is Hi, Newark!', spoken: 'greeting equals, Hi comma space, plus city, plus exclamation mark' },
+        { line: 6, text: 'Prints Hi, Newark!' },
+        { line: 7, text: 'The index can be any expression that gives a whole number. len(city) - 2 is 4, and index 4 is r. city[-2] would give the same thing.', spoken: 'print city, square bracket, len of city minus 2' },
+        { line: 8, text: 'You can’t change one letter: city[0] = "T" would crash with a TypeError, because strings are immutable. Assigning a whole new string to the variable is fine.', spoken: 'city equals, Trenton, in quotes' },
+        { line: 9, text: 'Prints Hi, Newark! Trenton. greeting kept its old text, because line 5 built a separate string. Changing city later doesn’t reach back into it.' },
       ],
       talkthrough: {
         id: 'sl-sb-talk',
@@ -157,7 +158,7 @@ export const stringsLists: Concept = {
         starter: '',
         tests: [],
         rubric: ['starts the string with f and puts total inside {}', 'uses the format specification ,.2f after a colon', 'explains the comma adds the thousands comma and .2f shows exactly two decimals', 'keeps the $ outside the braces as plain text'],
-        hints: ['The colon splits a replacement field in two: what to show on the left, how to show it on the right.', 'Two decimals is .2f, and a comma right before it adds commas. Both go after the same colon.'],
+        hints: ['Left of the colon is the value. Right of it is the format, like ,.2f.', 'Two decimals is .2f, and a comma right before it adds commas. Both go after the same colon.'],
         reference: 'print(f"Total: ${total:,.2f}")',
         wrong: [],
       },
@@ -209,7 +210,7 @@ export const stringsLists: Concept = {
         { line: 4, text: 'Two elements added as numbers: the first, 61, plus the last, 70. Prints 131.', spoken: 'print temps, square bracket 0, plus temps, square bracket minus 1' },
         { line: 5, text: '+ between two lists makes a new list with the second one on the end. more is [61, 59, 70, 65, 72], and temps is unchanged.', spoken: 'more equals temps plus, square bracket, 65, 72' },
         { line: 6, text: 'len counts elements: 5. max finds the biggest: 72. sum adds them all: 327. Prints 5 72 327.', spoken: 'print len of more, max of more, sum of more' },
-        { line: 7, text: 'list() turns a string into a list of its characters. Prints [\'h\', \'e\', \'y\']. str() and int() convert the other way for single values.', spoken: 'print list of, hey, in quotes' },
+        { line: 7, text: 'list() turns a string into a list of its characters. Prints [\'h\', \'e\', \'y\'].', spoken: 'print list of, hey, in quotes' },
       ],
       talkthrough: {
         id: 'sl-lb-talk',
@@ -330,15 +331,16 @@ export const stringsLists: Concept = {
       subskill: 'tuples',
       title: 'Tuples: lists that can’t change',
       define:
-        'A tuple is like a list that can’t be changed once it is made. You write it with parentheses, like (40.7, -74.2), and it supports len(), indexing and slicing, but t[0] = 5 is a TypeError. You can unpack a tuple into separate variables with a, b = t, and tuple() and list() convert between the two.',
-      example: 'point = (40.7, -74.2)\nprint(point)\nprint(f"Lat {point[0]}, long {point[1]}")\nlat, lon = point\nrgb = tuple([255, 128, 0])\nprint(len(point), lat, rgb, list(rgb))',
+        'A tuple is like a list that can’t be changed once it is made. You write it with parentheses, like (2026, 12, 19), and it supports len(), indexing and slicing, but t[0] = 5 is a TypeError. If you need a version you can change, list(t) makes a list copy.',
+      example: 'due = (2026, 12, 19)\nprint(due)\nprint(f"Month {due[1]}, day {due[-1]}")\nprint(len(due), due[:2])\ndraft = list(due)\ndraft[2] = 20\nprint(draft, due)',
       walkthrough: [
-        { line: 1, text: 'Parentheses and a comma make a tuple. It fits values whose positions mean something, like a map point: latitude first, longitude second.', spoken: 'point equals, parenthesis, 40 point 7, comma, minus 74 point 2' },
-        { line: 2, text: 'Printing a tuple always shows the parentheses: (40.7, -74.2).' },
-        { line: 3, text: 'Indexing works just like a list. Prints Lat 40.7, long -74.2. Reading is fine; it is only changing that is not allowed. point[0] = 41 would be a TypeError.', spoken: 'print, f string, Lat, point square bracket 0, comma, long, point square bracket 1' },
-        { line: 4, text: 'Unpacking: the tuple has two values, so two names on the left each get one, in order. lat is 40.7 and lon is -74.2. The count has to match, or you get a ValueError.', spoken: 'lat comma lon, equals point' },
-        { line: 5, text: 'tuple() turns a list into a tuple with the same elements, in the same order.', spoken: 'r g b equals tuple of, square bracket, 255, 128, 0' },
-        { line: 6, text: 'Prints 2 40.7 (255, 128, 0) [255, 128, 0]. The tuple has parentheses, and list() made a list copy with square brackets.', spoken: 'print len of point, lat, r g b, list of r g b' },
+        { line: 1, text: 'A due date as a tuple: year, month, day. Commas inside parentheses make it. A date is a good fit, because each spot has a fixed meaning and the date itself shouldn’t get edited by accident.', spoken: 'due equals, parenthesis, 2026, 12, 19' },
+        { line: 2, text: 'Prints (2026, 12, 19). The round brackets in the output tell you it is a tuple, where a list would show square ones.' },
+        { line: 3, text: 'Reading by index works just like a list. Index 1 is the month, -1 is the last value, the day. Prints Month 12, day 19.', spoken: 'print, f string, Month, due square bracket 1, comma, day, due square bracket minus 1' },
+        { line: 4, text: 'len counts 3 values, and a slice of a tuple is a new tuple. Prints 3 (2026, 12).', spoken: 'print len of due, due square bracket colon 2' },
+        { line: 5, text: 'due[2] = 20 would crash with a TypeError, because tuples are immutable. list() makes a separate list with the same values, and that list can change.', spoken: 'draft equals list of due' },
+        { line: 6, text: 'Changing an element of the list is fine.', spoken: 'draft, square bracket 2, equals 20' },
+        { line: 7, text: 'Prints [2026, 12, 20] (2026, 12, 19). The list changed, and the tuple did not.', spoken: 'print draft, due' },
       ],
       talkthrough: {
         id: 'sl-tu-talk',
@@ -354,7 +356,7 @@ export const stringsLists: Concept = {
       doit: {
         id: 'sl-tu-do',
         subskill: 'tuples',
-        prompt: 'The starter reads a rectangle’s width and height. Store them in a tuple called size, width first. Print size. Then unpack size into two variables and print the area, like Area: 12. Last, make a new tuple called rotated with the two values swapped and print it, like Rotated: (3, 4). For 4 and 3 the output is:\n(4, 3)\nArea: 12\nRotated: (3, 4)',
+        prompt: 'The starter reads a rectangle’s width and height. Store them in a tuple called size, width first. Print size. Then print the area, size[0] times size[1], like Area: 12. Last, make a new tuple called rotated with the two values swapped, (size[1], size[0]), and print it, like Rotated: (3, 4). For 4 and 3 the output is:\n(4, 3)\nArea: 12\nRotated: (3, 4)',
         starter: 'width = int(input())\nheight = int(input())\n',
         tests: [
           { name: '4 by 3', stdin: ['4', '3'], expectStdout: '(4, 3)\nArea: 12\nRotated: (3, 4)' },
@@ -368,15 +370,15 @@ export const stringsLists: Concept = {
         ],
         rubric: [],
         hints: [
-          'size = (width, height). Then w, h = size gives you the two values back as separate variables.',
-          'You can’t swap the values inside size, because it is a tuple. Build a new one instead: rotated = (h, w).',
+          'size = (width, height) makes the tuple. size[0] is the width and size[1] is the height.',
+          'You can’t swap the values inside size, because it is a tuple. Build a new one instead: rotated = (size[1], size[0]).',
         ],
         reference:
-          'width = int(input())\nheight = int(input())\nsize = (width, height)\nprint(size)\nw, h = size\nprint(f"Area: {w * h}")\nrotated = (h, w)\nprint(f"Rotated: {rotated}")',
+          'width = int(input())\nheight = int(input())\nsize = (width, height)\nprint(size)\nprint(f"Area: {size[0] * size[1]}")\nrotated = (size[1], size[0])\nprint(f"Rotated: {rotated}")',
         wrong: [
-          'width = int(input())\nheight = int(input())\nsize = [width, height]\nprint(size)\nw, h = size\nprint(f"Area: {w * h}")\nrotated = [h, w]\nprint(f"Rotated: {rotated}")',
-          'width = int(input())\nheight = int(input())\nsize = (width, height)\nprint(size)\nw, h = size\nprint(f"Area: {w * h}")\nrotated = size\nprint(f"Rotated: {rotated}")',
-          'width = int(input())\nheight = int(input())\nsize = (width, height)\nprint(size)\nw, h = size\nprint(f"Area: {w + h}")\nrotated = (h, w)\nprint(f"Rotated: {rotated}")',
+          'width = int(input())\nheight = int(input())\nsize = [width, height]\nprint(size)\nprint(f"Area: {size[0] * size[1]}")\nrotated = [size[1], size[0]]\nprint(f"Rotated: {rotated}")',
+          'width = int(input())\nheight = int(input())\nsize = (width, height)\nprint(size)\nprint(f"Area: {size[0] * size[1]}")\nrotated = size\nprint(f"Rotated: {rotated}")',
+          'width = int(input())\nheight = int(input())\nsize = (width, height)\nprint(size)\nprint(f"Area: {size[0] + size[1]}")\nrotated = (size[1], size[0])\nprint(f"Rotated: {rotated}")',
         ],
       },
     },

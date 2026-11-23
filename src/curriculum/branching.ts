@@ -12,11 +12,11 @@ export const branching: Concept = {
     'if / elif / else', 'nested if statements', '== != < > <= >=', 'operator chaining like 0 <= x < 10',
     'and / or / not', 'True and False (Booleans)', 'in / not in', 'comparing strings, lists, tuples',
     'variables and arithmetic (+ - * / // % **)', 'input() int() float() str()', 'print()', 'f-strings with :.2f',
-    'strings, lists, tuples, indexing and slicing', 'len()',
+    'strings, lists, tuples, indexing and slicing', 'len()', 'input().split()',
   ],
   banned: [
     'for loops and range() (Module 5)', 'while loops (Module 8)', 'def and functions (Module 6)',
-    'string methods like .lower() .upper() .split() (Module 7)', 'dictionaries (Module 10)',
+    'string methods like .lower() .upper() .find() (Module 7; input().split() is fine)', 'dictionaries (Module 10)',
     'list comprehension', 'lambda', 'try/except', 'match/case',
   ],
   lessons: [
@@ -108,8 +108,13 @@ export const branching: Concept = {
           { name: 'UV 1', stdin: ['1'], expectStdout: 'Low' },
           { name: 'UV 4', stdin: ['4'], expectStdout: 'Moderate' },
           { name: 'UV 9', stdin: ['9'], expectStdout: 'Very high' },
-          { name: 'edge: 2 and 3', stdin: ['3'], expectStdout: 'Moderate', hidden: true, why: '3 starts the Moderate range. Check where each range ends: Low is 0 to 2, so the test is uv < 3 (or uv <= 2).' },
+          { name: 'edge: 2', stdin: ['2'], expectStdout: 'Low', hidden: true },
+          { name: 'edge: 3', stdin: ['3'], expectStdout: 'Moderate', hidden: true, why: '3 starts the Moderate range. Check where each range ends: Low is 0 to 2, so the test is uv < 3 (or uv <= 2).' },
+          { name: 'edge: 5', stdin: ['5'], expectStdout: 'Moderate', hidden: true, why: '5 is still Moderate. Moderate is 3 to 5, so use uv <= 5.' },
+          { name: 'edge: 6', stdin: ['6'], expectStdout: 'High', hidden: true },
           { name: 'edge: 7', stdin: ['7'], expectStdout: 'High', hidden: true, why: '7 is still High. High is 6 to 7, so Very high only starts at 8.' },
+          { name: 'edge: 8', stdin: ['8'], expectStdout: 'Very high', hidden: true },
+          { name: 'edge: 10', stdin: ['10'], expectStdout: 'Very high', hidden: true, why: '10 is still Very high. Extreme starts at 11, so use uv <= 10.' },
           { name: 'UV 11', stdin: ['11'], expectStdout: 'Extreme', hidden: true },
           {
             name: 'only one line',
@@ -129,6 +134,7 @@ export const branching: Concept = {
         wrong: [
           'uv = int(input())\nif uv <= 10:\n    print("Very high")\nelif uv <= 7:\n    print("High")\nelif uv <= 5:\n    print("Moderate")\nelif uv <= 2:\n    print("Low")\nelse:\n    print("Extreme")',
           'uv = int(input())\nif uv < 2:\n    print("Low")\nelif uv < 5:\n    print("Moderate")\nelif uv < 7:\n    print("High")\nelif uv < 10:\n    print("Very high")\nelse:\n    print("Extreme")',
+          'uv = int(input())\nif uv <= 2:\n    print("Low")\nelif uv <= 4:\n    print("Moderate")\nelif uv <= 7:\n    print("High")\nelif uv < 10:\n    print("Very high")\nelse:\n    print("Extreme")',
           'uv = int(input())\nif uv <= 2:\n    print("Low")\nif uv <= 5:\n    print("Moderate")\nif uv <= 7:\n    print("High")\nif uv <= 10:\n    print("Very high")\nelse:\n    print("Extreme")',
         ],
       },
@@ -144,7 +150,7 @@ export const branching: Concept = {
         { line: 2, text: 'is_weekend holds the Boolean False. No quotes: False is a keyword, not a string.', spoken: 'is weekend equals False' },
         { line: 3, text: 'Both sides are True, 14 >= 9 and 14 < 17, so and gives True. in_hours stores that Boolean.', spoken: 'in hours equals, hour greater than or equal to 9, and, hour less than 17' },
         { line: 4, text: 'Prints True.' },
-        { line: 5, text: 'Operator chaining does the same range check in one go: is hour between 9 and 17? Prints True.', spoken: 'print, 9 less than or equal to hour, less than 17' },
+        { line: 5, text: 'Operator chaining does the same range check in one go: is hour at least 9 and under 17? Prints True.', spoken: 'print, 9 less than or equal to hour, less than 17' },
         { line: 6, text: 'not is_weekend is not False, which is True. True and True is True, so the if branch runs.', spoken: 'if in hours and not is weekend, colon' },
         { line: 7, text: 'Prints The office is open.' },
         { line: 8, text: 'else runs when the whole expression on line 6 is False. That happens if it is after hours, or a weekend, or both.', spoken: 'else, colon' },
@@ -173,6 +179,7 @@ export const branching: Concept = {
           { name: 'older student', stdin: ['30', 'yes'], expectStdout: '$20', hidden: true, why: 'Being a student only counts if the person is 25 or younger. Join those two checks with and.' },
           { name: 'exactly 65', stdin: ['65', 'no'], expectStdout: 'Free', hidden: true, why: '"65 or older" includes 65, so use age >= 65.' },
           { name: 'exactly 12', stdin: ['12', 'no'], expectStdout: '$20', hidden: true, why: 'Kids under 12 are free, so 12 itself pays. Use age < 12.' },
+          { name: 'student aged 25', stdin: ['25', 'yes'], expectStdout: 'Free', hidden: true, why: '"25 or younger" includes 25, so use age <= 25.' },
         ],
         rubric: [],
         hints: [
@@ -185,6 +192,7 @@ export const branching: Concept = {
         wrong: [
           'age = int(input())\nstudent = input()\nif age < 12 or age >= 65 or student == "yes":\n    print("Free")\nelse:\n    print("$20")',
           'age = int(input())\nstudent = input()\nif age < 12 or age > 65 or (student == "yes" and age <= 25):\n    print("Free")\nelse:\n    print("$20")',
+          'age = int(input())\nstudent = input()\nif age < 12 or age >= 65 or (student == "yes" and age < 25):\n    print("Free")\nelse:\n    print("$20")',
           'age = int(input())\nstudent = input()\nif age < 12 and age >= 65 or (student == "yes" and age <= 25):\n    print("Free")\nelse:\n    print("$20")',
         ],
       },
@@ -281,7 +289,7 @@ export const branching: Concept = {
         tests: [
           { name: 'right, first try', stdin: ['Mercury', '1'], expectStdout: 'Correct', why: 'With 1 try, print only "Correct". If you see an extra line, check that you turned the tries into an int: input() gives the string "1", and "1" != 1 is True.' },
           { name: 'lowercase', stdin: ['mercury', '2'], expectStdout: 'Right planet, but use a capital M\nIt took you 2 tries' },
-          { name: 'wrong planet', stdin: ['Venus', '3'], expectStdout: 'Not quite\nIt took you 3 tries', hidden: true, why: 'Venus should print "Not quite". Writing answer == "Mercury" or "mercury" is always True, because "mercury" on its own counts as True. Compare answer to each string.' },
+          { name: 'wrong planet', stdin: ['Venus', '3'], expectStdout: 'Not quite\nIt took you 3 tries', hidden: true, why: 'Venus should print "Not quite". Python reads answer == "Mercury" or "mercury" as (answer == "Mercury") or "mercury", and a non-empty string counts as True, so it always passes. Write answer == "Mercury" or answer == "mercury", or use elif.' },
           { name: 'right, many tries', stdin: ['Mercury', '4'], expectStdout: 'Correct\nIt took you 4 tries', hidden: true },
         ],
         rubric: [],

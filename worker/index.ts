@@ -243,13 +243,17 @@ app.post('/api/auth/google', async (c) => {
   const clientId = c.env.GOOGLE_CLIENT_ID;
   if (!clientId) return c.json({ error: 'Google sign-in isn’t set up.' }, 404);
   const store = c.get('store');
+  const ip = c.req.header('cf-connecting-ip') ?? 'local';
+  if (c.env.LOGIN_LIMITER && new URL(c.req.url).hostname !== 'localhost' && !(await c.env.LOGIN_LIMITER.limit({ key: `g:${ip}` })).success)
+    return c.json({ error: 'Too many tries. Wait a minute and try again.' }, 429);
   const b = await c.req.json<{ credential?: string; link?: boolean }>().catch(() => ({}) as any);
   const g = await verifyGoogleToken(String(b.credential ?? ''), clientId).catch((e) => {
     console.warn('google verify failed', e);
     return null;
   });
   if (!g) return c.json({ error: 'Google sign-in didn’t work. Try again, or use your username and password.' }, 401);
-  const owner = await store.raw().get(`google:${g.sub}`);
+  let owner = await store.raw().get(`google:${g.sub}`);
+  if (owner && !(await store.user(owner))) owner = null; // the account it pointed at is gone
 
   if (b.link) {
     const me = await store.sessionUser(getCookie(c, SID));
@@ -265,7 +269,6 @@ app.post('/api/auth/google', async (c) => {
   let user = owner ? await store.user(owner) : null;
   let created = false;
   if (!user) {
-    const ip = c.req.header('cf-connecting-ip') ?? 'local';
     if (c.env.SIGNUP_LIMITER && new URL(c.req.url).hostname !== 'localhost' && !(await c.env.SIGNUP_LIMITER.limit({ key: ip })).success)
       return c.json({ error: 'Too many new accounts from here. Wait a minute and try again.' }, 429);
     if (await tooManyTries(store, `signup:${ip}`, 40)) return c.json({ error: 'Too many new accounts from here. Wait 15 minutes and try again.' }, 429);

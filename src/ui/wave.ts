@@ -253,6 +253,12 @@ export function distortionWave(el: HTMLElement | null | undefined, opts: WaveOpt
     gl.viewport(0, 0, canvas.width, canvas.height);
 
     const start = performance.now();
+    // Frames can stall (a busy phone, a background tab); the overlay still goes away on time.
+    const backstop = setTimeout(cleanup, duration + 400);
+    active.set(el, () => {
+      clearTimeout(backstop);
+      cleanup();
+    });
     const frame = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
       // follow the element if the page scrolls mid-wave
@@ -265,7 +271,10 @@ export function distortionWave(el: HTMLElement | null | undefined, opts: WaveOpt
       gl!.drawArrays(gl!.TRIANGLES, 0, 3);
       if (t > 0.55) settle();
       if (t < 1) raf = requestAnimationFrame(frame);
-      else cleanup();
+      else {
+        clearTimeout(backstop);
+        cleanup();
+      }
     };
     raf = requestAnimationFrame(frame);
   });
