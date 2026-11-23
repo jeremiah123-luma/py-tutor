@@ -92,7 +92,9 @@ function timeout(ms: number): AbortSignal | undefined {
 export async function me(): Promise<{ user: Account; usage: Usage } | null> {
   try {
     const r = await fetch('/api/me', { signal: timeout(8000) });
-    return r.ok ? await r.json() : null;
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j?.user ? j : null; // signed out: { user: null }
   } catch {
     return null;
   }

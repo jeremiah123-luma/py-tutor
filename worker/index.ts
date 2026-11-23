@@ -306,6 +306,14 @@ app.post('/api/auth/google', async (c) => {
   return c.json({ user: publicUser(user), created });
 });
 
+// Who's signed in. Signed out is a normal answer here (every visit asks), not an error, so it's a 200 with no user.
+app.get('/api/me', async (c) => {
+  const store = c.get('store');
+  const u = await store.sessionUser(getCookie(c, SID));
+  if (!u) return c.json({ user: null });
+  return c.json({ user: publicUser(u), usage: await store.usage(u, budget(c)) });
+});
+
 // ---------- everything below needs a signed-in account ----------
 
 app.use('/api/*', async (c, next) => {
@@ -313,11 +321,6 @@ app.use('/api/*', async (c, next) => {
   if (!user) return c.json({ error: 'locked' }, 401);
   c.set('user', user);
   await next();
-});
-
-app.get('/api/me', async (c) => {
-  const u = c.get('user');
-  return c.json({ user: publicUser(u), usage: await c.get('store').usage(u, budget(c)) });
 });
 
 app.post('/api/passkey/register/options', async (c) => {

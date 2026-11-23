@@ -26,7 +26,7 @@ async function googleKey(kid: string, fetcher: typeof fetch): Promise<JsonWebKey
     const j = (await r.json()) as { keys: (JsonWebKey & { kid: string })[] };
     keys = { at: Date.now(), byKid: new Map(j.keys.map((k) => [k.kid, k])) };
   }
-  return keys.byKid.get(kid) ?? null;
+  return keys?.byKid.get(kid) ?? null;
 }
 
 const json = (part: string) => JSON.parse(new TextDecoder().decode(b64u.to(part)));
