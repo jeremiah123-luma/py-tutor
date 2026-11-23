@@ -1,7 +1,13 @@
 // The intro, scene by scene. Only the site's own colours, laid as the same soft aurora gradients the heroes use.
-// The statement scenes follow the motion of Anagram's Raison piece: hard cuts alternate with slabs wiping up,
-// nothing holds still (a slow grow, a slow settle, leading that breathes), and every statement leaves on purpose
-// (lines splitting sideways, or a paragraph dropping its lines from the top).
+// The statement scenes keep Raison's pacing (hard cuts alternate with slabs wiping up, nothing holds still, every
+// statement leaves on purpose), and each one now has its own way of setting the words, chosen for what it says:
+//   squeeze   letters trade widths inside a fixed block, with a one-frame colour flip on the beat ("One screen.")
+//   scatter   the words of the problem drift out of place while the last line stays put
+//   flutter   lines ripple in like a banner and settle (and keep swaying, for the car)
+//   heat      a soft blob in our colours crosses the last line and leaves it heavier
+//   stickers  facts slap on as die-cut stickers
+//   step      a highlight steps through the words, the way the visualizer steps through code
+//   coin      the final's date as a turning coin
 
 export const C = {
   black: '#111111',
@@ -28,12 +34,13 @@ interface Base {
 export type Enter = 'cut' | 'wipe';
 export type Hold = 'grow' | 'settle' | 'breathe';
 export type Exit = 'split' | 'lines' | 'none';
+export type Fx = 'squeeze' | 'scatter' | 'flutter' | 'sway' | 'heat' | 'stickers' | 'step' | 'coin';
 
 export type IntroScene =
   | (Base & { kind: 'mark'; sub: string })
   | (Base & { kind: 'wheel'; sub: string; cards: { code: string; label: string; detail: string; bg: string }[] })
   | (Base & { kind: 'drift'; lines: string[]; sub: string; windows: string[] })
-  | (Base & { kind: 'statement'; lines: string[]; size: 'big' | 'small'; enter: Enter; hold: Hold; exit: Exit; sub?: string });
+  | (Base & { kind: 'statement'; lines: string[]; size: 'big' | 'small'; enter: Enter; hold: Hold; exit: Exit; sub?: string; fx?: Fx });
 
 // Every headline carries a short line under it that names the problem or says plainly what it means.
 export const INTRO_SCENES: IntroScene[] = [
@@ -73,6 +80,7 @@ export const INTRO_SCENES: IntroScene[] = [
     enter: 'cut',
     hold: 'grow',
     exit: 'split',
+    fx: 'squeeze',
     lines: ['One', 'screen.'],
     sub: 'The lesson, the editor, the tests, and the tutor, side by side.',
   },
@@ -86,6 +94,7 @@ export const INTRO_SCENES: IntroScene[] = [
     enter: 'cut',
     hold: 'breathe',
     exit: 'none',
+    fx: 'scatter',
     lines: ['Every switch between tabs', 'costs you your place and', 'the idea you were holding.', 'Here, it all stays put.'],
   },
   {
@@ -98,6 +107,7 @@ export const INTRO_SCENES: IntroScene[] = [
     enter: 'wipe',
     hold: 'settle',
     exit: 'none',
+    fx: 'flutter',
     lines: ['It coaches.', 'You code.'],
     sub: 'A tutor that asks the right question instead of writing your code.',
   },
@@ -111,6 +121,7 @@ export const INTRO_SCENES: IntroScene[] = [
     enter: 'cut',
     hold: 'breathe',
     exit: 'lines',
+    fx: 'heat',
     lines: ['Chatbots hand you the answer.', 'You learn nothing, and the', 'course counts it as cheating.', 'py-tutor makes you write it.'],
   },
   {
@@ -123,6 +134,7 @@ export const INTRO_SCENES: IntroScene[] = [
     enter: 'wipe',
     hold: 'grow',
     exit: 'split',
+    fx: 'stickers',
     lines: ['Check your', 'code. Free.'],
     sub: 'Real tests run in your browser and show what you printed next to what was expected.',
   },
@@ -136,6 +148,7 @@ export const INTRO_SCENES: IntroScene[] = [
     enter: 'cut',
     hold: 'settle',
     exit: 'none',
+    fx: 'step',
     lines: ['Watch your', 'code think.'],
     sub: 'Step through any program and see every variable, list, and object change.',
   },
@@ -149,6 +162,7 @@ export const INTRO_SCENES: IntroScene[] = [
     enter: 'wipe',
     hold: 'grow',
     exit: 'split',
+    fx: 'sway',
     lines: ['Study in', 'the car.'],
     sub: 'Talk mode explains out loud and listens to your answer. No screen needed.',
   },
@@ -162,6 +176,7 @@ export const INTRO_SCENES: IntroScene[] = [
     enter: 'cut',
     hold: 'settle',
     exit: 'none',
+    fx: 'coin',
     lines: ['Built for', 'Dec 19.'],
     sub: 'Matched to our zyBook chapter by chapter, with a Quick check after every lesson and a timed 18-question practice exam.',
   },

@@ -1,4 +1,5 @@
 // The intro: kinetic type and motion in Geist, on the site's own aurora gradients.
+// Each statement sets its words its own way (squeeze, scatter, flutter, heat, stickers, step, coin): see intro/slides.
 //   mark      - one bar grows, the >_ unfolds out of it like a fan, flashes to an outline, then shrinks beside the
 //               wordmark as it types itself, with selection blocks sweeping the letters and a blinking caret.
 //   wheel     - a ring of gradient bars spins around a card that flips through the topics.
@@ -9,14 +10,16 @@
 // Smoothness rules (from the animation-performance skill): only transform and opacity move. Continuous motion
 // (grounds, holds, drift) is CSS keyframes on the compositor; entrances and exits are Motion, which hands
 // transform/opacity to WAAPI. No animated blur, letter-spacing, width, or backdrop-filter anywhere.
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion, type TargetAndTransition, type Transition } from 'motion/react';
 import { ArrowRight, Play, Volume2, VolumeX } from 'lucide-react';
 import { IntroSound, rememberSound, soundWanted } from '../intro/sound';
 import { whenSplashGone } from './splash';
 import { C, INTRO_SCENES, exitMs, sceneText, type Ground, type IntroScene } from '../intro/slides';
 import { distortionWave, recentTap } from './wave';
+import { DateCoin } from './DateCoin';
+import { daysToFinal, finalIn } from './TopBar';
 
 const EASE = [0.16, 1, 0.3, 1] as const; // ease-out, entrances
 const EASE_IO = [0.77, 0, 0.175, 1] as const; // ease-in-out, things travelling on screen
@@ -389,11 +392,17 @@ function DriftScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { k
             <span key={i} className="block overflow-hidden pb-[0.08em]">
               <motion.span
                 className="block"
-                initial={reduce ? false : { y: '105%' }}
+                initial={false}
                 animate={leaving ? { y: '-105%' } : { y: 0 }}
-                transition={leaving ? tr(reduce, 0.4, i * 0.04, EASE_IO) : tr(reduce, 0.8, 0.3 + i * 0.09)}
+                transition={leaving ? tr(reduce, 0.4, i * 0.04, EASE_IO) : { duration: 0 }}
               >
-                {line}
+                {/* the words start out scattered among the windows and gather into the sentence */}
+                {reduce
+                  ? line
+                  : eachWord(line, wordsBefore(scene.lines, i), (k) => ({
+                      className: 'fx-gather',
+                      style: { '--gx': `${((k * 41) % 11 - 5) * 6}vw`, '--gy': `${((k * 29) % 7 - 3) * 7}svh`, animationDelay: `${250 + k * 45}ms` } as CSSProperties,
+                    }))}
               </motion.span>
             </span>
           ))}
@@ -412,7 +421,136 @@ function fit(lines: string[], big: boolean, width = 90): string {
   return big ? `min(${(width / em).toFixed(2)}vw, ${lines.length > 2 ? 15 : 22}svh, 12rem)` : `clamp(1.25rem, min(${(84 / em).toFixed(2)}vw, 6svh), 3.25rem)`;
 }
 
-/* ---------- statement: Raison's grammar ---------- */
+/* ---------- how each statement sets its words ---------- */
+
+const wordsBefore = (lines: string[], i: number) => lines.slice(0, i).reduce((n, l) => n + l.split(' ').length, 0);
+/** A line as separate words, each with its own class and style (k counts words across the whole statement). */
+function eachWord(line: string, base: number, props: (k: number, last: boolean) => { className: string; style?: CSSProperties }): ReactNode {
+  const ws = line.split(' ');
+  return ws.map((w, j) => (
+    <Fragment key={j}>
+      <span {...props(base + j, j === ws.length - 1)}>{w}</span>
+      {j < ws.length - 1 ? ' ' : ''}
+    </Fragment>
+  ));
+}
+
+/** Squeeze: every line is stretched to the same width, and its letters trade widths in a wave that calms down. */
+function SqueezeLines({ lines, reduce, exiting, exitTo, exitT }: { lines: string[]; reduce: boolean; exiting: boolean; exitTo: (i: number) => TargetAndTransition; exitT: (i: number) => Transition }) {
+  const paused = useContext(PausedCtx);
+  const root = useRef<HTMLSpanElement>(null);
+  const clock = useRef(0);
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const rows = [...el.querySelectorAll<HTMLElement>('.sq-line')].map((r) => [...r.querySelectorAll<HTMLElement>('.sq-c')]);
+    let ws: number[][] = [];
+    let W = 0;
+    const measure = () => {
+      rows.forEach((r) => r.forEach((c) => (c.style.transform = 'none')));
+      ws = rows.map((r) => r.map((c) => c.getBoundingClientRect().width));
+      W = Math.max(...ws.map((r) => r.reduce((a, b) => a + b, 0)));
+      el.style.width = `${W}px`;
+    };
+    const lay = (t: number) => {
+      const A = reduce ? 0 : 0.2 + 0.62 * Math.exp(-t / 750);
+      rows.forEach((r, ri) => {
+        const ph = t * 0.0052 + ri * Math.PI;
+        const v = r.map((_, i) => Math.exp(A * Math.sin(ph - i * 0.85)));
+        const k = W / v.reduce((a, x, i) => a + x * ws[ri][i], 0);
+        let x = 0;
+        r.forEach((c, i) => {
+          const f = v[i] * k;
+          c.style.transform = `translate3d(${x.toFixed(2)}px,0,0) scaleX(${f.toFixed(4)})`;
+          x += ws[ri][i] * f;
+        });
+      });
+    };
+    const refit = () => {
+      measure();
+      lay(clock.current);
+    };
+    refit();
+    void document.fonts?.ready.then(refit);
+    window.addEventListener('resize', refit);
+    let raf = 0;
+    if (!reduce && !paused) {
+      let last = performance.now();
+      const tick = (now: number) => {
+        clock.current += Math.max(0, now - last);
+        last = Math.max(last, now);
+        lay(clock.current);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', refit);
+    };
+  }, [lines, reduce, paused]);
+  return (
+    <span ref={root} className="sq">
+      {lines.map((line, i) => (
+        <motion.span key={i} className="sq-line" initial={false} animate={exiting ? exitTo(i) : { x: 0, opacity: 1 }} transition={exiting ? exitT(i) : { duration: 0 }}>
+          {[...line].map((ch, k) => (
+            <span key={k} className="sq-c">
+              {ch}
+            </span>
+          ))}
+        </motion.span>
+      ))}
+    </span>
+  );
+}
+
+const STICKERS: { text: string; cls: string; pos: CSSProperties; r: number }[] = [
+  { text: '$0', cls: 'fx-stk-burst', pos: { right: '0', top: '-2.7em' }, r: 10 },
+  { text: '4 / 4 PASSED', cls: 'fx-stk-ticket', pos: { left: '0.4em', top: '-2em' }, r: -7 },
+];
+
+/** What goes inside one line of a statement, for its way of setting words. */
+function lineBody(scene: Extract<IntroScene, { kind: 'statement' }>, line: string, i: number, reduce: boolean): ReactNode {
+  const n = scene.lines.length;
+  const base = wordsBefore(scene.lines, i);
+  switch (scene.fx) {
+    case 'flutter':
+    case 'sway':
+      return reduce ? line : (
+        <span className={`fx-flutter ${scene.fx === 'sway' ? 'fx-sway' : ''}`} style={{ '--d': i % 2 ? 1 : -1, animationDelay: `${60 + i * 90}ms` } as CSSProperties}>
+          {line}
+        </span>
+      );
+    case 'scatter':
+      if (i === n - 1) return <span className="fx-stay">{line}</span>;
+      return reduce
+        ? line
+        : eachWord(line, base, (k) => ({
+            className: 'fx-scatter',
+            style: { '--sx': `${(((k * 37) % 9) - 4) * 0.16}em`, '--sy': `${(((k * 53) % 7) - 3) * 0.2}em`, '--sr': `${(((k * 17) % 7) - 3) * 2.2}deg`, animationDelay: `${950 + k * 40}ms` } as CSSProperties,
+          }));
+    case 'heat':
+      if (i !== n - 1) return line;
+      return (
+        <span className="fx-heat">
+          {line}
+          <span className="fx-heat-clip" aria-hidden="true">
+            <span>{line}</span>
+          </span>
+          {!reduce && <span className="fx-heat-blob" aria-hidden="true" />}
+        </span>
+      );
+    case 'step':
+      return eachWord(line, base, (k) => ({
+        className: `fx-step ${i === n - 1 && k === wordsBefore(scene.lines, n) - 1 ? 'fx-step-last' : ''}`,
+        style: { '--sd': `${750 + k * 340}ms` } as CSSProperties,
+      }));
+    default:
+      return line;
+  }
+}
+
+/* ---------- statement: Raison's pacing, with its own type per scene ---------- */
 
 function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene, { kind: 'statement' }>; leaving: boolean; reduce: boolean }) {
   const n = scene.lines.length;
@@ -431,31 +569,63 @@ function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene,
   const exitTo = (i: number) => (scene.exit === 'split' ? { x: i % 2 === 0 ? '-115vw' : '115vw' } : { opacity: 0 });
   const exitT = (i: number) =>
     scene.exit === 'split' ? tr(reduce, 0.42, i * 0.05, EASE_IO) : { duration: reduce ? 0 : 0.12, delay: reduce ? 0 : i * 0.14 };
+  const fx = scene.fx;
+  // squeeze: the colours flip for a frame or two on the beat
+  const t = useSceneTime(fx === 'squeeze' && !reduce);
+  const flip = fx === 'squeeze' && !reduce && ((t > 420 && t < 500) || (t > 860 && t < 940));
+  const ink = flip ? GROUNDS[scene.ground].base : scene.ink;
+  const flutter = (fx === 'flutter' || fx === 'sway') && !reduce;
+  const noMask = flutter || (fx === 'scatter' && !reduce); // these move outside their line, so the line can't clip them
+  const coinSize = typeof window === 'undefined' ? 96 : Math.round(Math.min(window.innerWidth * 0.24, window.innerHeight * 0.17, 150));
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center" style={{ color: scene.ink }}>
+    <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center" style={{ color: ink }}>
       <GroundLayer ground={scene.ground} />
+      {flip && <div className="absolute inset-0" style={{ background: scene.ink }} aria-hidden="true" />}
       <div className="relative" style={{ animation: holdAnim }}>
+        {fx === 'stickers' &&
+          STICKERS.map((s, k) => (
+            <span key={s.text} className={`fx-stk ${s.cls}`} style={{ ...s.pos, '--r': `${s.r}deg`, '--r0': `${s.r * 3 - 10}deg`, animationDelay: `${reduce ? 0 : 750 + k * 150}ms` } as CSSProperties} aria-hidden="true">
+              <b>{s.text}</b>
+            </span>
+          ))}
+        {fx === 'squeeze' ? (
+          <p className="intro-display" style={{ fontSize: fit(scene.lines, true) }}>
+            <SqueezeLines lines={scene.lines} reduce={reduce} exiting={exiting} exitTo={exitTo} exitT={exitT} />
+          </p>
+        ) : (
         <p className={big ? 'intro-display' : 'intro-small'} style={{ fontSize: fit(scene.lines, big) }}>
-          {scene.lines.map((line, i) => (
+          {(fx === 'coin' ? scene.lines.slice(0, -1) : scene.lines).map((line, i) => (
             <span
               key={i}
               // Clipped above and below only (the mask the line rises through). A side clip stopped split exits at
               // the text block's edge, which on a wide screen is well short of the screen's edge.
               className="block pb-[0.12em]"
-              style={{ ['--i' as string]: i, clipPath: 'inset(0 -150vw)', animation: !reduce && scene.hold === 'breathe' ? `hold-breathe ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both` : undefined } as CSSProperties}
+              style={{ ['--i' as string]: i, clipPath: noMask ? undefined : 'inset(0 -150vw)', animation: !reduce && scene.hold === 'breathe' ? `hold-breathe ${scene.ms}ms cubic-bezier(0.2, 0, 0.2, 1) both` : undefined } as CSSProperties}
             >
               <motion.span
                 className="block"
-                initial={reduce ? false : { y: '105%' }}
+                initial={reduce || flutter ? false : noMask ? { y: '40%', opacity: 0 } : { y: '105%' }}
                 animate={exiting ? exitTo(i) : { y: 0, x: 0, opacity: 1 }}
                 transition={exiting ? exitT(i) : tr(reduce, big ? 0.85 : 0.7, enterDelay(i))}
               >
-                {line}
+                {lineBody(scene, line, i, reduce)}
               </motion.span>
             </span>
           ))}
+          {fx === 'coin' && (
+            <motion.span
+              className="flex justify-center pt-[0.14em]"
+              style={{ '--coin-line': scene.ink, '--coin-ink': scene.ink, '--coin-b': `${Math.max(2, Math.round(coinSize * 0.035))}px` } as CSSProperties}
+              initial={reduce ? false : { opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={tr(reduce, 0.7, 0.25)}
+            >
+              <DateCoin days={daysToFinal()} size={coinSize} label={`${finalIn()}: Sat, Dec 19`} />
+            </motion.span>
+          )}
         </p>
+        )}
         {scene.sub && <Sub text={scene.sub} delay={0.25 + n * 0.08} leaving={exiting} reduce={reduce} className="mt-[min(4svh,2rem)]" />}
       </div>
     </div>
