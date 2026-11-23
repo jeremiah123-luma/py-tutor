@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { sfx } from '../ui/sfx';
 import { X } from 'lucide-react';
+import { Orb } from '../ui/Orb';
 
 export type TalkState = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -35,7 +36,7 @@ const RING: Record<TalkState, string> = {
   speaking: 'var(--talk-speak)',
 };
 
-export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, error, passed }: TalkScreenProps) {
+export function TalkScreen({ state, caption, context, onTap, onExit, error, passed }: TalkScreenProps) {
   const label =
     error && state === 'idle'
       ? 'Tap to try again'
@@ -51,7 +52,6 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, 
     if (state === 'listening') sfx.listen();
     else if (was === 'listening' && state === 'thinking') sfx.heard();
   }, [state]);
-  const scale = state === 'listening' ? 1 + Math.min(level, 1) * 0.08 : 1;
   return (
     <div
       className="relative flex min-h-dvh flex-col bg-[var(--talk-bg)] text-[var(--talk-ink)] select-none"
@@ -75,48 +75,9 @@ export function TalkScreen({ state, caption, context, level = 0, onTap, onExit, 
         aria-label={`${label}. ${caption}`}
         className="flex flex-1 flex-col items-center justify-center gap-[min(2.5rem,4svh)] px-6 pb-4 outline-offset-[-8px]"
       >
-        <div className="relative grid size-[min(64vw,17rem,30svh)] place-items-center" aria-hidden="true">
-          <div className="halftone halftone-ring" />
-          <div
-            className={`absolute -inset-12 animate-[spin_14s_linear_infinite] rounded-full blur-3xl transition-opacity duration-500 ${state === 'idle' ? 'opacity-30' : 'opacity-60'}`}
-            style={{ background: 'radial-gradient(50% 50% at 30% 30%, #A5B4FC, transparent), radial-gradient(50% 50% at 70% 70%, #F472B6, transparent), radial-gradient(60% 60% at 50% 50%, #A78BFA, transparent)' }}
-          />
-          <svg viewBox="0 0 200 200" className="absolute inset-0 size-full overflow-visible">
-            <circle cx="100" cy="100" r="92" fill="none" stroke="white" strokeOpacity="0.08" strokeWidth="6" />
-            {state === 'thinking' ? (
-              <circle
-                cx="100"
-                cy="100"
-                r="92"
-                fill="none"
-                stroke={RING.thinking}
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray="120 460"
-                className="origin-center animate-[spin_1.4s_linear_infinite]"
-              />
-            ) : (
-              <circle
-                cx="100"
-                cy="100"
-                r="92"
-                fill="none"
-                stroke={RING[state]}
-                strokeWidth={state === 'idle' ? 3 : 6}
-                strokeOpacity={state === 'idle' ? 0.6 : 1}
-                className={state === 'speaking' ? 'origin-center animate-[talk-pulse_1.6s_var(--ease-out)_infinite]' : ''}
-                style={{ transform: `scale(${scale})`, transformOrigin: 'center', transition: 'transform 120ms var(--ease-out), stroke 240ms var(--ease-out)' }}
-              />
-            )}
-          </svg>
-          <div
-            className="size-[38%] rounded-full transition-[background-color,transform] duration-[240ms] ease-out"
-            style={{
-              backgroundColor: state === 'idle' ? 'rgb(255 255 255 / 0.06)' : RING[state],
-              opacity: state === 'idle' ? 1 : 0.16,
-              transform: `scale(${scale})`,
-            }}
-          />
+        {/* the orb: frosted glass with the ribbon folding inside, moving with the conversation (Orb.tsx) */}
+        <div className="relative size-[min(84vw,22rem,40svh)]" aria-hidden="true">
+          <Orb state={state} />
         </div>
 
         <div className="flex flex-col items-center gap-5 text-center">

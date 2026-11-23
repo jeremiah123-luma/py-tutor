@@ -2,6 +2,7 @@
 // One AudioContext, unlocked on the first tap (iOS requires a gesture).
 import { speechAudio } from '../loop/api';
 import { unlockAudio } from './audio';
+import { speechOut } from './levels';
 import { pageVisible, registerSpeaker, unregisterSpeaker } from './registry';
 
 type SpeakState = 'idle' | 'speaking';
@@ -125,7 +126,7 @@ export class Speaker {
       await new Promise<void>((resolve) => {
         const src = this.ctx!.createBufferSource();
         src.buffer = audio;
-        src.connect(this.ctx!.destination);
+        src.connect(speechOut(this.ctx!)); // through the level meter for the talk orb, then the speakers
         // If iOS never reports the end (audio stalled), don't hang on "Speaking" forever.
         const safety = setTimeout(resolve, audio.duration * 1000 + 2500);
         src.onended = () => {

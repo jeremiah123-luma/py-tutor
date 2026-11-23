@@ -1,6 +1,7 @@
 // Hands-free listening: on-device VAD (Silero) finds where his speech starts and ends,
 // then the finished utterance goes to transcription. Paused while the tutor talks so the
 // car speakers can't make the tutor interrupt itself.
+import { noteMicFrame } from './levels';
 import { MicVAD } from '@ricky0123/vad-web';
 import { transcribe } from '../loop/api';
 import { micStream, primeMic, releaseMic } from './audio';
@@ -53,6 +54,8 @@ export class Listener {
         minSpeechMs: 300,
         preSpeechPadMs: 300,
         onSpeechStart: () => this.ev.onSpeechStart?.(),
+        // each slice of audio it checks also drives the talk orb (his voice level)
+        onFrameProcessed: (_p: unknown, frame: Float32Array) => noteMicFrame(frame),
         onSpeechEnd: (audio: Float32Array) => void this.handle(audio),
       });
       // left while the model was loading: don't keep a detector nobody will use
