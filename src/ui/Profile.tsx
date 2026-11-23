@@ -50,7 +50,7 @@ export function ProfileMenu() {
         <Menu.Content
           align="end"
           sideOffset={8}
-          className="z-50 w-72 rounded-2xl border border-line-strong bg-[#161616]/95 p-2 text-ink shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] backdrop-blur-xl data-[state=open]:animate-[pop-in_220ms_var(--ease-out)]"
+          className="z-50 w-72 rounded-2xl border border-line-strong bg-[#161616] p-2 text-ink shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] data-[state=open]:animate-[pop-in_220ms_var(--ease-out)]"
         >
           <div className="flex items-center gap-3 px-2.5 pt-2 pb-3">
             <span

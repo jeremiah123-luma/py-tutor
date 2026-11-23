@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, Check, FileText, GitBranch, Home, Layers, List, ListChecks, Play, Repeat, RotateCw, Sparkles, SquareFunction, Timer, Type, Variable, Eye } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import * as Menu from '@radix-ui/react-dropdown-menu';
+import { ArrowRight, ArrowUp, AudioLines, BookOpen, Boxes, CalendarClock, Check, ChevronDown, FileText, GitBranch, Home, Layers, List, ListChecks, Play, Repeat, RotateCw, Sparkles, SquareFunction, Timer, Type, Variable, Eye } from 'lucide-react';
 import { isPerfect } from '../loop/quizScore';
 import { FOCUS } from '../curriculum/ids';
 import type { Concept, ConceptId, Mode, Progress } from '../types';
@@ -80,6 +81,88 @@ function MasteryChart({ names, state, quiz, delay }: { names: string[]; state: P
         );
       })}
     </div>
+  );
+}
+
+/**
+ * Every topic in one menu: the final's big three first, then the earlier topics, each with how many lessons are
+ * mastered. It grows out of its button, the topics slide in one after another, and the arrow turns.
+ */
+function TopicsMenu({
+  concepts,
+  mastered,
+  total,
+  onStart,
+}: {
+  concepts: Concept[];
+  mastered: (id: ConceptId) => number;
+  total: (id: ConceptId) => number;
+  onStart: (id: ConceptId) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const reduce = useReducedMotion();
+  const groups = [
+    { label: 'The final’s big three', items: concepts.filter((c) => FOCUS.includes(c.id)) },
+    { label: 'Earlier topics', items: concepts.filter((c) => !FOCUS.includes(c.id)) },
+  ].filter((g) => g.items.length);
+  let n = 0; // running index across both groups, for the stagger
+  return (
+    <Menu.Root open={open} onOpenChange={setOpen} modal={false}>
+      <Menu.Trigger asChild>
+        <button className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 outline-none hover:text-ink focus-visible:text-ink data-[state=open]:text-ink">
+          <Layers className="size-4" strokeWidth={1.75} aria-hidden="true" /> Topics
+          <motion.span className="grid" animate={{ rotate: open ? 180 : 0 }} transition={{ duration: reduce ? 0 : 0.28, ease: EASE }} aria-hidden="true">
+            <ChevronDown className="size-4" strokeWidth={2} />
+          </motion.span>
+        </button>
+      </Menu.Trigger>
+      <AnimatePresence>
+        {open && (
+          <Menu.Portal forceMount>
+            <Menu.Content forceMount asChild align="start" sideOffset={6} collisionPadding={12}>
+              <motion.div
+                className="z-50 max-h-[min(70svh,34rem)] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto rounded-2xl border border-line-strong bg-[#161616] p-2 text-ink shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] outline-none"
+                style={{ transformOrigin: 'var(--radix-dropdown-menu-content-transform-origin)' }}
+                initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: -6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -4, transition: { duration: 0.14, ease: 'easeIn' } }}
+                transition={{ duration: reduce ? 0 : 0.26, ease: EASE }}
+              >
+                {groups.map((g, gi) => (
+                  <Menu.Group key={g.label}>
+                    {gi > 0 && <Menu.Separator className="mx-2 my-1.5 h-px bg-line" />}
+                    <Menu.Label className="px-2.5 pt-1.5 pb-1 text-xs font-medium tracking-wide text-ink-3 uppercase">{g.label}</Menu.Label>
+                    {g.items.map((c) => {
+                      const Icon = ICONS[c.id] ?? BookOpen;
+                      const i = n++;
+                      const done = mastered(c.id), of = total(c.id);
+                      return (
+                        <Menu.Item key={c.id} asChild onSelect={() => onStart(c.id)}>
+                          <motion.div
+                            className="flex h-11 cursor-pointer items-center gap-3 rounded-lg px-2.5 text-[0.9375rem] text-ink-2 outline-none data-[highlighted]:bg-surface-2 data-[highlighted]:text-ink"
+                            initial={reduce ? false : { opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.3, delay: 0.04 + i * 0.03, ease: EASE }}
+                          >
+                            <span className={`grid size-7 shrink-0 place-items-center rounded-md bg-surface-2 ${TINT[c.id] ?? ''}`} aria-hidden="true">
+                              <Icon className="size-4" strokeWidth={1.75} />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">{short(c)}</span>
+                            <span className={`tnum text-sm ${done === of && of > 0 ? 'text-ok' : 'text-ink-3'}`} aria-label={`${done} of ${of} mastered`}>
+                              {done}/{of}
+                            </span>
+                          </motion.div>
+                        </Menu.Item>
+                      );
+                    })}
+                  </Menu.Group>
+                ))}
+              </motion.div>
+            </Menu.Content>
+          </Menu.Portal>
+        )}
+      </AnimatePresence>
+    </Menu.Root>
   );
 }
 
@@ -182,22 +265,7 @@ export function HomeScreen(p: HomeScreenProps) {
           <span aria-current="page" className="tab flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] font-medium">
             <Home className="size-4" strokeWidth={1.75} aria-hidden="true" /> Home
           </span>
-          {p.concepts.filter((c) => FOCUS.includes(c.id)).map((c) => {
-            const Icon = ICONS[c.id] ?? BookOpen;
-            return (
-              <button key={c.id} onClick={() => p.onStart(c.id)} className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 hover:text-ink">
-                <Icon className="size-4" strokeWidth={1.75} aria-hidden="true" /> {short(c)}
-              </button>
-            );
-          })}
-          {p.concepts.some((c) => !FOCUS.includes(c.id)) && (
-            <button
-              onClick={() => document.getElementById('earlier-topics')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })}
-              className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 hover:text-ink"
-            >
-              <Layers className="size-4" strokeWidth={1.75} aria-hidden="true" /> Earlier topics
-            </button>
-          )}
+          <TopicsMenu concepts={p.concepts} mastered={mastered} total={(id) => (p.subskills[id] ?? []).length} onStart={p.onStart} />
           <button onClick={p.onDrill} disabled={!p.onDrill} className="tab press flex h-11 shrink-0 items-center gap-2 px-2.5 text-[0.9375rem] text-ink-2 hover:text-ink">
             <Timer className="size-4" strokeWidth={1.75} aria-hidden="true" /> Exam drill
           </button>
