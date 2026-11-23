@@ -740,6 +740,7 @@ export default function App() {
                     const { user } = await signInWithGoogle(cred, true);
                     // connected: the wave runs through the dialog from the Google button, then it closes
                     await distortionWave(document.querySelector<HTMLElement>('[data-connect-google]'), { origin: from, tone: 'iridescent' });
+                    await new Promise((r) => setTimeout(r, 480)); // let the wave finish before the dialog goes
                     setAccount(user);
                     setConnectGoogle(false);
                     toast.success('Google connected. Next time, choose Sign in with Google.');

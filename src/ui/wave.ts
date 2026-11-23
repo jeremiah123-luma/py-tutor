@@ -168,7 +168,7 @@ export function distortionWave(el: HTMLElement | null | undefined, opts: WaveOpt
     width: `${rect.width}px`,
     height: `${rect.height}px`,
     pointerEvents: 'none',
-    zIndex: '120',
+    zIndex: '130', // above dialogs (121) so a wave run on one shows on top of it
     mixBlendMode: opts.blend ?? 'screen',
     borderRadius: radius,
   } satisfies Partial<CSSStyleDeclaration>);
@@ -261,6 +261,13 @@ export function distortionWave(el: HTMLElement | null | undefined, opts: WaveOpt
     });
     const frame = (now: number) => {
       const t = Math.min(1, (now - start) / duration);
+      // the element left the page (a dialog closed, the screen changed): the wave goes with it, instead of
+      // following a detached element to the top-left corner
+      if (!el.isConnected) {
+        clearTimeout(backstop);
+        cleanup();
+        return;
+      }
       // follow the element if the page scrolls mid-wave
       const r = el.getBoundingClientRect();
       canvas.style.left = `${r.left}px`;
