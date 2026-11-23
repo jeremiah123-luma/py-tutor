@@ -83,7 +83,7 @@ export function TalkScreen({ state, caption, heard, context, onTap, onExit, erro
           <OrbVideo state={state} />
         </div>
 
-        <div className="flex flex-col items-center gap-5 text-center">
+        <div className="flex min-h-[calc(1.75rem+1.25rem+4*1.3*clamp(1.75rem,4.5svh,1.875rem))] flex-col items-center justify-start gap-5 text-center">
           <p className="text-lg font-medium" style={{ color: RING[state] === 'var(--talk-sub)' ? 'var(--talk-ink)' : RING[state] }}>
             {label}
           </p>

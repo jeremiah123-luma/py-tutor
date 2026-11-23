@@ -74,7 +74,7 @@ export function OrbVideo({ state }: { state: TalkState }) {
             muted
             loop
             playsInline
-            preload={k === 'idle' ? 'auto' : 'metadata'}
+            preload="auto" // all three are small (~100 KB): a state change never waits for one to load
             disablePictureInPicture
             className="absolute inset-0 size-full object-contain transition-opacity duration-[450ms] ease-out"
             style={{
