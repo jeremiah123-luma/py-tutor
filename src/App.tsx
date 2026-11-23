@@ -24,6 +24,8 @@ import type { TalkController } from './voice/talk';
 // Voice (VAD model runtime) only loads when talk mode is used.
 const loadTalk = () => import('./voice/talk').then((m) => m.TalkController);
 import { primeMic, releaseMic, unlockAudio } from './voice/audio';
+import { endAll, setTalkScreenOn, silenceAll } from './voice/registry';
+import { releaseMediaAudioSession } from './intro/sound';
 import { HomeScreen } from './screens/HomeScreen';
 import { LessonScreen } from './screens/LessonScreen';
 import { TalkScreen } from './screens/TalkScreen';
@@ -281,7 +283,7 @@ export default function App() {
 
   const startLesson = useCallback(
     (conceptId: ConceptId, index: number, m: Mode) => {
-      const keep = m === 'talk' && talk ? talk : null; // next skill in Talk mode keeps the open mic
+      const keep = m === 'talk' && talk && !talk.isEnded ? talk : null; // next skill in Talk mode keeps the open mic
       if (!keep) {
         cancelTalk();
         talk?.end();
@@ -324,27 +326,52 @@ export default function App() {
   const stopEverything = () => {
     cancelTalk();
     void talkRef.current?.end();
+    void endAll(); // and any other one, even one this screen no longer holds
     releaseMic();
     setTalk(null);
     sessionRef.current?.interrupt();
   };
   // Leaving the app (home screen, another app, the lock button) silences talk mode until he taps again. iOS keeps a
   // home-screen app running for a while in the background, and talk mode is hands-free, so it would otherwise keep
-  // reading the lesson and answering whatever the mic heard.
+  // reading the lesson and answering whatever the mic heard. Every live talk controller is paused, not just the one
+  // this screen holds. iOS doesn't always send visibilitychange to a home-screen app, so pagehide, freeze and a blur
+  // while hidden do the same.
+  const introOpenRef = useRef(introOpen);
+  introOpenRef.current = introOpen;
   useEffect(() => {
-    const hide = () => {
-      if (document.visibilityState === 'hidden') talkRef.current?.pause();
+    const quiet = () => {
+      silenceAll();
+      // the intro's 'playback' session and silent loop keep an iPhone page alive in the background
+      if (!introOpenRef.current) releaseMediaAudioSession();
     };
-    const gone = () => talkRef.current?.pause();
+    const hide = () => {
+      if (document.visibilityState === 'hidden') quiet();
+    };
     document.addEventListener('visibilitychange', hide);
-    window.addEventListener('pagehide', gone);
+    document.addEventListener('freeze', quiet);
+    window.addEventListener('pagehide', quiet);
+    window.addEventListener('blur', hide);
     return () => {
       document.removeEventListener('visibilitychange', hide);
-      window.removeEventListener('pagehide', gone);
+      document.removeEventListener('freeze', quiet);
+      window.removeEventListener('pagehide', quiet);
+      window.removeEventListener('blur', hide);
+      // unmounting (a hot reload in development): nothing may keep talking from the old tree
+      setTalkScreenOn(false);
+      void endAll();
     };
   }, []);
   const stopRef = useRef(stopEverything);
   stopRef.current = stopEverything;
+  // Talk mode only speaks while its screen is the one up. Any other screen ends it, whatever path led there.
+  useEffect(() => {
+    const on = screen === 'talk' && !!unlocked;
+    setTalkScreenOn(on);
+    if (on) {
+      if (!introOpen) releaseMediaAudioSession(); // a 'playback' session can't record, and keeps running hidden
+    } else if (talkRef.current || talkReady.current) stopRef.current();
+    else void endAll();
+  }, [screen, unlocked, introOpen]);
 
   const goHome = () => {
     stopEverything();

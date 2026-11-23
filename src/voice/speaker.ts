@@ -2,6 +2,7 @@
 // One AudioContext, unlocked on the first tap (iOS requires a gesture).
 import { speechAudio } from '../loop/api';
 import { unlockAudio } from './audio';
+import { pageVisible, registerSpeaker, unregisterSpeaker } from './registry';
 
 type SpeakState = 'idle' | 'speaking';
 
@@ -16,6 +17,25 @@ export class Speaker {
   onState: (s: SpeakState) => void = () => {};
   /** Fires when the last queued sentence has finished playing. */
   onDrained: () => void = () => {};
+  /** Set by the owner: false while it's paused or its screen isn't up. Checked before anything is fetched or played. */
+  gate: () => boolean = () => true;
+  private off = false;
+
+  constructor() {
+    registerSpeaker(this);
+  }
+
+  /** May it speak right now? Never once disabled, never while the app is in the background. */
+  private allowed() {
+    return !this.off && pageVisible() && this.gate();
+  }
+
+  /** For good: stop and never speak again (its talk session ended). */
+  disable() {
+    this.off = true;
+    this.stop();
+    unregisterSpeaker(this);
+  }
 
   /** Call from a tap/click handler. */
   async unlock() {
@@ -29,6 +49,7 @@ export class Speaker {
 
   /** Feed streamed text; complete sentences are sent to TTS right away. */
   feed(delta: string) {
+    if (!this.allowed()) return;
     this.buf += delta;
     for (;;) {
       // The shortest run of whole sentences that's at least 12 characters: a short opener ("Yes!", "Close.") rides
@@ -58,6 +79,10 @@ export class Speaker {
 
   /** The stream ended: speak whatever is left. */
   flush() {
+    if (!this.allowed()) {
+      this.buf = '';
+      return; // and no onDrained: that would open the mic and carry on
+    }
     if (this.buf.trim()) this.enqueue(this.buf);
     this.buf = '';
     if (!this.playing && this.queue.length === 0) this.onDrained();
@@ -65,13 +90,14 @@ export class Speaker {
 
   /** Speak a whole known line (scripted steps). */
   say(text: string) {
+    if (!this.allowed()) return;
     this.feed(text + ' ');
     this.flush();
   }
 
   private enqueue(sentence: string) {
     const text = sentence.trim();
-    if (!text) return;
+    if (!text || !this.allowed()) return;
     const gen = this.gen;
     const signal = this.ctrl.signal;
     // Fetch now (in parallel with earlier sentences), play in order.
@@ -89,6 +115,11 @@ export class Speaker {
       const audio = await this.queue.shift()!;
       if (gen !== this.gen) break;
       if (!audio || !this.ctx) continue;
+      if (!this.allowed()) {
+        // paused, ended, or the app went to the background while this sentence was downloading
+        this.stop();
+        return;
+      }
       // iOS can suspend or "interrupt" the audio (a call, Siri, the mic starting): wake it before playing.
       if (this.ctx.state !== 'running') await Promise.race([this.ctx.resume().catch(() => {}), new Promise((r) => setTimeout(r, 800))]);
       await new Promise<void>((resolve) => {

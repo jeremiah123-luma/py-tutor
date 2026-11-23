@@ -162,3 +162,73 @@ test('talk mode: goes quiet when the app is hidden, and stays quiet until a tap'
   await page.mouse.click(200, 400);
   await expect.poll(() => tts, { timeout: 15_000 }).toBeGreaterThan(before.tts);
 });
+
+test('talk mode: going Home and switching Type/Talk leaves nothing talking', async ({ page }, info) => {
+  test.skip(info.project.name !== 'phone', 'one run is enough');
+  test.setTimeout(150_000);
+  const wav = readFileSync(path.resolve('tests/e2e/fixtures-question.wav'));
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = async () => {
+      const ctx = new AudioContext({ sampleRate: 48000 });
+      await ctx.resume();
+      return ctx.createMediaStreamDestination().stream; // a mic that hears nothing
+    };
+  });
+  let tts = 0;
+  let other = 0;
+  await page.route('**/api/tts', (r) => {
+    tts++;
+    return r.fulfill({ status: 200, contentType: 'audio/wav', body: wav.subarray(0, 44 + 4000) });
+  });
+  await page.route('**/api/stt', (r) => {
+    other++;
+    return r.fulfill({ json: { text: '' } });
+  });
+  await page.route('**/api/tutor', (r) => {
+    other++;
+    return r.fulfill({ body: `Ok.\n${SEP}{"verdict":"none","nailed":[],"fix":[],"highlightLines":[],"next":"stay"}` });
+  });
+  await page.route('**/api/progress', (r) => (r.request().method() === 'GET' ? r.fulfill({ json: null }) : r.fulfill({ json: { ok: true } })));
+  await skipTour(page);
+  await signInApi(page);
+  await page.goto('/');
+  const radio = (name: RegExp) => page.getByRole('radio', { name }).first();
+  const done = page.getByRole('button', { name: /Done/ });
+
+  // 1) Talk from Home, talking on its own, then Done
+  await radio(/Talk/).click();
+  await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
+  await page.waitForTimeout(700);
+  await page.getByRole('button', { name: /Tap anywhere to start/ }).click();
+  await expect.poll(() => tts, { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
+  await done.click();
+
+  // 2) flip the Home choice a few times
+  for (let i = 0; i < 3; i++) {
+    await radio(/Type/).click();
+    await radio(/Talk/).click();
+  }
+
+  // 3) a typed lesson, switched to Talk inside the lesson, started, then Home again
+  await radio(/Type/).click();
+  await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
+  await radio(/Talk/).click();
+  await page.waitForTimeout(700);
+  const before3 = tts;
+  await page.getByRole('button', { name: /Tap anywhere to start/ }).click();
+  await expect.poll(() => tts, { timeout: 30_000 }).toBeGreaterThan(before3);
+  await done.click();
+
+  // 4) Talk opened but never started, then Home
+  await radio(/Talk/).click();
+  await page.getByRole('button', { name: /^(Start|Continue):/ }).click();
+  await page.waitForTimeout(700);
+  await done.click();
+  await expect(page.getByRole('button', { name: /^(Start|Continue):/ })).toBeVisible();
+
+  // nothing speaks, listens or asks the tutor from here on
+  await page.waitForTimeout(1000); // a sentence that was already downloading when Done was tapped
+  const quiet = { tts, other };
+  await page.waitForTimeout(10_000);
+  expect({ tts, other }).toEqual(quiet);
+});

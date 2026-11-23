@@ -74,7 +74,15 @@ function enterMediaAudioSession() {
     /* no <audio>: Web Audio still works when the switch isn't on silent */
   }
 }
-function releaseMediaAudioSession() {
+let releaseTimer = 0;
+/**
+ * Hand the media session back and stop the silent loop. Safe to call any time: the app also calls it when it goes to
+ * the background or opens talk mode outside the intro, since a 'playback' session with a playing <audio> keeps an
+ * iPhone page running (and audible) in the background.
+ */
+export function releaseMediaAudioSession() {
+  window.clearTimeout(releaseTimer);
+  releaseTimer = 0;
   try {
     keepAlive?.pause();
   } catch {
@@ -224,7 +232,10 @@ export class IntroSound {
 
   /** Fade everything out (the intro is closing). */
   end(fadeSeconds = 1.2) {
-    if (!this.ctx || !this.master) return;
+    if (!this.ctx || !this.master) {
+      if (!releaseTimer) releaseMediaAudioSession(); // enable() may have entered the session and then failed
+      return;
+    }
     const t = this.ctx.currentTime;
     this.master.gain.cancelScheduledValues(t);
     this.master.gain.setValueAtTime(this.master.gain.value, t);
@@ -235,7 +246,8 @@ export class IntroSound {
     window.setTimeout(() => void ctx.close?.().catch(() => {}), (fadeSeconds + 0.3) * 1000);
     this.ctx = null;
     this.on = false;
-    window.setTimeout(releaseMediaAudioSession, (fadeSeconds + 0.2) * 1000);
+    window.clearTimeout(releaseTimer);
+    releaseTimer = window.setTimeout(releaseMediaAudioSession, (fadeSeconds + 0.2) * 1000);
   }
 
   /* ---------- music ---------- */

@@ -79,6 +79,10 @@ export class Listener {
     let used = false;
     try {
       const text = (await transcribe(encodeWav(audio, 16000))).trim();
+      if (this.destroyed) {
+        used = true; // the session ended while it was transcribing: nobody to tell
+        return;
+      }
       if (text && !/^(you|thank you\.?|\.|bye\.?)$/i.test(text)) {
         used = true;
         this.ev.onUtterance(text);
