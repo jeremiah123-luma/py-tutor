@@ -53,7 +53,8 @@ export function GoogleButton({
   text = 'continue_with',
   busy = false,
 }: {
-  onCredential: (credential: string) => void;
+  /** Google answered. `from` is the centre of the button (a tap inside Google's frame never reaches the page). */
+  onCredential: (credential: string, from: { x: number; y: number }) => void;
   text?: keyof typeof LABELS;
   /** Signing in after Google answered: show a spinner and ignore taps. */
   busy?: boolean;
@@ -70,7 +71,16 @@ export function GoogleButton({
       const gis = id ? await loadGis() : null;
       if (!live) return;
       if (!id || !gis || !box.current) return setReady(false);
-      gis.accounts.id.initialize({ client_id: id, callback: (r) => cb.current(r.credential), ux_mode: 'popup', auto_select: false, itp_support: true });
+      gis.accounts.id.initialize({
+        client_id: id,
+        callback: (r) => {
+          const b = box.current?.getBoundingClientRect();
+          cb.current(r.credential, b ? { x: b.left + b.width / 2, y: b.top + b.height / 2 } : { x: innerWidth / 2, y: innerHeight / 2 });
+        },
+        ux_mode: 'popup',
+        auto_select: false,
+        itp_support: true,
+      });
       gis.accounts.id.renderButton(box.current, {
         type: 'standard',
         theme: 'outline',

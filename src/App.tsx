@@ -10,6 +10,7 @@ import { hideSplash } from './ui/splash';
 import { addPasskey, askTutor, googleClientId, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
 import { GoogleButton, GoogleG } from './ui/GoogleButton';
 import { Button } from './ui/primitives';
+import { distortionWave } from './ui/wave';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
@@ -716,6 +717,7 @@ export default function App() {
               e.preventDefault();
               (e.currentTarget as HTMLElement).focus();
             }}
+            data-connect-google=""
             className="fixed top-1/2 left-1/2 z-[121] outline-none w-[calc(100%-2rem)] max-w-[24rem] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line-strong bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] data-[state=open]:animate-[pop-in_220ms_var(--ease-out)]">
             <div className="flex items-center gap-3">
               <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-line-strong bg-surface-2" aria-hidden="true">
@@ -732,10 +734,13 @@ export default function App() {
             <div className="mt-5 flex flex-col gap-2">
               <GoogleButton
                 busy={linking}
-                onCredential={async (cred) => {
+                onCredential={async (cred, from) => {
                   setLinking(true);
                   try {
-                    setAccount((await signInWithGoogle(cred, true)).user);
+                    const { user } = await signInWithGoogle(cred, true);
+                    // connected: the wave runs through the dialog from the Google button, then it closes
+                    await distortionWave(document.querySelector<HTMLElement>('[data-connect-google]'), { origin: from, tone: 'iridescent' });
+                    setAccount(user);
                     setConnectGoogle(false);
                     toast.success('Google connected. Next time, choose Sign in with Google.');
                   } catch (e) {

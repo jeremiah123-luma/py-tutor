@@ -80,11 +80,13 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
     setBusy('');
   }
 
-  async function googleSignIn(credential: string) {
+  async function googleSignIn(credential: string, from: { x: number; y: number }) {
     setBusy('google');
     setError(null);
     try {
       const { user, created } = await signInWithGoogle(credential);
+      // signed in: the iridescent wave runs out from the Google button, then the app opens
+      await distortionWave(cardRef.current, { origin: from, tone: 'iridescent' });
       // A new account, made just now. Someone who already had a password account would otherwise wonder where
       // their progress went.
       if (created)
@@ -201,7 +203,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
             <div className="my-4 flex items-center gap-3 text-sm text-ink-3" aria-hidden="true">
               <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
             </div>
-            <GoogleButton text={tab === 'signin' ? 'signin_with' : 'signup_with'} busy={busy === 'google'} onCredential={(cred) => void googleSignIn(cred)} />
+            <GoogleButton text={tab === 'signin' ? 'signin_with' : 'signup_with'} busy={busy === 'google'} onCredential={(cred, from) => void googleSignIn(cred, from)} />
             {tab === 'signin' && canPasskey && (
               <>
                 <Button
