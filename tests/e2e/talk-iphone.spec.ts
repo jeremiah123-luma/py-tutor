@@ -37,6 +37,8 @@ const tap = async (page: Page, loc: Locator) => {
 };
 
 test('iPhone (WebKit): mic opens inside the tap, once, and survives several turns', async ({ page }) => {
+  // real speech-to-text and text-to-speech cost money: only when asked for (E2E_LIVE_VOICE=1)
+  test.skip(!process.env.E2E_LIVE_VOICE, 'uses paid speech services; set E2E_LIVE_VOICE=1 to run');
   test.setTimeout(180_000);
   await fakeMic(page);
   const stt: string[] = [];
