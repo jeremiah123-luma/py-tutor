@@ -8,7 +8,8 @@ import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
 import { hideSplash } from './ui/splash';
 import { addPasskey, askTutor, googleClientId, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
-import { GoogleButton } from './ui/GoogleButton';
+import { GoogleButton, GoogleG } from './ui/GoogleButton';
+import { Button } from './ui/primitives';
 import * as Dialog from '@radix-ui/react-dialog';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
@@ -143,6 +144,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [practice, setPractice] = useState<ConceptId | null>(null);
   const [connectGoogle, setConnectGoogle] = useState(false);
+  const [linking, setLinking] = useState(false);
   // Connect Google shows only when Google sign-in is set up
   const [googleOn, setGoogleOn] = useState(false);
   useEffect(() => {
@@ -708,27 +710,46 @@ export default function App() {
       <Dialog.Root open={connectGoogle} onOpenChange={setConnectGoogle}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 z-[121] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line-strong bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] data-[state=open]:animate-[pop-in_220ms_var(--ease-out)]">
-            <Dialog.Title className="text-md font-semibold">Connect Google sign-in</Dialog.Title>
-            <Dialog.Description className="mt-1 mb-5 text-[0.9375rem] text-ink-2">
-              Pick your Google account. Next time, Sign in with Google opens this same account, with all your progress.
+          <Dialog.Content
+            // open with focus on the dialog itself, not on "Not now" (Google's button can't take focus first)
+            onOpenAutoFocus={(e) => {
+              e.preventDefault();
+              (e.currentTarget as HTMLElement).focus();
+            }}
+            className="fixed top-1/2 left-1/2 z-[121] outline-none w-[calc(100%-2rem)] max-w-[24rem] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line-strong bg-surface p-5 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] data-[state=open]:animate-[pop-in_220ms_var(--ease-out)]">
+            <div className="flex items-center gap-3">
+              <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-line-strong bg-surface-2" aria-hidden="true">
+                <GoogleG className="size-6" />
+              </span>
+              <div className="min-w-0">
+                <Dialog.Title className="text-md font-semibold tracking-[-0.01em]">Sign in with Google next time</Dialog.Title>
+                <p className="text-sm text-ink-3">Signed in as {account?.username}</p>
+              </div>
+            </div>
+            <Dialog.Description className="mt-4 text-[0.9375rem] leading-relaxed text-ink-2">
+              Connect your Google account and you can skip the password. It opens this same account, with all your progress.
             </Dialog.Description>
-            <GoogleButton
-              onCredential={async (cred) => {
-                try {
-                  setAccount((await signInWithGoogle(cred, true)).user);
-                  setConnectGoogle(false);
-                  toast.success('Google connected. You can sign in with it from now on.');
-                } catch (e) {
-                  toast.error((e as Error).message);
-                }
-              }}
-            />
-            <Dialog.Close asChild>
-              <button type="button" className="mt-4 w-full text-center text-sm text-ink-3 hover:text-ink">
-                Not now
-              </button>
-            </Dialog.Close>
+            <div className="mt-5 flex flex-col gap-2">
+              <GoogleButton
+                busy={linking}
+                onCredential={async (cred) => {
+                  setLinking(true);
+                  try {
+                    setAccount((await signInWithGoogle(cred, true)).user);
+                    setConnectGoogle(false);
+                    toast.success('Google connected. Next time, choose Sign in with Google.');
+                  } catch (e) {
+                    toast.error((e as Error).message);
+                  }
+                  setLinking(false);
+                }}
+              />
+              <Dialog.Close asChild>
+                <Button variant="ghost" size="lg" className="justify-center">
+                  Not now
+                </Button>
+              </Dialog.Close>
+            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

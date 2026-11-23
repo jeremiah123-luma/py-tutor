@@ -42,7 +42,7 @@ const passkeyCancelled = (e: unknown) => ['NotAllowedError', 'AbortError'].inclu
 
 export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | Promise<void> }) {
   const [tab, setTab] = useState<Tab>('signin');
-  const [busy, setBusy] = useState<'' | 'form' | 'passkey'>('');
+  const [busy, setBusy] = useState<'' | 'form' | 'passkey' | 'google'>('');
   const [error, setError] = useState<{ text: string; field?: string } | null>(null);
   const [offer, setOffer] = useState<Account | null>(null); // just signed up: offer a passkey
   const [f, setF] = useState({ name: '', username: '', password: '' });
@@ -81,7 +81,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
   }
 
   async function googleSignIn(credential: string) {
-    setBusy('form');
+    setBusy('google');
     setError(null);
     try {
       const { user, created } = await signInWithGoogle(credential);
@@ -201,7 +201,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
             <div className="my-4 flex items-center gap-3 text-sm text-ink-3" aria-hidden="true">
               <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
             </div>
-            <GoogleButton text={tab === 'signin' ? 'signin_with' : 'signup_with'} onCredential={(cred) => void googleSignIn(cred)} />
+            <GoogleButton text={tab === 'signin' ? 'signin_with' : 'signup_with'} busy={busy === 'google'} onCredential={(cred) => void googleSignIn(cred)} />
             {tab === 'signin' && canPasskey && (
               <>
                 <Button
