@@ -1,10 +1,11 @@
-import { ArrowLeft, Play, ListChecks, Footprints, X, Eye, MessageCircleQuestion } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, Play, ListChecks, Footprints, X, Eye, MessageCircleQuestion } from 'lucide-react';
 import { SlideDeck } from '../ui/SlideDeck';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { distortionWave, recentTap } from '../ui/wave';
 import { sfx } from '../ui/sfx';
 import type { TraceStep } from '../types';
 import { StepPlayer } from '../ui/StepPlayer';
+import { Splitter, usePanelLayout } from '../ui/Splitter';
 import type { Concept, DrillQuestion, Mode, SessionState } from '../types';
 import { QuizRunner } from '../ui/QuizRunner';
 import { CodeEditor } from '../ui/CodeEditor';
@@ -95,6 +96,9 @@ export function LessonScreen(p: LessonScreenProps) {
   // A passing check sends a green wave through the code from the button you pressed; mastering the skill
   // makes it the iridescent one.
   const codeRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const consoleRef = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = usePanelLayout();
   const seenGrade = useRef(session.lastGrade);
   const stepNow = useRef(session.step);
   stepNow.current = session.step;
@@ -176,10 +180,16 @@ export function LessonScreen(p: LessonScreenProps) {
         </>
       ) : (
       <main
-        className="grid flex-1 grid-cols-[minmax(0,1fr)] md:min-h-0 md:grid-cols-[minmax(22rem,28rem)_minmax(0,1fr)] md:grid-rows-[auto_minmax(0,1fr)]
-          [grid-template-areas:'stage'_'code'_'convo'] md:[grid-template-areas:'stage_code'_'convo_code']"
+        ref={mainRef}
+        // On a laptop the three panels are resizable (drag the dividers) and the code can sit on either side.
+        style={{ ['--lw' as string]: layout.lw ? `${layout.lw}px` : undefined, ['--sh' as string]: layout.sh ? `${layout.sh}px` : undefined, ['--ch' as string]: layout.ch ? `${layout.ch}px` : undefined }}
+        className={`grid flex-1 grid-cols-[minmax(0,1fr)] md:min-h-0 md:grid-rows-[var(--sh,auto)_minmax(0,1fr)] [grid-template-areas:'stage'_'code'_'convo'] ${
+          layout.swap
+            ? "md:grid-cols-[minmax(0,1fr)_var(--lw,minmax(22rem,28rem))] md:[grid-template-areas:'code_stage'_'code_convo']"
+            : "md:grid-cols-[var(--lw,minmax(22rem,28rem))_minmax(0,1fr)] md:[grid-template-areas:'stage_code'_'convo_code']"
+        }`}
       >
-        <div className="border-b border-line [grid-area:stage] md:border-r">
+        <div className={`border-b border-line [grid-area:stage] md:min-h-0 md:overflow-y-auto ${layout.swap ? 'md:border-l' : 'md:border-r'}`}>
           <LessonStage
             lesson={lesson}
             step={session.step}
@@ -194,9 +204,33 @@ export function LessonScreen(p: LessonScreenProps) {
           />
         </div>
 
-        <div ref={codeRef} className="flex min-h-0 min-w-0 flex-col border-b border-line bg-surface [grid-area:code] md:border-b-0">
+        <div ref={codeRef} className="relative flex min-h-0 min-w-0 flex-col border-b border-line bg-surface [grid-area:code] md:border-b-0">
+          <Splitter
+            axis="x"
+            label="Resize the lesson and code panels"
+            style={layout.swap ? { right: -5 } : { left: -5 }}
+            onDrag={(x) => {
+              const r = mainRef.current?.getBoundingClientRect();
+              if (r) setLayout({ lw: Math.round(Math.max(260, Math.min(r.width - 340, layout.swap ? r.right - x : x - r.left))) });
+            }}
+            onNudge={(d) => {
+              const r = mainRef.current?.getBoundingClientRect();
+              const cur = layout.lw ?? (codeRef.current && r ? r.width - codeRef.current.getBoundingClientRect().width : 400);
+              if (r) setLayout({ lw: Math.round(Math.max(260, Math.min(r.width - 340, cur + (layout.swap ? -d : d)))) });
+            }}
+            onReset={() => setLayout({ lw: undefined })}
+          />
           <div className="flex items-center gap-2 border-b border-line px-4 py-2">
             <p className="text-sm font-medium whitespace-nowrap text-ink-2">{ownCode ? 'Your code' : 'Example'}</p>
+            <button
+              type="button"
+              onClick={() => setLayout({ swap: !layout.swap })}
+              aria-label={layout.swap ? 'Move the code to the right side' : 'Move the code to the left side'}
+              title={layout.swap ? 'Move the code to the right side' : 'Move the code to the left side'}
+              className="press hidden size-7 place-items-center rounded-md text-ink-3 hover:bg-surface-2 hover:text-ink md:grid"
+            >
+              <ArrowLeftRight className="size-4" strokeWidth={1.75} aria-hidden="true" />
+            </button>
             <div className={`ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2 ${defining ? 'invisible' : ''}`}>
               {canPlay && (
                 <Button size="sm" variant="secondary" onClick={() => void startPlayer()} loading={tracing} icon={<Footprints className="size-4" strokeWidth={1.75} />}>
@@ -255,7 +289,22 @@ export function LessonScreen(p: LessonScreenProps) {
             />
           </div>
           {showConsole && (
-          <div className="border-t border-line bg-paper md:h-[17rem] animate-[stage-in_360ms_var(--ease-out)]">
+          <div ref={consoleRef} className="relative border-t border-line bg-paper md:h-[var(--ch,17rem)] animate-[stage-in_360ms_var(--ease-out)]">
+            <Splitter
+              axis="y"
+              label="Resize the output panel"
+              style={{ top: -5 }}
+              onDrag={(_, y) => {
+                const r = codeRef.current?.getBoundingClientRect();
+                if (r) setLayout({ ch: Math.round(Math.max(90, Math.min(r.height - 150, r.bottom - y))) });
+              }}
+              onNudge={(d) => {
+                const r = codeRef.current?.getBoundingClientRect();
+                const cur = layout.ch ?? consoleRef.current?.getBoundingClientRect().height ?? 272;
+                if (r) setLayout({ ch: Math.round(Math.max(90, Math.min(r.height - 150, cur - d))) });
+              }}
+              onReset={() => setLayout({ ch: undefined })}
+            />
             {player ? (
               <StepPlayer steps={player} notes={lesson.walkthrough} onLine={onPlayerLine} onClose={() => setPlayer(null)} />
             ) : (
@@ -273,7 +322,22 @@ export function LessonScreen(p: LessonScreenProps) {
           )}
         </div>
 
-        <div className="flex min-h-[24rem] flex-col [grid-area:convo] md:min-h-0 md:border-r md:border-line">
+        <div className={`relative flex min-h-[24rem] flex-col [grid-area:convo] md:min-h-0 md:border-line ${layout.swap ? 'md:border-l' : 'md:border-r'}`}>
+          <Splitter
+            axis="y"
+            label="Resize the lesson and conversation panels"
+            style={{ top: -5 }}
+            onDrag={(_, y) => {
+              const r = mainRef.current?.getBoundingClientRect();
+              if (r) setLayout({ sh: Math.round(Math.max(110, Math.min(r.height - 170, y - r.top))) });
+            }}
+            onNudge={(d) => {
+              const r = mainRef.current?.getBoundingClientRect();
+              const cur = layout.sh ?? (r ? r.height * 0.4 : 300);
+              if (r) setLayout({ sh: Math.round(Math.max(110, Math.min(r.height - 170, cur + d))) });
+            }}
+            onReset={() => setLayout({ sh: undefined })}
+          />
           <Conversation turns={session.turns.filter((t) => !t.scripted)} thinking={session.busy === 'thinking'} onSend={p.onSend} />
         </div>
       </main>

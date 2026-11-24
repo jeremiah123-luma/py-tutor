@@ -83,7 +83,7 @@ export function LessonStage({ lesson, step, walkLine, onStep, onHint, hintsUsed 
       body = (
         <>
           <Voice>Here’s a short example. Read it once top to bottom, then we’ll go through it line by line.</Voice>
-          <Meta>The code is <span className="md:hidden">below</span><span className="max-md:hidden">on the right</span>. Press Play step by step to watch it run one line at a time, or Run to see what it prints.</Meta>
+          <Meta>The code is <span className="md:hidden">below</span><span className="max-md:hidden">in the other panel</span>. Press Play step by step to watch it run one line at a time, or Run to see what it prints.</Meta>
         </>
       );
       actions = (
