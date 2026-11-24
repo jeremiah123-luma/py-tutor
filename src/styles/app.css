@@ -368,3 +368,6 @@ h1[tabindex="-1"]:focus,
 .splitter-y::after { left: 0; right: 0; top: 3px; height: 3px; }
 .splitter:hover::after, .splitter:focus-visible::after, .splitter[data-active]::after { opacity: 1; }
 .splitter[data-active]::after { transition-delay: 0ms; }
+
+/* The typing caret on the delete-account prompt (ui/DeleteAccount). */
+.del-caret { display: inline-block; width: 0.55em; height: 1.05em; margin-left: 1px; vertical-align: -0.16em; background: var(--accent); animation: caret 1s steps(1) infinite; }

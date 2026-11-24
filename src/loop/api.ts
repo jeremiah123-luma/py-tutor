@@ -102,8 +102,23 @@ export async function me(): Promise<{ user: Account; usage: Usage } | null> {
 export const signUp = (b: { name: string; username: string; password: string; code?: string }) => postJSON<{ user: Account }>('/api/auth/signup', b);
 export const signIn = (b: { username: string; password: string }) => postJSON<{ user: Account }>('/api/auth/login', b);
 export const signOut = () => postJSON('/api/auth/logout').catch(() => undefined);
-/** Deletes the signed-in account for good. `confirm` is the username, typed by its owner. */
-export const deleteAccount = (confirm: string) => postJSON<{ ok: true }>('/api/account/delete', { confirm });
+/**
+ * Deletes the signed-in account. It stops working everywhere at once; until `restoreUntil` it can be brought back
+ * from this device, and after that it is erased for good.
+ */
+export const deleteAccount = (confirm: string) => postJSON<{ ok: true; restoreUntil: number }>('/api/account/delete', { confirm });
+/** Undo a delete from this device, while its window is open. Signs back in. */
+export const restoreAccount = () => postJSON<{ user: Account }>('/api/account/restore');
+/** Signed out on a device that deleted an account a moment ago: until when it can still be restored (null: it can't). */
+export async function restorableUntil(): Promise<number | null> {
+  try {
+    const r = await fetch('/api/me', { signal: timeout(8000) });
+    const j = r.ok ? await r.json() : null;
+    return !j?.user && typeof j?.restoreUntil === 'number' ? j.restoreUntil : null;
+  } catch {
+    return null;
+  }
+}
 
 export function passkeysSupported() {
   return typeof window !== 'undefined' && !!window.PublicKeyCredential;

@@ -1,6 +1,6 @@
 // Sign in / create account. Real <form>s with the right autocomplete fields so iPhone and Chrome
 // offer to save the username and password, plus passkeys (Face ID / Touch ID).
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Fingerprint, KeyRound, ShieldCheck } from 'lucide-react';
 import { Button } from '../ui/primitives';
 import { Logo } from '../ui/TopBar';
@@ -9,7 +9,7 @@ import { Intro } from '../ui/Intro';
 import { introSeen, markIntroSeen } from '../intro/state';
 import { distortionWave, recentTap } from '../ui/wave';
 import { useScreenReveal } from '../ui/pageTransition';
-import { addPasskey, passkeysSupported, signIn, signInWithGoogle, signInWithPasskey, signUp, type Account } from '../loop/api';
+import { addPasskey, passkeysSupported, restorableUntil, restoreAccount, signIn, signInWithGoogle, signInWithPasskey, signUp, type Account } from '../loop/api';
 import { GoogleButton } from '../ui/GoogleButton';
 import { toast } from 'sonner';
 
@@ -148,6 +148,7 @@ export function AuthScreen({ onSignedIn }: { onSignedIn: (u: Account) => void | 
               ))}
             </div>
 
+            <RestoreOffer />
             <form className="flex flex-col gap-4" onSubmit={submit} noValidate>
               {tab === 'signup' && (
                 <Field id="name" label="Your name" hint="Shown to the tutor so it can use your name." error={err('name')}>
@@ -298,6 +299,57 @@ function PasskeyOffer({ user, onDone }: { user: Account; onDone: (u: Account) =>
       <Button variant="ghost" size="lg" className="justify-center" disabled={busy} onClick={() => onDone(user)}>
         Not now
       </Button>
+    </div>
+  );
+}
+
+/**
+ * On a device that deleted an account in the last few minutes: one more chance to bring it back, here on the
+ * sign-in screen too (the delete screen offers it first; this covers a reload or coming back to the tab).
+ */
+function RestoreOffer() {
+  const [until, setUntil] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [state, setState] = useState<'idle' | 'busy' | 'late'>('idle');
+  useEffect(() => {
+    let live = true;
+    void restorableUntil().then((u) => live && setUntil(u));
+    return () => {
+      live = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!until) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [until]);
+  const left = until ? Math.max(0, Math.floor((until - now) / 1000)) : 0;
+  if (state === 'late')
+    return (
+      <p role="alert" className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">
+        It’s too late to restore that account. It has been erased.
+      </p>
+    );
+  if (!until || left <= 0) return null;
+  return (
+    <div className="mb-4 flex items-center gap-3 rounded-xl border border-line-strong bg-surface-2 p-3 text-sm">
+      <p className="tnum min-w-0 flex-1 text-ink-2">
+        You deleted an account on this device. You can restore it for {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}.
+      </p>
+      <button
+        type="button"
+        disabled={state === 'busy'}
+        onClick={() => {
+          setState('busy');
+          restoreAccount().then(
+            () => window.location.replace('/'),
+            () => setState('late'),
+          );
+        }}
+        className="press h-10 shrink-0 rounded-lg bg-ink px-3.5 font-medium text-[#111] disabled:opacity-60"
+      >
+        {state === 'busy' ? 'Restoring…' : 'Restore it'}
+      </button>
     </div>
   );
 }

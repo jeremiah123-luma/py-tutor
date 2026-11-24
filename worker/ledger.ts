@@ -15,7 +15,7 @@
 //
 // On first start it copies the old KV values in, and once it lists every account record in KV so nobody is missed.
 import { DurableObject } from 'cloudflare:workers';
-import type { CreditRequest, User } from './accounts';
+import { purgeKv, type CreditRequest, type User } from './accounts';
 import { applyCharge, daysBetween, nyDate } from './budget';
 
 type Env = { KV: KVNamespace };
@@ -131,6 +131,41 @@ export class Ledger extends DurableObject<Env> {
     if ((await s.get<string>(`name:${username}`)) === id) keys.push(`name:${username}`);
     keys.push(...(await s.list({ prefix: `spend:${id}:` })).keys());
     for (let i = 0; i < keys.length; i += 100) await s.delete(keys.slice(i, i + 100));
+  }
+
+  // ---- deleted accounts: erased when their restore window runs out ----
+  async schedulePurge(id: string, at: number) {
+    const s = this.ctx.storage;
+    await s.put(`purge:${id}`, at);
+    const cur = await s.getAlarm();
+    if (cur === null || cur > at) await s.setAlarm(at);
+  }
+  /** True if the account was still waiting and is now safe; false if its time was up (it is, or will be, erased). */
+  async cancelPurge(id: string): Promise<boolean> {
+    const s = this.ctx.storage;
+    const at = await s.get<number>(`purge:${id}`);
+    if (at === undefined || Date.now() >= at) return false;
+    await s.delete(`purge:${id}`);
+    return true;
+  }
+  /** Erase every account whose time is up. If anything fails the alarm runs again, so nothing is left half-deleted. */
+  async alarm() {
+    const s = this.ctx.storage;
+    let next = Infinity;
+    for (const [key, at] of await s.list<number>({ prefix: 'purge:' })) {
+      if (at > Date.now()) {
+        next = Math.min(next, at);
+        continue;
+      }
+      const id = key.slice('purge:'.length);
+      const raw = await this.env.KV.get(`user:${id}`);
+      const u = raw ? (JSON.parse(raw) as User) : null;
+      // only an account still marked deleted is erased (a restore that won the race has cleared the mark)
+      if (u?.deletedAt) await purgeKv(this.env.KV, u);
+      if (!u || u.deletedAt) await this.removeUser(id, u?.username ?? '');
+      await s.delete(key);
+    }
+    if (next < Infinity) await s.setAlarm(next);
   }
 
   /** Students (not admins or test accounts) who used AI in the last 7 days. At least 1. */

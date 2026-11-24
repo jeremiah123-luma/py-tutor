@@ -1,6 +1,4 @@
 import { createContext, useContext, useState } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
-import { Button } from './primitives';
 import { rememberSound, soundWanted } from '../intro/sound';
 import { sfx } from './sfx';
 import * as Menu from '@radix-ui/react-dropdown-menu';
@@ -26,8 +24,8 @@ export interface ProfileInfo {
   onAdmin?: () => void;
   onReplayTour?: () => void;
   onSignOut: () => void;
-  /** Delete the account for good (the typed username is checked by the server). Rejects with a message on failure. */
-  onDeleteAccount?: (confirm: string) => Promise<void>;
+  /** Open the "Delete my account" screen. */
+  onDeleteAccount?: () => void;
   /** Refresh the AI-help numbers when the menu opens, so they're never stale. */
   onOpen?: () => void;
 }
@@ -39,13 +37,10 @@ export const ProfileContext = createContext<ProfileInfo | null>(null);
 
 export function ProfileMenu() {
   const p = useContext(ProfileContext);
-  const [deleting, setDeleting] = useState(false);
   if (!p) return null;
   const initial = p.name.charAt(0).toUpperCase();
   const pct = p.total ? Math.round((p.mastered / p.total) * 100) : 0;
   return (
-    <>
-    {p.onDeleteAccount && <DeleteAccountDialog open={deleting} username={p.username} onClose={() => setDeleting(false)} onDelete={p.onDeleteAccount} />}
     <Menu.Root onOpenChange={(open) => open && p.onOpen?.()}>
       <Menu.Trigger
         aria-label={`Account: ${p.name}`}
@@ -130,87 +125,13 @@ export function ProfileMenu() {
             <LogOut className="size-4" strokeWidth={1.75} aria-hidden="true" /> Sign out on this device
           </Menu.Item>
           {p.onDeleteAccount && (
-            <Menu.Item onSelect={() => setDeleting(true)} className={`${item} data-[highlighted]:text-err`}>
+            <Menu.Item onSelect={p.onDeleteAccount} className={`${item} data-[highlighted]:text-err`}>
               <Trash2 className="size-4" strokeWidth={1.75} aria-hidden="true" /> Delete my account
             </Menu.Item>
           )}
         </Menu.Content>
       </Menu.Portal>
     </Menu.Root>
-    </>
-  );
-}
-
-/** "Delete my account": says exactly what goes, and only goes ahead once the username is typed. */
-function DeleteAccountDialog({ open, username, onClose, onDelete }: { open: boolean; username: string; onClose: () => void; onDelete: (confirm: string) => Promise<void> }) {
-  const [typed, setTyped] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const match = typed.trim().toLowerCase() === username.toLowerCase();
-  const close = () => {
-    if (busy) return;
-    onClose();
-    setTyped('');
-    setError('');
-  };
-  return (
-    <Dialog.Root open={open} onOpenChange={(o) => !o && close()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
-        <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line-strong bg-surface p-6 shadow-[0_24px_60px_-12px_rgb(0_0_0/0.7)] outline-none">
-          <span className="grid size-11 place-items-center rounded-full bg-err-bg text-err" aria-hidden="true">
-            <Trash2 className="size-6" strokeWidth={1.75} />
-          </span>
-          <Dialog.Title className="mt-4 text-xl font-semibold">Delete your account?</Dialog.Title>
-          <Dialog.Description className="mt-2 text-[0.9375rem] text-ink-2">
-            This removes your account, your sign-in (password, Face ID, Google link), and all your saved progress. It can’t be undone, and nobody can get it back for you.
-          </Dialog.Description>
-          <form
-            className="mt-5 flex flex-col gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!match || busy) return;
-              setBusy(true);
-              setError('');
-              onDelete(typed.trim()).catch((err: unknown) => {
-                setBusy(false);
-                setError(err instanceof Error ? err.message : 'That didn’t go through. Check your connection and try again.');
-              });
-            }}
-          >
-            <label htmlFor="delete-confirm" className="text-sm text-ink-2">
-              Type your username, <span className="font-code text-ink">{username}</span>, to confirm.
-            </label>
-            <input
-              id="delete-confirm"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              className="h-11 rounded-lg border border-line-strong bg-paper px-3 text-base outline-none focus-visible:border-accent"
-            />
-            {error && (
-              <p role="alert" className="text-sm text-err">
-                {error}
-              </p>
-            )}
-            <div className="mt-3 flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={close} disabled={busy}>
-                Keep my account
-              </Button>
-              <button
-                type="submit"
-                disabled={!match || busy}
-                className="press h-10 rounded-lg bg-err px-4 text-sm font-semibold text-[#2B1515] disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                {busy ? 'Deleting…' : 'Delete my account'}
-              </button>
-            </div>
-          </form>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
   );
 }
 

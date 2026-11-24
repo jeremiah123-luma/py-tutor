@@ -11,13 +11,15 @@ import { Hono, type Context } from 'hono';
 import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { usernameFromEmail, verifyGoogleToken } from './google';
 import { concepts } from '../src/curriculum';
-import { USERNAME_RE, Store, b64u, checkPassword, hashPassword, normUsername, randomId, type User } from './accounts';
+import { RESTORE_SECONDS, USERNAME_RE, Store, b64u, checkPassword, hashPassword, normUsername, randomId, type User } from './accounts';
 import { PRICES, claudeCost, nyDate, type ClaudeUsage } from './budget';
 import { Ledger } from './ledger';
 import { cleanTutorRequest, tutorParams } from './prompt';
 import { cleanProgress, mergeProgress } from '../src/loop/mergeProgress';
 
 type Env = {
+  /** Only for local tests: a shorter restore window than the real 15 minutes. */
+  RESTORE_SECONDS?: string;
   ANTHROPIC_API_KEY: string;
   OPENAI_API_KEY: string;
   /** Code that makes an admin account (the old passcode). Sign-up itself is open. */
@@ -100,6 +102,8 @@ const TTS_INSTRUCTIONS =
 const isLocal = (c: C) => ['localhost', '127.0.0.1'].includes(new URL(c.req.url).hostname);
 const budget = (c: C) => Number(c.env.MONTHLY_BUDGET_USD ?? '30');
 const SID = 'sid';
+/** Holds the restore token on the device that just deleted an account. */
+const RID = 'restore';
 
 function startSession(c: C, token: string) {
   const https = new URL(c.req.url).protocol === 'https:';
@@ -258,7 +262,12 @@ app.post('/api/auth/google', async (c) => {
   });
   if (!g) return c.json({ error: 'Google sign-in didn’t work. Try again, or use your username and password.' }, 401);
   let owner = await store.raw().get(`google:${g.sub}`);
-  if (owner && !(await store.user(owner))) owner = null; // the account it pointed at is gone
+  if (owner && !(await store.user(owner))) {
+    // deleted a moment ago and still restorable: don't quietly make a second account for the same Google sign-in
+    if ((await store.userRaw(owner))?.deletedAt)
+      return c.json({ error: 'That account was just deleted. Restore it on the device you deleted it from, or wait 15 minutes to start again.' }, 409);
+    owner = null; // the account it pointed at is gone
+  }
 
   if (b.link) {
     const me = await store.sessionUser(getCookie(c, SID));
@@ -306,11 +315,23 @@ app.post('/api/auth/google', async (c) => {
   return c.json({ user: publicUser(user), created });
 });
 
+// Undo "Delete my account", from the device that deleted it, while its window is open. Signs back in.
+app.post('/api/account/restore', async (c) => {
+  const store = c.get('store');
+  const t = getCookie(c, RID);
+  const u = t ? await store.restoreUser(t) : null;
+  deleteCookie(c, RID, { path: '/' });
+  if (!u) return c.json({ error: 'It’s too late to restore that account. It has been erased.' }, 410);
+  startSession(c, await store.newSession(u.id));
+  return c.json({ user: publicUser(u) });
+});
+
 // Who's signed in. Signed out is a normal answer here (every visit asks), not an error, so it's a 200 with no user.
 app.get('/api/me', async (c) => {
   const store = c.get('store');
   const u = await store.sessionUser(getCookie(c, SID));
-  if (!u) return c.json({ user: null });
+  // signed out, but this device deleted an account a moment ago: say until when it can still be restored
+  if (!u) return c.json({ user: null, restoreUntil: await store.restorableUntil(getCookie(c, RID)) });
   return c.json({ user: publicUser(u), usage: await store.usage(u, budget(c)) });
 });
 
@@ -368,17 +389,21 @@ app.post('/api/passkey/register/verify', async (c) => {
   }
 });
 
-// Delete my account. The username has to be typed, so it can't happen by a stray tap.
+// Delete my account. The page asks for a deliberate hold, and sends the username so a stray request can't do it.
+// The account stops working at once on every device; it can be restored from this device for a short while
+// (the cookie set here), and after that it is erased for good.
 app.post('/api/account/delete', async (c) => {
   const store = c.get('store');
   const u = (await store.user(c.get('user').id)) ?? c.get('user');
   const b = (await c.req.json<{ confirm?: string }>().catch(() => null)) ?? {};
-  if (normUsername(String(b.confirm ?? '')) !== u.username) return c.json({ error: 'That isn’t your username. Type it exactly to confirm.', field: 'confirm' }, 400);
-  await store.deleteUser(u);
+  if (normUsername(String(b.confirm ?? '')) !== u.username) return c.json({ error: 'That isn’t your username.', field: 'confirm' }, 400);
+  const seconds = Math.max(5, Math.min(RESTORE_SECONDS, Number(c.env.RESTORE_SECONDS) || RESTORE_SECONDS));
+  const { token, until } = await store.markDeleted(u, seconds);
   const t = getCookie(c, SID);
   if (t) await store.endSession(t);
   deleteCookie(c, SID, { path: '/' });
-  return c.json({ ok: true });
+  setCookie(c, RID, token, { httpOnly: true, secure: new URL(c.req.url).protocol === 'https:', sameSite: 'Lax', path: '/', maxAge: seconds });
+  return c.json({ ok: true, restoreUntil: until });
 });
 
 // Forget every passkey on this account (for example ones made on the old address, which can't sign in anymore).

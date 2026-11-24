@@ -7,11 +7,12 @@ import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
 import { hideSplash } from './ui/splash';
-import { addPasskey, askTutor, deleteAccount, googleClientId, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
+import { addPasskey, askTutor, deleteAccount, restoreAccount, googleClientId, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
 import { GoogleButton, GoogleG } from './ui/GoogleButton';
 import { Button } from './ui/primitives';
 import { distortionWave } from './ui/wave';
 import * as Dialog from '@radix-ui/react-dialog';
+import { DeleteAccount } from './ui/DeleteAccount';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
 import { draftStore } from './loop/drafts';
@@ -140,6 +141,7 @@ export default function App() {
   const [cap, setCap] = useState<{ open: boolean; usage?: Usage }>({ open: false });
   const [tourTick, setTourTick] = useState(0);
   const [introOpen, setIntroOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false); // the "Delete my account" screen
   const [progress, setProgressState] = useState<Progress>(emptyProgress);
   const progressRef = useRef(progress);
   const [screen, setScreen] = useState<Screen>('home');
@@ -538,19 +540,7 @@ export default function App() {
       setIntroOpen(true); // the intro first, then the spotlight tour picks up on Home
       setTourTick((n) => n + 1);
     },
-    onDeleteAccount: async (confirm: string) => {
-      const id = account?.id ?? '';
-      stopEverything();
-      await deleteAccount(confirm); // throws (and the dialog shows why) if the username doesn't match
-      // nothing of theirs stays on this device either: saved progress, code drafts, half-finished quizzes
-      try {
-        for (const k of Object.keys(localStorage)) if (id && k.startsWith('py-tutor.') && k.includes(id)) localStorage.removeItem(k);
-      } catch {
-        /* storage blocked */
-      }
-      await forgetLocalProgress();
-      window.location.replace('/');
-    },
+    onDeleteAccount: () => setDeleting(true),
     onSignOut: async () => {
       stopEverything();
       await flushProgress(); // anything still waiting to upload belongs to this account
@@ -564,6 +554,33 @@ export default function App() {
 
   return (
     <ProfileContext.Provider value={profile}>
+      {deleting && account && (
+        <DeleteAccount
+          name={account.name}
+          username={account.username}
+          mastered={masteredCount}
+          onCancel={() => setDeleting(false)}
+          onDelete={async () => {
+            const id = account.id;
+            stopEverything();
+            await flushProgress(); // what he has earned reaches the account first, so a restore brings all of it back
+            const { restoreUntil } = await deleteAccount(account.username); // throws if it didn't happen
+            // nothing of theirs stays on this device either: saved progress, code drafts, half-finished quizzes
+            try {
+              for (const k of Object.keys(localStorage)) if (id && k.startsWith('py-tutor.') && k.includes(id)) localStorage.removeItem(k);
+            } catch {
+              /* storage blocked */
+            }
+            await forgetLocalProgress();
+            return restoreUntil;
+          }}
+          onRestore={async () => {
+            await restoreAccount();
+          }}
+          // either way the page starts again clean: signed out at the sign-in screen, or signed back in
+          onLeave={() => window.location.replace('/')}
+        />
+      )}
       <AnimatePresence initial={false}>
       {screen === 'home' && (
         <Reveal key="home">

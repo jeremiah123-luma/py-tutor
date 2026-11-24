@@ -28,6 +28,21 @@ export interface User {
   bonus?: number;
   /** Connected Google account (Sign in with Google). */
   google?: { sub: string; email: string };
+  /** Set when the owner deleted the account. It can't be used from this moment; it is erased for good at purgeAt. */
+  deletedAt?: number;
+  purgeAt?: number;
+}
+
+/** How long a deleted account can still be restored (from the device that deleted it) before it is erased. */
+export const RESTORE_SECONDS = 15 * 60;
+
+/** Erase everything KV holds about an account. Used by the Ledger when the restore window has run out. */
+export async function purgeKv(kv: KVNamespace, u: User) {
+  const keys = [`user:${u.id}`, `progress:${u.id}`, `seen:${u.id}`];
+  if ((await kv.get(`uname:${u.username}`)) === u.id) keys.push(`uname:${u.username}`);
+  if (u.google && (await kv.get(`google:${u.google.sub}`)) === u.id) keys.push(`google:${u.google.sub}`);
+  for (const p of u.passkeys ?? []) if ((await kv.get(`cred:${p.id}`)) === u.id) keys.push(`cred:${p.id}`);
+  await Promise.all(keys.map((k) => kv.delete(k)));
 }
 
 export interface CreditRequest {
@@ -113,7 +128,13 @@ export class Store {
     return this.kv;
   }
 
-  user(id: string) {
+  /** An account that can be used. One its owner has deleted is treated as not there, everywhere. */
+  async user(id: string) {
+    const u = await this.getJSON<User>(`user:${id}`);
+    return u && !u.deletedAt ? u : null;
+  }
+  /** The stored record even if it is waiting to be erased (only for restoring it, or refusing to reuse its Google link). */
+  userRaw(id: string) {
     return this.getJSON<User>(`user:${id}`);
   }
   async userByName(username: string) {
@@ -142,16 +163,39 @@ export class Store {
   }
 
   /**
-   * Delete an account and everything kept about it: the record (name, password hash, passkeys, Google link), the
-   * username, saved progress, and its usage numbers. Any other device still signed in is signed out on its next
-   * request, because its session points at a record that no longer exists.
+   * The owner deleted their account. From this moment it can't be signed in to or used on any device. For
+   * `seconds` it can still be restored with the returned token (kept in a cookie on the device that deleted it);
+   * after that the Ledger's alarm erases every trace of it.
    */
-  async deleteUser(u: User) {
-    const keys = [`user:${u.id}`, `uname:${u.username}`, `progress:${u.id}`, `seen:${u.id}`];
-    if (u.google && (await this.kv.get(`google:${u.google.sub}`)) === u.id) keys.push(`google:${u.google.sub}`);
-    for (const p of u.passkeys) if ((await this.kv.get(`cred:${p.id}`)) === u.id) keys.push(`cred:${p.id}`);
-    await Promise.all(keys.map((k) => this.kv.delete(k)));
-    await this.ledger.removeUser(u.id, u.username);
+  async markDeleted(u: User, seconds = RESTORE_SECONDS) {
+    const until = Date.now() + seconds * 1000;
+    const token = randomId(32);
+    // the purge is scheduled first: if anything after this fails, the account still gets erased on time
+    await this.ledger.schedulePurge(u.id, until);
+    await this.saveUser({ ...u, deletedAt: Date.now(), purgeAt: until });
+    await this.kv.put(`restore:${token}`, u.id, { expirationTtl: Math.max(60, seconds + 60) });
+    return { token, until };
+  }
+  /** Bring a deleted account back, if its window is still open. Null when it's too late (or the token is wrong). */
+  async restoreUser(token: string): Promise<User | null> {
+    const id = await this.kv.get(`restore:${token}`);
+    if (!id) return null;
+    // the Ledger decides, in one step: either the purge is cancelled here, or it has already happened (or begun)
+    if (!(await this.ledger.cancelPurge(id))) return null;
+    const u = await this.userRaw(id);
+    if (!u) return null;
+    delete u.deletedAt;
+    delete u.purgeAt;
+    await this.saveUser(u);
+    await this.kv.delete(`restore:${token}`);
+    return u;
+  }
+  /** When the account behind a restore token will be erased (null: no such token, or its time is up). */
+  async restorableUntil(token: string | undefined): Promise<number | null> {
+    if (!token) return null;
+    const id = await this.kv.get(`restore:${token}`);
+    const u = id ? await this.userRaw(id) : null;
+    return u?.deletedAt && u.purgeAt && u.purgeAt > Date.now() + 5000 ? u.purgeAt : null;
   }
 
   async newSession(userId: string) {
