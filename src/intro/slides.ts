@@ -1,7 +1,7 @@
 // The intro, scene by scene. Only the site's own colours, laid as the same soft aurora gradients the heroes use.
 // The statement scenes keep Raison's pacing (hard cuts alternate with slabs wiping up, nothing holds still, every
 // statement leaves on purpose), and each one now has its own way of setting the words, chosen for what it says:
-//   squeeze   letters trade widths inside a fixed block, with a one-frame colour flip on the beat ("One screen.")
+//   squeeze   letters trade widths inside a fixed block ("One screen.")
 //   scatter   the words of the problem drift out of place while the last line stays put
 //   flutter   lines ripple in like a banner and settle (and keep swaying, for the car)
 //   heat      a soft blob in our colours crosses the last line and leaves it heavier

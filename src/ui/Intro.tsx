@@ -570,10 +570,7 @@ function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene,
   const exitT = (i: number) =>
     scene.exit === 'split' ? tr(reduce, 0.42, i * 0.05, EASE_IO) : { duration: reduce ? 0 : 0.12, delay: reduce ? 0 : i * 0.14 };
   const fx = scene.fx;
-  // squeeze: the colours flip for a frame or two on the beat
-  const t = useSceneTime(fx === 'squeeze' && !reduce);
-  const flip = fx === 'squeeze' && !reduce && ((t > 420 && t < 500) || (t > 860 && t < 940));
-  const ink = flip ? GROUNDS[scene.ground].base : scene.ink;
+  const ink = scene.ink;
   const flutter = (fx === 'flutter' || fx === 'sway') && !reduce;
   const noMask = flutter || (fx === 'scatter' && !reduce); // these move outside their line, so the line can't clip them
   const coinSize = typeof window === 'undefined' ? 96 : Math.round(Math.min(window.innerWidth * 0.24, window.innerHeight * 0.17, 150));
@@ -581,7 +578,6 @@ function StatementScene({ scene, leaving, reduce }: { scene: Extract<IntroScene,
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center px-5 text-center" style={{ color: ink }}>
       <GroundLayer ground={scene.ground} />
-      {flip && <div className="absolute inset-0" style={{ background: scene.ink }} aria-hidden="true" />}
       <div className="relative" style={{ animation: holdAnim }}>
         {fx === 'stickers' &&
           STICKERS.map((s, k) => (
