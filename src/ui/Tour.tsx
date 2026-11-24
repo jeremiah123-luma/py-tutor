@@ -600,7 +600,9 @@ export function Tour({ steps, screen, onDone }: { steps: TourStep[]; screen: Tou
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Button variant="ghost" size="md" onClick={skip} className="-ml-2 px-2">
-              Skip<span className="max-[400px]:hidden">&nbsp;tutorial</span>
+              <span>
+                Skip<span className="max-[400px]:hidden"> tutorial</span>
+              </span>
             </Button>
             <div className="ml-auto flex items-center gap-2">
               <Button

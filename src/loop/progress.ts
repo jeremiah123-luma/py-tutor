@@ -1,5 +1,5 @@
 // Mastery model + persistence (IndexedDB first, mirrored to the Worker).
-import { get, set } from 'idb-keyval';
+import { del, get, set } from 'idb-keyval';
 import type { ConceptId, LoopStep, Progress, QuizScore, SubskillProgress } from '../types';
 import { pullProgress, pushProgress } from './api';
 import { cleanProgress, mergeProgress, sameProgress } from './mergeProgress';
@@ -111,6 +111,17 @@ export const flushProgress = () => flush();
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => void flush());
   document.addEventListener('visibilitychange', () => void (document.visibilityState === 'hidden' && flush()));
+}
+
+/** Drop this account's copy of its progress from this device (and anything still waiting to upload). */
+export async function forgetLocalProgress() {
+  pending = null;
+  clearTimeout(timer);
+  try {
+    await del(localKey());
+  } catch {
+    /* IndexedDB blocked */
+  }
 }
 
 export async function saveProgress(p: Progress) {

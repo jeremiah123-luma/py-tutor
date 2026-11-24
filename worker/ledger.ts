@@ -118,6 +118,21 @@ export class Ledger extends DurableObject<Env> {
     await this.ctx.storage.put(put);
   }
 
+  /**
+   * Forget one person (they deleted their account): off the list, their username freed, their own numbers and
+   * requests gone. The class's month and day totals stay, since that money was really spent.
+   */
+  async removeUser(id: string, username: string) {
+    const s = this.ctx.storage;
+    const ids = await this.userIds();
+    const reqs = ((await s.get<CreditRequest[]>('reqs')) ?? []).filter((r) => r.userId !== id);
+    await s.put({ users: ids.filter((x) => x !== id), reqs });
+    const keys = [`meta:${id}`, `seen:${id}`, `bonus:${id}`];
+    if ((await s.get<string>(`name:${username}`)) === id) keys.push(`name:${username}`);
+    keys.push(...(await s.list({ prefix: `spend:${id}:` })).keys());
+    for (let i = 0; i < keys.length; i += 100) await s.delete(keys.slice(i, i + 100));
+  }
+
   /** Students (not admins or test accounts) who used AI in the last 7 days. At least 1. */
   async activeCount(date: string) {
     const ids = await this.userIds();

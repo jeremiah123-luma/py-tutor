@@ -368,6 +368,19 @@ app.post('/api/passkey/register/verify', async (c) => {
   }
 });
 
+// Delete my account. The username has to be typed, so it can't happen by a stray tap.
+app.post('/api/account/delete', async (c) => {
+  const store = c.get('store');
+  const u = (await store.user(c.get('user').id)) ?? c.get('user');
+  const b = (await c.req.json<{ confirm?: string }>().catch(() => null)) ?? {};
+  if (normUsername(String(b.confirm ?? '')) !== u.username) return c.json({ error: 'That isn’t your username. Type it exactly to confirm.', field: 'confirm' }, 400);
+  await store.deleteUser(u);
+  const t = getCookie(c, SID);
+  if (t) await store.endSession(t);
+  deleteCookie(c, SID, { path: '/' });
+  return c.json({ ok: true });
+});
+
 // Forget every passkey on this account (for example ones made on the old address, which can't sign in anymore).
 // The password still works, and a new passkey can be added right after.
 app.post('/api/passkey/remove', async (c) => {

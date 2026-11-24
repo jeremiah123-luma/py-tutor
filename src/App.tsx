@@ -7,7 +7,7 @@ import { concepts as conceptMap, conceptOrder } from './curriculum';
 import { drill as drillBank } from './curriculum/drill';
 import { Session } from './loop/engine';
 import { hideSplash } from './ui/splash';
-import { addPasskey, askTutor, googleClientId, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
+import { addPasskey, askTutor, deleteAccount, googleClientId, removePasskeys, me, onCap, signInWithGoogle, signOut, type Account, type Usage } from './loop/api';
 import { GoogleButton, GoogleG } from './ui/GoogleButton';
 import { Button } from './ui/primitives';
 import { distortionWave } from './ui/wave';
@@ -15,7 +15,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
 import { draftStore } from './loop/drafts';
-import { emptyProgress, flushProgress, loadProgress, recordQuiz, saveProgress, setProgressUser, spotFor, sub, withSlide } from './loop/progress';
+import { emptyProgress, flushProgress, forgetLocalProgress, loadProgress, recordQuiz, saveProgress, setProgressUser, spotFor, sub, withSlide } from './loop/progress';
 import { quizFor, quizzes } from './curriculum/quiz';
 import { FOCUS } from './curriculum/ids';
 import { PracticeScreen } from './screens/PracticeScreen';
@@ -537,6 +537,19 @@ export default function App() {
       goHome();
       setIntroOpen(true); // the intro first, then the spotlight tour picks up on Home
       setTourTick((n) => n + 1);
+    },
+    onDeleteAccount: async (confirm: string) => {
+      const id = account?.id ?? '';
+      stopEverything();
+      await deleteAccount(confirm); // throws (and the dialog shows why) if the username doesn't match
+      // nothing of theirs stays on this device either: saved progress, code drafts, half-finished quizzes
+      try {
+        for (const k of Object.keys(localStorage)) if (id && k.startsWith('py-tutor.') && k.includes(id)) localStorage.removeItem(k);
+      } catch {
+        /* storage blocked */
+      }
+      await forgetLocalProgress();
+      window.location.replace('/');
     },
     onSignOut: async () => {
       stopEverything();

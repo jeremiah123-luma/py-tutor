@@ -141,6 +141,19 @@ export class Store {
     return true;
   }
 
+  /**
+   * Delete an account and everything kept about it: the record (name, password hash, passkeys, Google link), the
+   * username, saved progress, and its usage numbers. Any other device still signed in is signed out on its next
+   * request, because its session points at a record that no longer exists.
+   */
+  async deleteUser(u: User) {
+    const keys = [`user:${u.id}`, `uname:${u.username}`, `progress:${u.id}`, `seen:${u.id}`];
+    if (u.google && (await this.kv.get(`google:${u.google.sub}`)) === u.id) keys.push(`google:${u.google.sub}`);
+    for (const p of u.passkeys) if ((await this.kv.get(`cred:${p.id}`)) === u.id) keys.push(`cred:${p.id}`);
+    await Promise.all(keys.map((k) => this.kv.delete(k)));
+    await this.ledger.removeUser(u.id, u.username);
+  }
+
   async newSession(userId: string) {
     const token = randomId(32);
     await this.kv.put(`sess:${token}`, userId, { expirationTtl: SESSION_TTL });

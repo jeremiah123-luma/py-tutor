@@ -102,6 +102,8 @@ export async function me(): Promise<{ user: Account; usage: Usage } | null> {
 export const signUp = (b: { name: string; username: string; password: string; code?: string }) => postJSON<{ user: Account }>('/api/auth/signup', b);
 export const signIn = (b: { username: string; password: string }) => postJSON<{ user: Account }>('/api/auth/login', b);
 export const signOut = () => postJSON('/api/auth/logout').catch(() => undefined);
+/** Deletes the signed-in account for good. `confirm` is the username, typed by its owner. */
+export const deleteAccount = (confirm: string) => postJSON<{ ok: true }>('/api/account/delete', { confirm });
 
 export function passkeysSupported() {
   return typeof window !== 'undefined' && !!window.PublicKeyCredential;

@@ -273,7 +273,10 @@ export function LessonScreen(p: LessonScreenProps) {
               )}
               {writing && (
                 <Button data-tour="lesson-check" size="sm" variant="primary" onClick={p.onCheck} aria-label="Check my code" icon={<ListChecks className="size-4" strokeWidth={2} />}>
-                  Check<span className="max-[420px]:hidden">&nbsp;my code</span>
+                  {/* one label, so the button's icon gap doesn't also open up between the words */}
+                  <span>
+                    Check<span className="max-[420px]:hidden"> my code</span>
+                  </span>
                 </Button>
               )}
             </div>

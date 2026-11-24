@@ -14,10 +14,12 @@ export interface PanelLayout {
 }
 const KEY = 'py-tutor.layout';
 
-export function usePanelLayout() {
+/** `name` keeps each screen's layout apart (the lesson screen and Visualize don't share sizes). */
+export function usePanelLayout(name = '') {
+  const KEYED = name ? `${KEY}.${name}` : KEY;
   const [layout, setLayout] = useState<PanelLayout>(() => {
     try {
-      const v = JSON.parse(localStorage.getItem(KEY) ?? '{}') as PanelLayout;
+      const v = JSON.parse(localStorage.getItem(KEYED) ?? '{}') as PanelLayout;
       const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) && x > 40 && x < 5000 ? Math.round(x) : undefined);
       return { lw: n(v.lw), sh: n(v.sh), ch: n(v.ch), swap: v.swap === true };
     } catch {
@@ -28,13 +30,13 @@ export function usePanelLayout() {
     setLayout((cur) => {
       const next = { ...cur, ...patch };
       try {
-        localStorage.setItem(KEY, JSON.stringify(next));
+        localStorage.setItem(KEYED, JSON.stringify(next));
       } catch {
         /* storage blocked: the layout just isn't kept */
       }
       return next;
     });
-  }, []);
+  }, [KEYED]);
   return [layout, update] as const;
 }
 

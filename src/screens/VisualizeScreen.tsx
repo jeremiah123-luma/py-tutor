@@ -1,10 +1,11 @@
 // Visualize: paste or write any program and watch it run one step at a time,
 // with every frame, variable, and object drawn (and arrows for references).
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Eye, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowLeftRight, ChevronFirst, ChevronLast, ChevronLeft, ChevronRight, Eye, FileText, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { Concept, VizResult } from '../types';
 import { TopBar } from '../ui/TopBar';
 import { Button } from '../ui/primitives';
+import { Splitter, usePanelLayout } from '../ui/Splitter';
 import { CodeEditor } from '../ui/CodeEditor';
 import { VizDiagram, describeStep } from '../ui/VizDiagram';
 import { runFilesFor } from '../loop/engine';
@@ -157,6 +158,8 @@ export function VisualizeScreen({
 
   const btn = 'press grid size-10 place-items-center rounded-lg text-ink-2 hover:bg-surface-2 hover:text-ink disabled:opacity-35';
 
+  const mainRef = useRef<HTMLElement>(null);
+  const [layout, setLayout] = usePanelLayout('visualize');
   return (
     <div className="flex min-h-dvh flex-col md:h-dvh md:min-h-0">
       <header>
@@ -171,11 +174,27 @@ export function VisualizeScreen({
         />
       </header>
 
-      <main className="grid min-w-0 flex-1 grid-cols-1 md:min-h-0 md:grid-cols-[minmax(20rem,32rem)_minmax(0,1fr)]">
-        {/* left: the code */}
-        <section className="flex min-h-0 min-w-0 flex-col border-b border-line bg-surface md:border-r md:border-b-0" aria-label="Code">
+      <main
+        ref={mainRef}
+        // On a laptop, drag the divider to resize the two panels; the swap button moves the code to the other side.
+        style={{ ['--lw' as string]: layout.lw ? `${layout.lw}px` : undefined }}
+        className={`grid min-w-0 flex-1 grid-cols-1 md:min-h-0 ${
+          layout.swap ? 'md:grid-cols-[minmax(0,1fr)_var(--lw,minmax(20rem,32rem))]' : 'md:grid-cols-[var(--lw,minmax(20rem,32rem))_minmax(0,1fr)]'
+        }`}
+      >
+        {/* the code */}
+        <section className={`flex min-h-0 min-w-0 flex-col border-b border-line bg-surface md:border-b-0 ${layout.swap ? 'md:order-2 md:border-l' : 'md:border-r'}`} aria-label="Code">
           <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2">
             <p className="text-sm font-medium text-ink-2">{stepping ? 'Running' : 'Write or paste any Python'}</p>
+            <button
+              type="button"
+              onClick={() => setLayout({ swap: !layout.swap })}
+              aria-label={layout.swap ? 'Move the code to the left side' : 'Move the code to the right side'}
+              title={layout.swap ? 'Move the code to the left side' : 'Move the code to the right side'}
+              className="press hidden size-7 place-items-center rounded-md text-ink-3 hover:bg-surface-2 hover:text-ink md:grid"
+            >
+              <ArrowLeftRight className="size-4" strokeWidth={1.75} aria-hidden="true" />
+            </button>
             <div className="ml-auto flex items-center gap-2">
               {stepping ? (
                 <Button size="sm" variant="secondary" onClick={() => setRes(null)} icon={<Pencil className="size-3.5" strokeWidth={2} />}>
@@ -313,7 +332,21 @@ export function VisualizeScreen({
         </section>
 
         {/* right: frames and objects */}
-        <section className="min-h-[24rem] min-w-0 bg-paper md:min-h-0" aria-label="What Python is holding">
+        <section className={`relative min-h-[24rem] min-w-0 bg-paper md:min-h-0 ${layout.swap ? 'md:order-1' : ''}`} aria-label="What Python is holding">
+          <Splitter
+            axis="x"
+            label="Resize the code and diagram panels"
+            style={layout.swap ? { right: -5 } : { left: -5 }}
+            onDrag={(x) => {
+              const r = mainRef.current?.getBoundingClientRect();
+              if (r) setLayout({ lw: Math.round(Math.max(260, Math.min(r.width - 320, layout.swap ? r.right - x : x - r.left))) });
+            }}
+            onNudge={(d) => {
+              const r = mainRef.current?.getBoundingClientRect();
+              if (r) setLayout({ lw: Math.round(Math.max(260, Math.min(r.width - 320, (layout.lw ?? Math.min(512, r.width * 0.4)) + (layout.swap ? -d : d)))) });
+            }}
+            onReset={() => setLayout({ lw: undefined })}
+          />
           {res?.error && !stepping ? (
             <div className="m-4 rounded-lg border border-err/40 bg-err-bg p-4">
               <p className="font-medium text-err">{res.error.type}{res.error.line ? ` on line ${res.error.line}` : ''}: {res.error.message}</p>
