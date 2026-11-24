@@ -1,5 +1,5 @@
 // The Learn step as slides: just the idea, in big words. No editor, no terminal.
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ArrowLeft, ArrowRight, MessageCircle } from 'lucide-react';
 import { Button } from './primitives';
@@ -42,19 +42,35 @@ export function SlideDeck({
   text,
   onDone,
   onAsk,
+  start = 0,
+  onSlide,
 }: {
   eyebrow: string;
   title: string;
   text: string;
   onDone: () => void;
   onAsk: () => void;
+  /** the slide he stopped on last time */
+  start?: number;
+  /** told every time the slide changes, so the place can be saved */
+  onSlide?: (i: number) => void;
 }) {
   const slides = useMemo(() => toSlides(text), [text]);
-  const [i, setI] = useState(0);
+  const clampTo = (n: number) => Math.max(0, Math.min(slides.length - 1, Math.floor(n) || 0));
+  const [i, setI] = useState(() => clampTo(start));
   const [dir, setDir] = useState(1);
   const reduce = useReducedMotion();
   const last = i === slides.length - 1;
-  useEffect(() => setI(0), [text]);
+  // a new lesson starts at its own saved slide (0 unless he had stopped part-way through it)
+  const shown = useRef(text);
+  useEffect(() => {
+    if (shown.current === text) return;
+    shown.current = text;
+    setI(clampTo(start));
+  }, [text]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tell = useRef(onSlide);
+  tell.current = onSlide;
+  useEffect(() => tell.current?.(i), [i]);
 
   const go = (d: number) => {
     if (d > 0 && last) return onDone();

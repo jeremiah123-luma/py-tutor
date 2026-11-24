@@ -1,7 +1,7 @@
 // Merging progress from two devices (or an old tab and a new one). Used by the Worker on every save and by the
 // app when it loads, so nothing earned anywhere is ever lost: mastery and the typed pass are kept if either side
 // has them, and the side with more attempts on a lesson has the newer streak.
-import type { Progress, QuizScore, SubskillProgress } from '../types';
+import type { LoopStep, Progress, QuizScore, Spot, SubskillProgress } from '../types';
 import { betterQuiz } from './quizScore';
 import { CONCEPT_IDS, emptyConcepts } from '../curriculum/ids';
 
@@ -42,6 +42,12 @@ export function cleanProgress(v: unknown): Progress {
       (out.quiz ??= {})[c] = { ...out.quiz[c], [k]: { best, of } satisfies QuizScore };
     }
   }
+  for (const c of CONCEPTS) {
+    const s = o.spots?.[c];
+    if (!s || typeof s !== 'object' || typeof s.subskill !== 'string' || !/^[\w-]{1,40}$/.test(s.subskill) || !LOOP_STEPS.has(s.step)) continue;
+    const n = (x: unknown, max: number) => (typeof x === 'number' && Number.isFinite(x) ? Math.max(0, Math.min(max, Math.floor(x))) : 0);
+    (out.spots ??= {})[c] = { subskill: s.subskill, step: s.step as LoopStep, slide: n(s.slide, 200), line: n(s.line, 500), at: n(s.at, Date.now() + 60_000) } satisfies Spot;
+  }
   const l = o.last;
   if (l && CONCEPTS.includes(l.concept) && typeof l.subskill === 'string' && l.subskill.length <= 40 && LOOP_STEPS.has(l.step))
     out.last = { concept: l.concept, subskill: l.subskill, step: l.step };
@@ -75,6 +81,11 @@ export function mergeProgress(a: Progress, b: Progress): Progress {
       const best = betterQuiz(own(qa, k), own(qb, k));
       if (best) (out.quiz ??= {})[c] = { ...out.quiz[c], [k]: best };
     }
+  }
+  for (const c of CONCEPTS) {
+    const sa = a.spots?.[c], sb = b.spots?.[c];
+    const s = sa && sb ? (sb.at >= sa.at ? sb : sa) : (sa ?? sb); // the most recent stopping place wins
+    if (s) (out.spots ??= {})[c] = s;
   }
   const last = (b.updatedAt >= a.updatedAt ? b.last : a.last) ?? a.last ?? b.last;
   if (last) out.last = last;

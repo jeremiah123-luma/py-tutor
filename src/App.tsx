@@ -15,7 +15,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ProfileContext } from './ui/Profile';
 import { usePointerParallax } from './ui/usePointerParallax';
 import { draftStore } from './loop/drafts';
-import { emptyProgress, flushProgress, loadProgress, recordQuiz, saveProgress, setProgressUser, sub } from './loop/progress';
+import { emptyProgress, flushProgress, loadProgress, recordQuiz, saveProgress, setProgressUser, spotFor, sub, withSlide } from './loop/progress';
 import { quizFor, quizzes } from './curriculum/quiz';
 import { FOCUS } from './curriculum/ids';
 import { PracticeScreen } from './screens/PracticeScreen';
@@ -311,13 +311,17 @@ export default function App() {
         loadTalkFor(s); // starts on the first tap (iOS audio needs a gesture)
       } else {
         runner(); // warm Python while he reads the definition
-        // Coming back to a lesson he left while writing code: pick up at Try it, with his code
+        // Coming back to a lesson he left part-way: pick up on the same step, the same slide or line, with his code
         // (read before start(), which records this visit as being on Learn)
+        const subskill = concept.lessons[index]?.subskill ?? '';
         const last = progressRef.current.last;
+        const spot = spotFor(progressRef.current, conceptId, subskill) ?? (last && last.concept === conceptId && last.subskill === subskill ? { ...last, line: 0 } : undefined);
         s.start();
-        const here = last && last.concept === conceptId && last.subskill === concept.lessons[index]?.subskill;
-        if (here && (last.step === 'doit' || last.step === 'check')) s.goTo('doit');
-        else if (here && last.step === 'quiz' && quizFor(conceptId, concept.lessons[index].subskill).length) s.goTo('quiz');
+        if (spot?.step === 'example') s.goTo('example');
+        else if (spot?.step === 'walkthrough') s.goTo('walkthrough', spot.line);
+        else if (spot?.step === 'talkthrough' || spot?.step === 'feedback') s.goTo('talkthrough');
+        else if (spot?.step === 'doit' || spot?.step === 'check') s.goTo('doit');
+        else if (spot?.step === 'quiz' && quizFor(conceptId, subskill).length) s.goTo('quiz');
         setScreen('lesson');
       }
       return s;
@@ -577,7 +581,10 @@ export default function App() {
           }}
           onStart={(id) => {
             const c = conceptMap[id]!;
-            startLesson(id, firstOpen(progress, c), mode);
+            // the lesson he stopped in, in this topic; otherwise the first one still open
+            const spot = progress.spots?.[id];
+            const at = spot ? c.lessons.findIndex((l) => l.subskill === spot.subskill) : -1;
+            startLesson(id, at >= 0 && !sub(progress, id, spot!.subskill).mastered ? at : firstOpen(progress, c), mode);
           }}
           onDrill={() => {
             runner();
@@ -618,6 +625,12 @@ export default function App() {
           onBack={goHome}
           onJump={(t) => session.goTo(t)}
           onTrace={() => session.traceExample()}
+          slideStart={spotFor(progress, session.concept.id, session.lesson.subskill)?.slide ?? 0}
+          onSlide={(i) => {
+            const next = withSlide(progressRef.current, session.concept.id, session.lesson.subskill, i);
+            if (next !== progressRef.current) setProgress(next);
+          }}
+          quizSaveKey={`py-tutor.quiz.${account?.id ?? ''}.${session.concept.id}.${session.lesson.subskill}`}
           quiz={quizFor(session.concept.id, session.lesson.subskill)}
           onQuizScore={(right, of) => setProgress(recordQuiz(progressRef.current, session.concept.id, session.lesson.subskill, right, of))}
           quizDoneLabel={session.hasNextLesson ? 'Next skill' : conceptOrder[conceptOrder.indexOf(session.concept.id) + 1] ? 'Next topic' : 'Back to Home'}
@@ -650,7 +663,7 @@ export default function App() {
 
       {screen === 'practice' && practice && conceptMap[practice] && (
         <Reveal key={`practice-${practice}`}>
-          <PracticeScreen concept={conceptMap[practice]!} questions={PRACTICE[practice]} onExit={goHome} />
+          <PracticeScreen concept={conceptMap[practice]!} questions={PRACTICE[practice]} onExit={goHome} saveKey={`py-tutor.practice.${account?.id ?? ''}.${practice}`} />
         </Reveal>
       )}
 

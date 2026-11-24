@@ -57,8 +57,26 @@ export function recordQuiz(p: Progress, c: ConceptId, s: string, right: number, 
   return { ...p, quiz: { ...p.quiz, [c]: { ...p.quiz?.[c], [s]: best! } }, updatedAt: Date.now() };
 }
 
-export function withLast(p: Progress, concept: ConceptId, subskill: string, step: LoopStep): Progress {
-  return { ...p, last: { concept, subskill, step }, updatedAt: Date.now() };
+export function withLast(p: Progress, concept: ConceptId, subskill: string, step: LoopStep, line = 0): Progress {
+  const prev = p.spots?.[concept];
+  // the Learn slide he was on is kept while he's still on Learn in the same lesson
+  const slide = prev && prev.subskill === subskill && prev.step === 'define' && step === 'define' ? prev.slide : 0;
+  const at = Date.now();
+  return { ...p, last: { concept, subskill, step }, spots: { ...p.spots, [concept]: { subskill, step, slide, line, at } }, updatedAt: at };
+}
+
+/** Remember which Learn slide he is on. */
+export function withSlide(p: Progress, concept: ConceptId, subskill: string, slide: number): Progress {
+  const prev = p.spots?.[concept];
+  if (!prev || prev.subskill !== subskill || prev.step !== 'define' || prev.slide === slide) return p;
+  const at = Date.now();
+  return { ...p, spots: { ...p.spots, [concept]: { ...prev, slide, at } }, updatedAt: at };
+}
+
+/** Where to pick a lesson back up, if he stopped part-way through this exact lesson. */
+export function spotFor(p: Progress, concept: ConceptId, subskill: string) {
+  const s = p.spots?.[concept];
+  return s && s.subskill === subskill ? s : undefined;
 }
 
 export async function loadProgress(): Promise<Progress> {

@@ -15,7 +15,7 @@ export function shuffled<T>(a: T[]): T[] {
   return b;
 }
 
-export function PracticeScreen({ concept, questions, onExit }: { concept: Concept; questions: DrillQuestion[]; onExit: () => void }) {
+export function PracticeScreen({ concept, questions, onExit, saveKey }: { concept: Concept; questions: DrillQuestion[]; onExit: () => void; saveKey?: string }) {
   const first = useMemo(() => shuffled(questions), [questions]);
   const name = concept.title.replace(' and objects', '');
   return (
@@ -34,7 +34,7 @@ export function PracticeScreen({ concept, questions, onExit }: { concept: Concep
       <main className="mx-auto max-w-2xl px-5 pt-8 pb-16 md:px-8 md:pt-12">
         <p className="text-sm text-ink-3">All {questions.length} questions from this topic, mixed up. Practice only, not graded.</p>
         <h1 className="mt-1 mb-8 font-voice text-2xl font-medium tracking-[-0.02em]">{name} practice</h1>
-        <QuizRunner questions={first} doneLabel="Back to Home" onDone={onExit} reshuffle={shuffled} practice />
+        <QuizRunner saveKey={saveKey} questions={first} doneLabel="Back to Home" onDone={onExit} reshuffle={shuffled} practice />
       </main>
     </div>
   );

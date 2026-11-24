@@ -112,7 +112,7 @@ export class Session {
     this.events.onTutorLine?.(text, true);
   }
   private saveLast() {
-    this.deps.setProgress(withLast(this.deps.getProgress(), this.concept.id, this.lesson.subskill, this.state.step));
+    this.deps.setProgress(withLast(this.deps.getProgress(), this.concept.id, this.lesson.subskill, this.state.step, this.state.walkLine));
   }
 
   get walkNotes() {
@@ -195,7 +195,7 @@ export class Session {
   }
 
   /** Jump straight to any step (the step tabs). Nothing is graded or recorded by jumping. */
-  goTo(step: 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit' | 'quiz') {
+  goTo(step: 'define' | 'example' | 'walkthrough' | 'talkthrough' | 'doit' | 'quiz', line = 1) {
     if (this.state.step === step && step !== 'walkthrough') return;
     this.interrupt();
     // Leaving Try it: his run output and test results belong to his code, not to the example.
@@ -208,10 +208,13 @@ export class Session {
       case 'example':
         this.set({ step, walkLine: 0 });
         break;
-      case 'walkthrough':
-        this.set({ step, walkLine: 1 });
-        this.speakWalkLine(1);
+      case 'walkthrough': {
+        // `line` is where he stopped last time (the step tabs always start at line 1)
+        const at = Math.max(1, Math.min(this.lesson.walkthrough.length || 1, Math.floor(line) || 1));
+        this.set({ step, walkLine: at });
+        this.speakWalkLine(at);
         break;
+      }
       case 'talkthrough':
         this.talkHints = 0; // a fresh explanation; an earlier skip or hint doesn't count against this one
         this.talkClean = false;
@@ -245,6 +248,7 @@ export class Session {
     } else if (s.step === 'example') {
       this.set({ step: 'define' });
     }
+    this.saveLast();
   }
 
   private speakWalkLine(line: number) {

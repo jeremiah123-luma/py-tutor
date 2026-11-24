@@ -145,8 +145,21 @@ export interface QuizScore {
   of: number;
 }
 
+/** Exactly where someone stopped in one topic: the lesson, the step, and how far into that step. */
+export interface Spot {
+  subskill: string;
+  step: LoopStep;
+  /** which Learn slide (0-based) */
+  slide: number;
+  /** which line of Line by line (1-based; 0 when not there) */
+  line: number;
+  at: number;
+}
+
 export interface Progress {
   concepts: Record<ConceptId, Record<string, SubskillProgress>>;
+  /** The stopping place in each topic, so every topic picks up where it was left (not only the last one opened). */
+  spots?: Partial<Record<ConceptId, Spot>>;
   /** Best Quick check per lesson. A perfect score is kept even if a later try does worse. */
   quiz?: Partial<Record<ConceptId, Record<string, QuizScore>>>;
   last?: { concept: ConceptId; subskill: string; step: LoopStep };

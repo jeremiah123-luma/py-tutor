@@ -17,6 +17,11 @@ import { TopBar } from '../ui/TopBar';
 import { codeOnScreen, isWriting, runFilesFor, showsOwnCode } from '../loop/engine';
 
 export interface LessonScreenProps {
+  /** The Learn slide he stopped on, and a way to save it as he moves. */
+  slideStart?: number;
+  onSlide?: (i: number) => void;
+  /** Where a half-finished Quick check is kept on this device. */
+  quizSaveKey?: string;
   /** Open with the Ask the tutor panel showing (a question asked from Home). */
   startAsk?: boolean;
   session: SessionState;
@@ -140,7 +145,7 @@ export function LessonScreen(p: LessonScreenProps) {
           <div className="mx-auto w-full max-w-2xl px-5 pt-8 pb-16 md:px-8 md:pt-12">
           <p className="text-sm text-ink-3">Practice, not graded. Five questions like the ones on the final.</p>
           <h1 className="mt-1 mb-8 font-voice text-2xl font-medium tracking-[-0.02em]">Quick check: {lesson.title.charAt(0).toLowerCase() + lesson.title.slice(1)}</h1>
-          <QuizRunner key={session.lessonIndex} questions={p.quiz} onFinish={p.onQuizScore} doneLabel={p.quizDoneLabel ?? 'Next skill'} onDone={() => p.onStep('next')} />
+          <QuizRunner key={session.lessonIndex} saveKey={p.quizSaveKey} questions={p.quiz} onFinish={p.onQuizScore} doneLabel={p.quizDoneLabel ?? 'Next skill'} onDone={() => p.onStep('next')} />
           </div>
         </main>
       ) : defining ? (
@@ -151,6 +156,8 @@ export function LessonScreen(p: LessonScreenProps) {
             text={lesson.define}
             onDone={() => p.onStep('next')}
             onAsk={() => setAskOpen(true)}
+            start={p.slideStart}
+            onSlide={p.onSlide}
           />
           {askOpen && (
             <aside

@@ -19,16 +19,52 @@ export interface QuizRunnerProps {
   reshuffle?: (qs: DrillQuestion[]) => DrillQuestion[];
   /** Topic practice from Home rather than a lesson's Quick check (changes the wording on the score screen). */
   practice?: boolean;
+  /** Keep a half-finished run on this device under this key, so leaving and coming back picks it up. */
+  saveKey?: string;
 }
 
-export function QuizRunner({ questions, onFinish, doneLabel, onDone, reshuffle, practice }: QuizRunnerProps) {
+interface SavedRun {
+  ids: string[];
+  queue: string[];
+  i: number;
+  answers: Record<string, ShortAnswer>;
+  again: Record<string, ShortAnswer>;
+}
+/** A saved run is only used if it is for exactly these questions. */
+function loadRun(key: string | undefined, questions: DrillQuestion[]) {
+  if (!key) return null;
+  try {
+    const s = JSON.parse(localStorage.getItem(key) ?? 'null') as SavedRun | null;
+    const byId = new Map(questions.map((q) => [q.id, q]));
+    if (!s || !Array.isArray(s.ids) || s.ids.length !== questions.length || !s.ids.every((id) => byId.has(id))) return null;
+    const queue = (Array.isArray(s.queue) ? s.queue : s.ids).map((id) => byId.get(id)).filter((q): q is DrillQuestion => !!q);
+    if (queue.length < questions.length) return null;
+    const i = Math.max(0, Math.min(queue.length - 1, Math.floor(Number(s.i)) || 0));
+    return { order: s.ids.map((id) => byId.get(id)!), queue, i, answers: s.answers ?? {}, again: s.again ?? {} };
+  } catch {
+    return null;
+  }
+}
+
+export function QuizRunner({ questions, onFinish, doneLabel, onDone, reshuffle, practice, saveKey }: QuizRunnerProps) {
+  const [saved] = useState(() => loadRun(saveKey, questions)); // a run he left half-way, if there is one
   const [run, setRun] = useState(0);
-  const [order, setOrder] = useState(questions);
-  const [queue, setQueue] = useState<DrillQuestion[]>(questions);
-  const [i, setI] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, ShortAnswer>>({}); // first pass
-  const [again, setAgain] = useState<Record<string, ShortAnswer>>({}); // the second look at missed ones
+  const [order, setOrder] = useState(saved?.order ?? questions);
+  const [queue, setQueue] = useState<DrillQuestion[]>(saved?.queue ?? questions);
+  const [i, setI] = useState(saved?.i ?? 0);
+  const [answers, setAnswers] = useState<Record<string, ShortAnswer>>(saved?.answers ?? {}); // first pass
+  const [again, setAgain] = useState<Record<string, ShortAnswer>>(saved?.again ?? {}); // the second look at missed ones
   const [finished, setFinished] = useState(false);
+  // Every answer and every move is saved; a finished run is forgotten so the next visit starts fresh.
+  useEffect(() => {
+    if (!saveKey) return;
+    try {
+      if (finished || (i === 0 && !Object.keys(answers).length)) localStorage.removeItem(saveKey);
+      else localStorage.setItem(saveKey, JSON.stringify({ ids: order.map((q) => q.id), queue: queue.map((q) => q.id), i, answers, again } satisfies SavedRun));
+    } catch {
+      /* storage blocked or full: the run just isn't kept */
+    }
+  }, [saveKey, order, queue, i, answers, again, finished]);
   const top = useRef<HTMLDivElement>(null);
   const reported = useRef(-1);
 
